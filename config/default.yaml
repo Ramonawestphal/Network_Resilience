@@ -4,8 +4,8 @@ graph:
   m: 2
 
 cascade:
-  alpha: 0.2
-  pfail: 0.1
+  alpha: 0.6
+  pfail: 0.05
 
 recovery:
   budget: 3
@@ -15,3 +15,16 @@ evaluation:
   trials: 100
   budgets: [1, 2, 3, 4, 5]
   matched_seeds: true
+
+regime_mapping:
+  output_dir: experiments/regime_map
+  graph_seed: 123
+  num_graphs: 3
+  seeds: [0, 1, 2, 3, 4, 5]
+  alpha_values: [0.2, 0.4, 0.6, 0.8]
+  pfail_values: [0.02, 0.05, 0.08, 0.1]
+  budgets: [1, 2, 3, 4]
+  policies: [random, degree, risk, greedy, betweenness]
+  hopeless_threshold: 0.25
+  trivial_threshold: 0.75
+  spread_threshold: 0.05

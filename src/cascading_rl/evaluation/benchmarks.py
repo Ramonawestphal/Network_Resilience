@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from math import ceil
 from math import sqrt
 from statistics import mean, pstdev
 
@@ -15,8 +16,10 @@ class EpisodeResult:
     total_reward: float
     final_anc: float
     steps: int
+    rounds: int
     remaining_failed_nodes: int
     threshold_step: int | None
+    threshold_round: int | None
 
 
 @dataclass(frozen=True)
@@ -30,9 +33,11 @@ class PolicyEvaluationSummary:
     final_anc: AggregateMetric
     total_reward: AggregateMetric
     steps: AggregateMetric
+    rounds: AggregateMetric
     solved_fraction: AggregateMetric
     threshold_hit_fraction: AggregateMetric
     threshold_step: AggregateMetric | None
+    threshold_round: AggregateMetric | None
 
 
 def _aggregate(values: list[float]) -> AggregateMetric:
@@ -41,6 +46,34 @@ def _aggregate(values: list[float]) -> AggregateMetric:
     if len(values) == 1:
         return AggregateMetric(mean=values[0], stderr=0.0)
     return AggregateMetric(mean=mean(values), stderr=pstdev(values) / sqrt(len(values)))
+
+
+def summarize_episode_results(episode_results: Sequence[EpisodeResult]) -> PolicyEvaluationSummary:
+    """Aggregate per-episode results into one policy summary."""
+    threshold_steps = [
+        float(result.threshold_step)
+        for result in episode_results
+        if result.threshold_step is not None
+    ]
+    threshold_rounds = [
+        float(result.threshold_round)
+        for result in episode_results
+        if result.threshold_round is not None
+    ]
+    return PolicyEvaluationSummary(
+        final_anc=_aggregate([result.final_anc for result in episode_results]),
+        total_reward=_aggregate([result.total_reward for result in episode_results]),
+        steps=_aggregate([float(result.steps) for result in episode_results]),
+        rounds=_aggregate([float(result.rounds) for result in episode_results]),
+        solved_fraction=_aggregate(
+            [1.0 if result.remaining_failed_nodes == 0 else 0.0 for result in episode_results]
+        ),
+        threshold_hit_fraction=_aggregate(
+            [1.0 if result.threshold_step is not None else 0.0 for result in episode_results]
+        ),
+        threshold_step=_aggregate(threshold_steps) if threshold_steps else None,
+        threshold_round=_aggregate(threshold_rounds) if threshold_rounds else None,
+    )
 
 
 def rollout_policy(
@@ -55,14 +88,17 @@ def rollout_policy(
     steps = 0
     current_anc = env.current_anc()
     threshold_step = 0 if tau is not None and current_anc >= tau else None
+    threshold_round = 0 if threshold_step == 0 else None
 
     if not observation.failed or observation.remaining_budget <= 0:
         return EpisodeResult(
             total_reward=total_reward,
             final_anc=current_anc,
             steps=steps,
+            rounds=0,
             remaining_failed_nodes=len(observation.failed),
             threshold_step=threshold_step,
+            threshold_round=threshold_round,
         )
 
     done = False
@@ -78,13 +114,16 @@ def rollout_policy(
         steps += 1
         if tau is not None and threshold_step is None and float(info["anc"]) >= tau:
             threshold_step = steps
+            threshold_round = ceil(steps / env.budget)
 
     return EpisodeResult(
         total_reward=total_reward,
         final_anc=float(info["anc"]),
         steps=steps,
+        rounds=ceil(steps / env.budget),
         remaining_failed_nodes=int(info["failed_nodes"]),
         threshold_step=threshold_step,
+        threshold_round=threshold_round,
     )
 
 
@@ -102,23 +141,6 @@ def evaluate_policies(
             rollout_policy(env_factory(seed), policy, seed=seed, tau=tau)
             for seed in seeds
         ]
-
-        threshold_steps = [
-            float(result.threshold_step)
-            for result in episode_results
-            if result.threshold_step is not None
-        ]
-        summaries[policy_name] = PolicyEvaluationSummary(
-            final_anc=_aggregate([result.final_anc for result in episode_results]),
-            total_reward=_aggregate([result.total_reward for result in episode_results]),
-            steps=_aggregate([float(result.steps) for result in episode_results]),
-            solved_fraction=_aggregate(
-                [1.0 if result.remaining_failed_nodes == 0 else 0.0 for result in episode_results]
-            ),
-            threshold_hit_fraction=_aggregate(
-                [1.0 if result.threshold_step is not None else 0.0 for result in episode_results]
-            ),
-            threshold_step=_aggregate(threshold_steps) if threshold_steps else None,
-        )
+        summaries[policy_name] = summarize_episode_results(episode_results)
 
     return summaries
