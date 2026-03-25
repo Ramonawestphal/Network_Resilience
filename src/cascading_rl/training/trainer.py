@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from random import Random
+import sys
 
 import torch
 from torch import nn
@@ -81,6 +82,48 @@ def build_model_config(config: TrainingConfig) -> QNetworkConfig:
         hidden_dim=config.hidden_dim,
         embed_dim=config.embed_dim,
         num_layers=config.num_layers,
+    )
+
+
+def _mean_recent(values: list[float], window: int = 10) -> float:
+    if not values:
+        return 0.0
+    recent = values[-window:]
+    return sum(recent) / len(recent)
+
+
+def _render_progress_line(
+    episode: int,
+    total_episodes: int,
+    *,
+    epsilon: float,
+    training_state: TrainingState,
+    bar_width: int = 28,
+) -> str:
+    completed = episode + 1
+    progress = completed / max(1, total_episodes)
+    filled = int(bar_width * progress)
+    bar = "#" * filled + "-" * (bar_width - filled)
+    recent_reward = _mean_recent(training_state.episode_rewards)
+    recent_anc = _mean_recent(training_state.episode_final_anc)
+    recent_loss = _mean_recent(training_state.losses)
+    return (
+        f"\r[{bar}] {completed:>4}/{total_episodes} "
+        f"eps={epsilon:.3f} "
+        f"reward10={recent_reward:.3f} "
+        f"anc10={recent_anc:.3f} "
+        f"loss10={recent_loss:.4f}"
+    )
+
+
+def _print_validation_update(validation: dict) -> None:
+    print(
+        "\n"
+        f"[validation] ep={validation['episode']} "
+        f"final_anc={validation['final_anc_mean']:.3f}±{validation['final_anc_stderr']:.3f} "
+        f"threshold_hit={validation['threshold_hit_mean']:.3f} "
+        f"rounds={validation['rounds_mean']:.3f}",
+        flush=True,
     )
 
 
@@ -244,6 +287,13 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
 
         training_state.episode_rewards.append(total_reward)
         training_state.episode_final_anc.append(env.current_anc())
+        progress_line = _render_progress_line(
+            episode,
+            config.num_episodes,
+            epsilon=epsilon,
+            training_state=training_state,
+        )
+        print(progress_line, end="", flush=True)
 
         if (episode + 1) % config.validation_every == 0:
             validation = validate_policy(
@@ -254,8 +304,20 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             )
             validation["episode"] = episode + 1
             training_state.validation_history.append(validation)
+            _print_validation_update(validation)
+            print(
+                _render_progress_line(
+                    episode,
+                    config.num_episodes,
+                    epsilon=epsilon,
+                    training_state=training_state,
+                ),
+                end="",
+                flush=True,
+            )
 
     checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
+    print("", file=sys.stdout, flush=True)
     saved_path = save_checkpoint(
         model,
         config,
