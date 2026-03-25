@@ -4,7 +4,7 @@ Repository skeleton for the research project on budget-constrained recovery in n
 
 ## Planned Structure
 
-- `decade/`: main package for graph generation, cascade dynamics, environments, models, policies, training, and evaluation
+- `src/cascading_rl/`: main package for graph generation, cascade dynamics, environments, models, policies, training, and evaluation
 - `config/`: default settings and sensitivity-study configuration files
 - `data/`: raw, external, and processed datasets
 - `scripts/`: training, evaluation, and budget-search entry points

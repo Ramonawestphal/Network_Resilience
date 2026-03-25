@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "decade"
+name = "cascading-rl"
 version = "0.1.0"
 description = "Controlled lab for cascade and robustness in dependency networks"
 readme = "README.md"
@@ -15,6 +15,9 @@ dev = ["pytest", "pytest-cov"]
 data = ["networkx", "pandas"]
 plot = ["matplotlib", "seaborn"]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["decade*"]
+where = ["src"]
+include = ["cascading_rl*"]
