@@ -13,3 +13,5 @@ recovery:
 evaluation:
   tau: 0.8
   trials: 100
+  budgets: [1, 2, 3, 4, 5]
+  matched_seeds: true

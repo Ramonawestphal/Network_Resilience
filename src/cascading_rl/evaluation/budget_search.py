@@ -24,6 +24,8 @@ def estimate_minimum_budget(
     """Estimate the smallest budget whose expected final ANC exceeds tau."""
     if trials < 1:
         raise ValueError("trials must be at least 1.")
+    if not 0.0 <= tau <= 1.0:
+        raise ValueError("tau must lie in [0, 1].")
 
     results: dict[int, tuple[float, float]] = {}
     minimum_budget: int | None = None
@@ -32,7 +34,7 @@ def estimate_minimum_budget(
         anc_values = []
         for seed in range(trials):
             env = RecoveryEnv(graph, alpha=alpha, pfail=pfail, budget=budget, seed=seed)
-            episode = rollout_policy(env, policy, seed=seed)
+            episode = rollout_policy(env, policy, seed=seed, tau=tau)
             anc_values.append(episode.final_anc)
 
         avg_anc = mean(anc_values)

@@ -3,6 +3,7 @@ from random import Random
 import networkx as nx
 
 from cascading_rl.envs.recovery import RecoveryObservation
+from cascading_rl.policies.betweenness_policy import choose_highest_betweenness_failed_node
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
 from cascading_rl.policies.greedy_policy import choose_greedy_anc_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
@@ -49,5 +50,13 @@ def test_greedy_policy_prefers_largest_connectivity_gain():
     observation = make_observation()
 
     action = choose_greedy_anc_node(observation)
+
+    assert action == 0
+
+
+def test_betweenness_policy_prefers_bridge_like_node():
+    observation = make_observation()
+
+    action = choose_highest_betweenness_failed_node(observation)
 
     assert action == 0
