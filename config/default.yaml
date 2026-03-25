@@ -42,18 +42,18 @@ training:
   graph:
     n_range: [30, 50]
     m: 2
-  num_episodes: 120
-  replay_capacity: 5000
-  warmup_transitions: 64
-  batch_size: 32
+  num_episodes: 500
+  replay_capacity: 10000
+  warmup_transitions: 256
+  batch_size: 64
   gamma: 0.99
-  learning_rate: 0.001
+  learning_rate: 0.0003
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 100
-  target_update_interval: 50
-  hidden_dim: 64
-  embed_dim: 64
+  epsilon_decay_episodes: 300
+  target_update_interval: 200
+  hidden_dim: 128
+  embed_dim: 128
   num_layers: 2
   validation_graphs: 2
   validation_seeds: [0, 1, 2]
