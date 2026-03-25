@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Controlled lab for cascade and robustness in dependency networks"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = ["networkx", "PyYAML"]
+dependencies = ["networkx", "PyYAML", "torch"]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov"]

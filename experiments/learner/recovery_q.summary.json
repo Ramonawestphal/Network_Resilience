@@ -1,0 +1,23 @@
+{
+  "checkpoint_path": "experiments\\learner\\recovery_q.pt",
+  "num_episodes": 40,
+  "final_reward_mean_last_10": -0.035326489823043504,
+  "final_anc_mean_last_10": 0.8006822964479909,
+  "num_updates": 162,
+  "validation_history": [
+    {
+      "final_anc_mean": 0.5010079409048939,
+      "final_anc_stderr": 0.20371273950556562,
+      "threshold_hit_mean": 0.6666666666666666,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 20
+    },
+    {
+      "final_anc_mean": 0.5095992742565371,
+      "final_anc_stderr": 0.20034553118879286,
+      "threshold_hit_mean": 0.6666666666666666,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 40
+    }
+  ]
+}
