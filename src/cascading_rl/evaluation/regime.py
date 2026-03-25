@@ -71,6 +71,7 @@ def evaluate_policy_factories_on_graphs(
     alpha: float,
     pfail: float,
     budget: int,
+    max_rounds: int | None = None,
     seeds: Iterable[int],
     tau: float,
 ) -> dict[str, PolicyEvaluationSummary]:
@@ -80,7 +81,14 @@ def evaluate_policy_factories_on_graphs(
     for graph_index, graph in enumerate(graphs):
         for seed in seeds:
             for policy_name, policy_factory in policy_factories.items():
-                env = RecoveryEnv(graph, alpha=alpha, pfail=pfail, budget=budget, seed=seed)
+                env = RecoveryEnv(
+                    graph,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=budget,
+                    max_rounds=max_rounds,
+                    seed=seed,
+                )
                 policy = policy_factory(graph_index, seed)
                 result = rollout_policy(env, policy, seed=seed, tau=tau)
                 episode_results_by_policy[policy_name].append(result)
@@ -171,6 +179,7 @@ def build_regime_cells(
     alpha_values: Sequence[float],
     pfail_values: Sequence[float],
     budgets: Sequence[int],
+    max_rounds: int | None = None,
     seeds: Iterable[int],
     tau: float,
     hopeless_threshold: float = 0.25,
@@ -191,6 +200,7 @@ def build_regime_cells(
                     alpha=alpha,
                     pfail=pfail,
                     budget=budget,
+                    max_rounds=max_rounds,
                     seeds=seeds,
                     tau=tau,
                 )

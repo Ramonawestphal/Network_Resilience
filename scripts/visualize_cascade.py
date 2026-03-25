@@ -18,10 +18,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from cascading_rl.dynamics.cascade import (
-    CascadeState,
-    fail_nodes,
     initialize_loads_and_capacities,
-    sample_initial_failures,
 )
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_ba_graph
@@ -66,7 +63,6 @@ def rollout_frames(
     seed: int,
 ) -> list[Frame]:
     policy = build_policy(policy_name, seed)
-    rng = Random(seed)
     loads, capacities = initialize_loads_and_capacities(env.base_graph, alpha=env.alpha)
     active = set(env.base_graph.nodes())
 
@@ -79,84 +75,73 @@ def rollout_frames(
                 capacities=dict(capacities),
                 active=frozenset(active),
                 failed=frozenset(),
+                frontier=frozenset(),
                 remaining_budget=env.budget,
+                current_round=1,
             ),
             anc=accumulated_normalized_connectivity(env.base_graph, active),
         )
     ]
 
-    initial_failures = sample_initial_failures(env.base_graph, pfail=env.pfail, rng=rng, active=active)
-    fail_nodes(env.base_graph, initial_failures, loads, capacities, active)
+    observation = env.reset(seed=seed)
     frames.append(
         Frame(
             label="Initial random failures",
-            observation=RecoveryObservation(
-                graph=env.base_graph,
-                loads=dict(loads),
-                capacities=dict(capacities),
-                active=frozenset(active),
-                failed=frozenset(set(env.base_graph.nodes()) - active),
-                remaining_budget=env.budget,
-            ),
-            anc=accumulated_normalized_connectivity(env.base_graph, active),
-            highlighted_nodes=tuple(sorted(initial_failures)),
-        )
-    )
-
-    wave_index = 1
-    while True:
-        overloaded = [node for node in active if loads[node] > capacities[node]]
-        if not overloaded:
-            break
-        fail_nodes(env.base_graph, overloaded, loads, capacities, active)
-        frames.append(
-            Frame(
-                label=f"Cascade wave {wave_index}",
-                observation=RecoveryObservation(
-                    graph=env.base_graph,
-                    loads=dict(loads),
-                    capacities=dict(capacities),
-                    active=frozenset(active),
-                    failed=frozenset(set(env.base_graph.nodes()) - active),
-                    remaining_budget=env.budget,
-                ),
-                anc=accumulated_normalized_connectivity(env.base_graph, active),
-                highlighted_nodes=tuple(sorted(overloaded)),
-            )
-        )
-        wave_index += 1
-
-    settled_state = CascadeState(
-        graph=env.base_graph,
-        loads=dict(loads),
-        capacities=dict(capacities),
-        active=set(active),
-        failed=set(env.base_graph.nodes()) - active,
-    )
-    env.state = settled_state
-    env.remaining_budget = env.budget
-    observation = env.observe()
-    frames.append(
-        Frame(
-            label="Post-cascade settled state",
             observation=observation,
             anc=env.current_anc(),
+            highlighted_nodes=tuple(sorted(observation.frontier)),
         )
     )
 
-    while observation.failed and observation.remaining_budget > 0:
+    while observation.failed:
         action = policy(observation)
-        observation, reward, done, info = env.step(action)
-        frames.append(
-            Frame(
-                label=f"Recovery step {len(frames)}",
-                observation=observation,
-                anc=float(info["anc"]),
-                reward=reward,
-                chosen_action=action,
-                highlighted_nodes=(action,),
+        next_observation, reward, done, info = env.step(action)
+
+        if info["cascade_executed"]:
+            repaired_observation = RecoveryObservation(
+                graph=observation.graph,
+                loads=dict(observation.loads),
+                capacities=dict(observation.capacities),
+                active=frozenset(set(observation.active) | {action}),
+                failed=frozenset(set(observation.failed) - {action}),
+                frontier=frozenset(set(observation.frontier) - {action}),
+                remaining_budget=0,
+                current_round=observation.current_round,
             )
-        )
+            frames.append(
+                Frame(
+                    label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
+                    observation=repaired_observation,
+                    anc=accumulated_normalized_connectivity(
+                        repaired_observation.graph,
+                        repaired_observation.active,
+                    ),
+                    chosen_action=action,
+                    highlighted_nodes=(action,),
+                )
+            )
+            frames.append(
+                Frame(
+                    label=f"Cascade after round {info['action_round']}",
+                    observation=next_observation,
+                    anc=float(info["anc"]),
+                    reward=reward,
+                    highlighted_nodes=tuple(info["newly_failed_nodes"]),
+                )
+            )
+        else:
+            frames.append(
+                Frame(
+                    label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
+                    observation=next_observation,
+                    anc=float(info["anc"]),
+                    reward=reward,
+                    chosen_action=action,
+                    highlighted_nodes=(action,),
+                )
+            )
+
+        observation = next_observation
         if done:
             break
 
@@ -173,6 +158,8 @@ def draw_frame(ax, position: dict, frame: Frame) -> None:
         if frame.chosen_action is not None and node == frame.chosen_action and node in active_nodes:
             node_colors.append("#457b9d")
         elif node in frame.highlighted_nodes and node in failed_nodes:
+            node_colors.append("#ffb000")
+        elif node in frame.observation.frontier and node in failed_nodes:
             node_colors.append("#ffb000")
         elif node in failed_nodes:
             node_colors.append("#d1495b")
@@ -192,6 +179,10 @@ def draw_frame(ax, position: dict, frame: Frame) -> None:
     nx.draw_networkx_labels(graph, position, ax=ax, font_size=7)
 
     title_parts = [frame.label, f"ANC={frame.anc:.3f}"]
+    if frame.chosen_action is None:
+        title_parts.append(f"round={frame.observation.current_round}")
+    if frame.observation.frontier:
+        title_parts.append(f"frontier={len(frame.observation.frontier)}")
     if frame.reward is not None:
         title_parts.append(f"reward={frame.reward:.3f}")
     if frame.chosen_action is not None:
@@ -231,6 +222,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha", type=float, default=0.2, help="Capacity tolerance parameter.")
     parser.add_argument("--pfail", type=float, default=0.1, help="Initial node failure probability.")
     parser.add_argument("--budget", type=int, default=3, help="Recovery budget.")
+    parser.add_argument("--max-rounds", type=int, default=5, help="Maximum number of repair rounds.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--policy",
@@ -255,6 +247,7 @@ def main() -> None:
         alpha=args.alpha,
         pfail=args.pfail,
         budget=args.budget,
+        max_rounds=args.max_rounds,
         seed=args.seed,
     )
     frames = rollout_frames(env, policy_name=args.policy, seed=args.seed)

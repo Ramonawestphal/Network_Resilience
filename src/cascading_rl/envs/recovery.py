@@ -7,6 +7,7 @@ from random import Random
 import networkx as nx
 
 from cascading_rl.dynamics.cascade import (
+    advance_cascade_round,
     CascadeState,
     LoadFunction,
     build_initial_state,
@@ -24,7 +25,9 @@ class RecoveryObservation:
     capacities: dict[Node, float]
     active: frozenset[Node]
     failed: frozenset[Node]
+    frontier: frozenset[Node]
     remaining_budget: int
+    current_round: int
 
     @property
     def valid_actions(self) -> tuple[Node, ...]:
@@ -40,20 +43,25 @@ class RecoveryEnv:
         alpha: float = 0.2,
         pfail: float = 0.1,
         budget: int = 3,
+        max_rounds: int | None = None,
         seed: int | None = None,
         load_fn: LoadFunction | None = None,
     ) -> None:
         if budget < 1:
             raise ValueError("budget must be at least 1.")
+        if max_rounds is not None and max_rounds < 1:
+            raise ValueError("max_rounds must be at least 1 when provided.")
 
         self.base_graph = graph.copy()
         self.alpha = alpha
         self.pfail = pfail
         self.budget = budget
+        self.max_rounds = max_rounds if max_rounds is not None else self.base_graph.number_of_nodes()
         self.load_fn = load_fn
         self._rng = Random(seed)
         self.state: CascadeState | None = None
         self.remaining_budget = budget
+        self.current_round = 1
 
     def reset(self, seed: int | None = None) -> RecoveryObservation:
         if seed is not None:
@@ -66,6 +74,7 @@ class RecoveryEnv:
             load_fn=self.load_fn,
         )
         self.remaining_budget = self.budget
+        self.current_round = 1
         return self.observe()
 
     def observe(self) -> RecoveryObservation:
@@ -77,7 +86,9 @@ class RecoveryEnv:
             capacities=dict(self.state.capacities),
             active=frozenset(self.state.active),
             failed=frozenset(self.state.failed),
+            frontier=frozenset(self.state.frontier),
             remaining_budget=self.remaining_budget,
+            current_round=self.current_round,
         )
 
     def current_anc(self) -> float:
@@ -91,16 +102,44 @@ class RecoveryEnv:
         if self.remaining_budget <= 0:
             raise RuntimeError("No recovery budget remains.")
 
+        action_round = self.current_round
+        action_index_in_round = self.budget - self.remaining_budget + 1
         previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
         self.remaining_budget -= 1
 
+        round_complete = self.remaining_budget == 0
+        newly_failed: list[Node] = []
+        if round_complete and self.state.failed:
+            newly_failed = advance_cascade_round(self.state)
+
         next_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         reward = next_anc - previous_anc
-        done = self.remaining_budget == 0 or not self.state.failed
+        exhausted_rounds = action_round >= self.max_rounds
+        if not self.state.failed:
+            done = True
+        elif round_complete and exhausted_rounds:
+            done = True
+        else:
+            done = False
+
+        if round_complete and not done:
+            self.current_round += 1
+            self.remaining_budget = self.budget
+
         info = {
             "anc": next_anc,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
+            "frontier_nodes": len(self.state.frontier),
+            "action_round": action_round,
+            "action_index_in_round": action_index_in_round,
+            "next_round": self.current_round,
+            "remaining_budget": self.remaining_budget,
+            "round_complete": round_complete,
+            "max_rounds_reached": round_complete and exhausted_rounds,
+            "reactivated_node": action,
+            "newly_failed_nodes": newly_failed,
+            "cascade_executed": round_complete,
         }
         return self.observe(), reward, done, info

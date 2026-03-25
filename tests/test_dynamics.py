@@ -38,6 +38,7 @@ def test_reactivate_node_restores_failed_node_with_zero_load():
         capacities={0: 2.0, 1: 2.5, 2: 2.0},
         active={0, 2},
         failed={1},
+        frontier={1},
     )
 
     next_state = reactivate_node(state, 1)

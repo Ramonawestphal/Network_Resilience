@@ -19,6 +19,7 @@ class CascadeState:
     capacities: dict[Node, float]
     active: set[Node]
     failed: set[Node]
+    frontier: set[Node]
 
     def copy(self) -> "CascadeState":
         return CascadeState(
@@ -27,6 +28,7 @@ class CascadeState:
             capacities=dict(self.capacities),
             active=set(self.active),
             failed=set(self.failed),
+            frontier=set(self.frontier),
         )
 
 
@@ -89,20 +91,61 @@ def redistribute_load(
     loads[failed_node] = 0.0
 
 
-def fail_nodes(
-    graph: nx.Graph,
+def mark_failed_nodes(
     nodes_to_fail: Iterable[Node],
+    active: set[Node],
+    failed: set[Node],
+) -> list[Node]:
+    """Mark active nodes as failed without redistributing their load yet."""
+    failed_nodes = [node for node in nodes_to_fail if node in active]
+    for node in failed_nodes:
+        active.remove(node)
+        failed.add(node)
+    return failed_nodes
+
+
+def redistribute_frontier(
+    graph: nx.Graph,
+    frontier: Iterable[Node],
     loads: dict[Node, float],
     capacities: dict[Node, float],
     active: set[Node],
 ) -> list[Node]:
-    """Remove nodes from service, then redistribute their load to survivors."""
-    failed_nodes = [node for node in nodes_to_fail if node in active]
-    for node in failed_nodes:
-        active.remove(node)
-    for node in failed_nodes:
+    """Redistribute the load from the nodes that failed in the current wave."""
+    processed = list(frontier)
+    for node in processed:
         redistribute_load(graph, node, loads, capacities, active)
-    return failed_nodes
+    return processed
+
+
+def identify_overloaded_nodes(
+    active: Iterable[Node],
+    loads: dict[Node, float],
+    capacities: dict[Node, float],
+) -> list[Node]:
+    """Return the currently active nodes whose load exceeds capacity."""
+    return [node for node in active if loads[node] > capacities[node]]
+
+
+def advance_cascade_round(state: CascadeState) -> list[Node]:
+    """Advance the cascade by exactly one redistribution/failure wave."""
+    if not state.frontier:
+        return []
+
+    redistribute_frontier(
+        state.graph,
+        state.frontier,
+        state.loads,
+        state.capacities,
+        state.active,
+    )
+    newly_failed = mark_failed_nodes(
+        identify_overloaded_nodes(state.active, state.loads, state.capacities),
+        state.active,
+        state.failed,
+    )
+    state.frontier = set(newly_failed)
+    return newly_failed
 
 
 def propagate_cascade(
@@ -110,14 +153,37 @@ def propagate_cascade(
     loads: dict[Node, float],
     capacities: dict[Node, float],
     active: set[Node],
+    failed: set[Node] | None = None,
+    frontier: Iterable[Node] | None = None,
 ) -> list[Node]:
-    """Apply overload failures round by round until the cascade settles."""
+    """Apply overload failures wave by wave until the cascade settles."""
+    failed_nodes = failed if failed is not None else set(graph.nodes()) - set(active)
+    if failed is None:
+        failed_nodes = set()
+
+    state = CascadeState(
+        graph=graph,
+        loads=loads,
+        capacities=capacities,
+        active=active,
+        failed=failed_nodes,
+        frontier=set(frontier or []),
+    )
     failed_order: list[Node] = []
-    while True:
-        overloaded = [node for node in active if loads[node] > capacities[node]]
-        if not overloaded:
-            return failed_order
-        failed_order.extend(fail_nodes(graph, overloaded, loads, capacities, active))
+
+    if not state.frontier:
+        initial_overloaded = mark_failed_nodes(
+            identify_overloaded_nodes(state.active, state.loads, state.capacities),
+            state.active,
+            state.failed,
+        )
+        state.frontier = set(initial_overloaded)
+        failed_order.extend(initial_overloaded)
+
+    while state.frontier:
+        failed_order.extend(advance_cascade_round(state))
+
+    return failed_order
 
 
 def build_initial_state(
@@ -127,38 +193,32 @@ def build_initial_state(
     rng: Random | None = None,
     load_fn: LoadFunction | None = None,
 ) -> CascadeState:
-    """Create a fresh cascade state after initial failures and cascade settling."""
-    loads, capacities = initialize_loads_and_capacities(graph, alpha=alpha, load_fn=load_fn)
-    active = set(graph.nodes())
+    """Create a fresh state after the single exogenous failure event at t=0."""
+    working_graph = graph.copy()
+    loads, capacities = initialize_loads_and_capacities(working_graph, alpha=alpha, load_fn=load_fn)
+    active = set(working_graph.nodes())
+    failed: set[Node] = set()
 
-    initial_failures = sample_initial_failures(graph, pfail=pfail, rng=rng, active=active)
-    fail_nodes(graph, initial_failures, loads, capacities, active)
-    propagate_cascade(graph, loads, capacities, active)
-
+    initial_failures = sample_initial_failures(working_graph, pfail=pfail, rng=rng, active=active)
+    frontier = set(mark_failed_nodes(initial_failures, active, failed))
     return CascadeState(
-        graph=graph.copy(),
+        graph=working_graph,
         loads=loads,
         capacities=capacities,
         active=active,
-        failed=set(graph.nodes()) - active,
+        failed=failed,
+        frontier=frontier,
     )
 
 
 def reactivate_node(state: CascadeState, node: Node) -> CascadeState:
-    """Return the post-action state after reactivating a failed node."""
+    """Return the state immediately after reactivating a failed node."""
     if node not in state.failed:
         raise ValueError("Only failed nodes can be reactivated.")
 
     next_state = state.copy()
     next_state.active.add(node)
     next_state.failed.remove(node)
+    next_state.frontier.discard(node)
     next_state.loads[node] = 0.0
-
-    propagate_cascade(
-        next_state.graph,
-        next_state.loads,
-        next_state.capacities,
-        next_state.active,
-    )
-    next_state.failed = set(next_state.graph.nodes()) - next_state.active
     return next_state

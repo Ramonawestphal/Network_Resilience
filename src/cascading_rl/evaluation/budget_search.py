@@ -20,6 +20,7 @@ def estimate_minimum_budget(
     trials: int = 100,
     alpha: float = 0.2,
     pfail: float = 0.1,
+    max_rounds: int | None = None,
 ) -> tuple[int | None, dict[int, tuple[float, float]]]:
     """Estimate the smallest budget whose expected final ANC exceeds tau."""
     if trials < 1:
@@ -33,7 +34,14 @@ def estimate_minimum_budget(
     for budget in budgets:
         anc_values = []
         for seed in range(trials):
-            env = RecoveryEnv(graph, alpha=alpha, pfail=pfail, budget=budget, seed=seed)
+            env = RecoveryEnv(
+                graph,
+                alpha=alpha,
+                pfail=pfail,
+                budget=budget,
+                max_rounds=max_rounds,
+                seed=seed,
+            )
             episode = rollout_policy(env, policy, seed=seed, tau=tau)
             anc_values.append(episode.final_anc)
 

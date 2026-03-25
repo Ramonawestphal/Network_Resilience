@@ -9,6 +9,7 @@ cascade:
 
 recovery:
   budget: 3
+  max_rounds: 5
 
 evaluation:
   tau: 0.8
@@ -28,3 +29,4 @@ regime_mapping:
   hopeless_threshold: 0.25
   trivial_threshold: 0.75
   spread_threshold: 0.05
+  max_rounds: 5

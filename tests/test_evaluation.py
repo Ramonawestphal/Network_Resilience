@@ -18,6 +18,28 @@ def test_rollout_policy_handles_zero_failure_episode():
     assert result.threshold_step == 0
 
 
+def test_rollout_policy_counts_rounds_after_budget_reset():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=1, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0}
+    env.state.failed = {1, 2, 3}
+    env.state.frontier = set()
+    env.state.loads = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0}
+    env.remaining_budget = 1
+    env.current_round = 1
+    env.reset = lambda seed=None: env.observe()
+
+    result = rollout_policy(env, choose_highest_degree_failed_node, tau=0.9)
+
+    assert result.steps == 3
+    assert result.rounds == 3
+    assert result.remaining_failed_nodes == 0
+    assert result.threshold_round == 3
+
+
 def test_evaluate_policies_uses_matched_seed_rollouts():
     graph = nx.star_graph(3)
 

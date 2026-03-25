@@ -266,6 +266,7 @@ def main() -> None:
         alpha_values=regime_config["alpha_values"],
         pfail_values=regime_config["pfail_values"],
         budgets=regime_config["budgets"],
+        max_rounds=regime_config.get("max_rounds"),
         seeds=seeds,
         tau=tau,
         hopeless_threshold=float(regime_config["hopeless_threshold"]),

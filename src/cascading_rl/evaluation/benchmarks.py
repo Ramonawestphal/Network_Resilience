@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from math import ceil
 from math import sqrt
 from statistics import mean, pstdev
 
@@ -114,13 +113,13 @@ def rollout_policy(
         steps += 1
         if tau is not None and threshold_step is None and float(info["anc"]) >= tau:
             threshold_step = steps
-            threshold_round = ceil(steps / env.budget)
+            threshold_round = int(info["action_round"])
 
     return EpisodeResult(
         total_reward=total_reward,
         final_anc=float(info["anc"]),
         steps=steps,
-        rounds=ceil(steps / env.budget),
+        rounds=env.current_round,
         remaining_failed_nodes=int(info["failed_nodes"]),
         threshold_step=threshold_step,
         threshold_round=threshold_round,

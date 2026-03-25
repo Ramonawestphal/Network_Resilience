@@ -18,7 +18,9 @@ def make_observation() -> RecoveryObservation:
         capacities={0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0},
         active=frozenset({1, 2}),
         failed=frozenset({0, 3}),
+        frontier=frozenset({3}),
         remaining_budget=2,
+        current_round=1,
     )
 
 
