@@ -1,2 +1,15 @@
-# Default experiment configuration skeleton.
-# Fill in graph, cascade, training, and evaluation settings here.
+graph:
+  generator: barabasi_albert
+  n_range: [30, 50]
+  m: 2
+
+cascade:
+  alpha: 0.2
+  pfail: 0.1
+
+recovery:
+  budget: 3
+
+evaluation:
+  tau: 0.8
+  trials: 100
