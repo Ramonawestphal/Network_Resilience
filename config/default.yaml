@@ -1,15 +1,2 @@
-# Default experiment config. Version and use for reproducibility.
-seed: 42
-graph:
-  source: null  # path or "synthetic"
-  n_nodes: null
-dynamics:
-  propagation_prob: 0.1
-  direction: "dependents"  # or "dependents"
-defense:
-  budget_per_step: 5
-  total_budget: null
-attack:
-  scenario: "single_seed"  # single_seed | random_set | high_degree
-  n_seeds: 1
-runs: 10  # for statistical evaluation
+# Default experiment configuration skeleton.
+# Fill in graph, cascade, training, and evaluation settings here.
