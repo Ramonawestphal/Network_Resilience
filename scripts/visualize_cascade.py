@@ -97,49 +97,16 @@ def rollout_frames(
         action = policy(observation)
         next_observation, reward, done, info = env.step(action)
 
-        if info["cascade_executed"]:
-            repaired_observation = RecoveryObservation(
-                graph=observation.graph,
-                loads=dict(observation.loads),
-                capacities=dict(observation.capacities),
-                active=frozenset(set(observation.active) | {action}),
-                failed=frozenset(set(observation.failed) - {action}),
-                frontier=frozenset(set(observation.frontier) - {action}),
-                remaining_budget=0,
-                current_round=observation.current_round,
+        frames.append(
+            Frame(
+                label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
+                observation=next_observation,
+                anc=float(info["anc"]),
+                reward=reward,
+                chosen_action=action,
+                highlighted_nodes=(action,),
             )
-            frames.append(
-                Frame(
-                    label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
-                    observation=repaired_observation,
-                    anc=accumulated_normalized_connectivity(
-                        repaired_observation.graph,
-                        repaired_observation.active,
-                    ),
-                    chosen_action=action,
-                    highlighted_nodes=(action,),
-                )
-            )
-            frames.append(
-                Frame(
-                    label=f"Cascade after round {info['action_round']}",
-                    observation=next_observation,
-                    anc=float(info["anc"]),
-                    reward=reward,
-                    highlighted_nodes=tuple(info["newly_failed_nodes"]),
-                )
-            )
-        else:
-            frames.append(
-                Frame(
-                    label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
-                    observation=next_observation,
-                    anc=float(info["anc"]),
-                    reward=reward,
-                    chosen_action=action,
-                    highlighted_nodes=(action,),
-                )
-            )
+        )
 
         observation = next_observation
         if done:

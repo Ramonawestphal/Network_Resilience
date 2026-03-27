@@ -37,6 +37,10 @@ training:
   regime:
     alpha: 0.2
     pfail: 0.1
+    # Optional: train on a small distribution instead of one (alpha, pfail).
+    # If provided, each episode samples one alpha and one pfail uniformly.
+    alpha_values: [0.15, 0.20, 0.25]
+    pfail_values: [0.05, 0.08, 0.10]
     budget: 2
     max_rounds: 5
   graph:

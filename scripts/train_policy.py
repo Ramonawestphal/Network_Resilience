@@ -25,11 +25,15 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
+    alpha_values = regime.get("alpha_values")
+    pfail_values = regime.get("pfail_values")
     return TrainingConfig(
         seed=int(training["seed"]),
         device=str(training["device"]),
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
+        alpha_values=tuple(float(value) for value in alpha_values) if alpha_values is not None else None,
+        pfail_values=tuple(float(value) for value in pfail_values) if pfail_values is not None else None,
         budget=int(regime["budget"]),
         max_rounds=int(regime["max_rounds"]),
         n_range=tuple(graph["n_range"]),
@@ -82,6 +86,8 @@ def main() -> None:
     summary = {
         "checkpoint_path": str(checkpoint_path),
         "num_episodes": training_config.num_episodes,
+        "alpha_values": training_config.alpha_values,
+        "pfail_values": training_config.pfail_values,
         "final_reward_mean_last_10": (
             sum(training_state.episode_rewards[-10:]) / max(1, len(training_state.episode_rewards[-10:]))
         ),

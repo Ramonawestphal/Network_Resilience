@@ -28,7 +28,7 @@ def choose_greedy_anc_node(observation: RecoveryObservation) -> Node:
             frontier=set(observation.frontier),
         )
         next_state = reactivate_node(trial_state, node)
-        if observation.remaining_budget == 1 and next_state.failed:
+        if next_state.failed and next_state.frontier:
             advance_cascade_round(next_state)
         next_anc = accumulated_normalized_connectivity(next_state.graph, next_state.active)
         gain = next_anc - current_anc

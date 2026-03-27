@@ -31,6 +31,8 @@ class TrainingConfig:
     device: str = "cpu"
     alpha: float = 0.2
     pfail: float = 0.1
+    alpha_values: tuple[float, ...] | None = None
+    pfail_values: tuple[float, ...] | None = None
     budget: int = 2
     max_rounds: int = 5
     n_range: tuple[int, int] = (30, 50)
@@ -59,6 +61,8 @@ class TrainingConfig:
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
     episode_final_anc: list[float] = field(default_factory=list)
+    episode_alpha: list[float] = field(default_factory=list)
+    episode_pfail: list[float] = field(default_factory=list)
     losses: list[float] = field(default_factory=list)
     validation_history: list[dict] = field(default_factory=list)
     total_steps: int = 0
@@ -227,15 +231,24 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     replay_buffer = ReplayBuffer(config.replay_capacity)
     training_state = TrainingState()
 
+    alpha_values = tuple(config.alpha_values) if config.alpha_values else (config.alpha,)
+    pfail_values = tuple(config.pfail_values) if config.pfail_values else (config.pfail,)
+    if not alpha_values or not pfail_values:
+        raise ValueError("alpha_values and pfail_values must be non-empty when provided.")
+
+    checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
+
     for episode in range(config.num_episodes):
         epsilon = epsilon_for_episode(config, episode)
+        alpha = float(rng.choice(alpha_values))
+        pfail = float(rng.choice(pfail_values))
         graph_size = rng.randint(config.n_range[0], config.n_range[1])
         graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
         env = RecoveryEnv(
             graph,
-            alpha=config.alpha,
-            pfail=config.pfail,
+            alpha=alpha,
+            pfail=pfail,
             budget=config.budget,
             max_rounds=config.max_rounds,
             seed=graph_seed,
@@ -287,6 +300,8 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
 
         training_state.episode_rewards.append(total_reward)
         training_state.episode_final_anc.append(env.current_anc())
+        training_state.episode_alpha.append(alpha)
+        training_state.episode_pfail.append(pfail)
         progress_line = _render_progress_line(
             episode,
             config.num_episodes,
@@ -305,6 +320,13 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             validation["episode"] = episode + 1
             training_state.validation_history.append(validation)
             _print_validation_update(validation)
+            save_checkpoint(
+                model,
+                config,
+                training_state,
+                checkpoint_path,
+                episode=episode + 1,
+            )
             print(
                 _render_progress_line(
                     episode,
@@ -316,7 +338,6 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 flush=True,
             )
 
-    checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
     print("", file=sys.stdout, flush=True)
     saved_path = save_checkpoint(
         model,
