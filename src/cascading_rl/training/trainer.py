@@ -21,6 +21,8 @@ from cascading_rl.models import (
     build_greedy_policy,
     observation_to_graph_tensor,
     select_action,
+    observation_to_global_features,
+    select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
 
@@ -134,22 +136,42 @@ def compute_dqn_loss(
     *,
     gamma: float,
     device: torch.device,
+    budget: int,
 ) -> torch.Tensor:
     losses = []
     for transition in transitions:
         graph_tensor = observation_to_graph_tensor(transition.observation, device=device)
-        q_values = model(graph_tensor)
-        action_index = graph_tensor.node_to_index[transition.action]
-        q_sa = q_values[action_index]
+        global_features = observation_to_global_features(transition.observation).to(device)
+        q_values = model(graph_tensor, global_features)
+
+        # mean Q over selected actions — each node in the batch contributed equally
+        action_indices = [
+            graph_tensor.node_to_index[a] for a in transition.action
+        ]
+        q_selected = torch.stack([q_values[i] for i in action_indices]).mean()
+
 
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device)
             if not transition.done and transition.next_observation.failed:
-                next_tensor = observation_to_graph_tensor(transition.next_observation, device=device)
-                next_q_values = target_model(next_tensor)
-                target_value = target_value + gamma * torch.max(next_q_values)
+                next_tensor = observation_to_graph_tensor(
+                    transition.next_observation, device=device
+                )
+                next_global = observation_to_global_features(
+                    transition.next_observation
+                ).to(device)
+                next_q = target_model(next_tensor, next_global)
+                # target: mean of top-B Q-values in next state
+                valid_next = [
+                    next_q[next_tensor.node_to_index[n]].item()
+                    for n in transition.next_observation.failed
+                ]
+                top_b_next = sorted(valid_next, reverse=True)[:budget]
+                target_value = target_value + gamma * torch.tensor(
+                    sum(top_b_next) / len(top_b_next), device=device
+                )
 
-        losses.append(F.smooth_l1_loss(q_sa, target_value))
+        losses.append(F.smooth_l1_loss(q_selected, target_value))
 
     return torch.stack(losses).mean()
 
@@ -246,36 +268,38 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         total_reward = 0.0
 
         while not done and observation.failed:
-            action = select_action(
-                model,
-                observation,
-                epsilon=epsilon,
-                rng=rng,
-                device=device,
-            )
-            next_observation, reward, done, _ = env.step(action)
+            epsilon = epsilon_for_episode(config, episode)
+
+            actions = select_top_b(
+                    model,
+                    observation,
+                    budget=config.budget,
+                    max_rounds=config.max_rounds,
+                    epsilon=epsilon,
+                    rng=rng,
+                    device=device,
+                )
+            next_observation, reward, done, info = env.step_batch(actions)
+            
+            # store as single transition (one per round, not per reactivation)
             replay_buffer.push(
                 Transition(
                     observation=observation,
-                    action=action,
+                    action=actions,          # list of nodes now
                     reward=reward,
                     next_observation=next_observation,
                     done=done,
                 )
             )
+
             observation = next_observation
             total_reward += reward
             training_state.total_steps += 1
 
+            # learning step unchanged
             if len(replay_buffer) >= max(config.batch_size, config.warmup_transitions):
                 batch = replay_buffer.sample(config.batch_size, rng=rng)
-                loss = compute_dqn_loss(
-                    model,
-                    target_model,
-                    batch,
-                    gamma=config.gamma,
-                    device=device,
-                )
+                loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device, budget=config.budget,)
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

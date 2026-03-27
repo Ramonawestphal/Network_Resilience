@@ -16,11 +16,54 @@ FEATURE_NAMES = (
     "failed_flag",
     "active_flag",
     "frontier_flag",
-    "remaining_budget_norm",
-    "current_round_norm",
     "degree_norm",
 )
 
+GLOBAL_FEATURE_NAMES = (
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "max_load_capacity_ratio",
+    "current_round_norm",
+)
+
+def observation_to_global_features(
+    observation: RecoveryObservation,
+) -> torch.Tensor:
+    n = len(observation.graph.nodes())
+    active = observation.active
+    failed = observation.failed
+    
+    ratios = [
+        observation.loads[v] / observation.capacities[v]
+        if observation.capacities[v] > 0 else 0.0
+        for v in active
+    ] or [0.0]
+    
+    return torch.tensor([
+        len(failed) / max(n, 1),
+        sum(ratios) / len(ratios),
+        max(ratios),
+        observation.current_round / observation.max_rounds,
+    ], dtype=torch.float32)
+
+
+class GlobalReadout(nn.Module):
+    def __init__(self, embed_dim: int, global_feat_dim: int, out_dim: int) -> None:
+        super().__init__()
+        # mean + max pool → 2*embed_dim, plus explicit global features
+        self.proj = nn.Linear(2 * embed_dim + global_feat_dim, out_dim)
+
+    def forward(
+        self,
+        node_embeddings: torch.Tensor,   # (N, embed_dim)
+        global_features: torch.Tensor,   # (global_feat_dim,)
+    ) -> torch.Tensor:
+        pooled = torch.cat([
+            node_embeddings.mean(dim=0),
+            node_embeddings.max(dim=0).values,
+            global_features,
+        ])  # (2*embed_dim + global_feat_dim,)
+        return torch.relu(self.proj(pooled))  # (out_dim,)
 
 @dataclass(frozen=True)
 class GraphTensor:
@@ -71,8 +114,6 @@ def observation_to_graph_tensor(
                 1.0 if node in observation.failed else 0.0,
                 1.0 if node in observation.active else 0.0,
                 1.0 if node in observation.frontier else 0.0,
-                float(observation.remaining_budget) / max(1.0, float(num_nodes)),
-                float(observation.current_round) / max(1.0, float(num_nodes)),
                 degree / max(1.0, float(max_degree)),
             ],
             dtype=torch.float32,
@@ -140,7 +181,7 @@ class GraphStateEncoder(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.output_dim = embed_dim
 
-    def forward(self, graph_tensor: GraphTensor) -> torch.Tensor:
+    def forward(self, graph_tensor: GraphTensor) -> tuple[torch.Tensor, torch.Tensor]:
         hidden = graph_tensor.node_features
         for layer in self.layers:
             hidden = layer(hidden, graph_tensor.adjacency)

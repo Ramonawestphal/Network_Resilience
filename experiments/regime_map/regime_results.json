@@ -1,5 +1,5 @@
 {
-  "config_path": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\config\\default.yaml",
+  "config_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\config\\default.yaml",
   "policies": [
     "random",
     "degree",
@@ -785,12 +785,12 @@
       "diagnostics": {
         "regime_label": "interesting",
         "interesting_for_rl": true,
-        "interestingness_score": 0.25620126600317394,
+        "interestingness_score": 0.256182036389569,
         "final_anc_spread": 0.11656660551563602,
         "threshold_hit_spread": 0.05555555555555547,
         "rounds_spread": 0.16666666666666696,
-        "mean_final_anc": 0.7374856166800885,
-        "mean_threshold_hit": 0.8666666666666668,
+        "mean_final_anc": 0.737533690714101,
+        "mean_threshold_hit": 0.8666666666666666,
         "budget_sensitivity": 0.21587489261257276,
         "best_policy": "degree",
         "worst_policy": "random"
@@ -866,12 +866,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.6751876918444454,
-            "stderr": 0.10853910219045595
+            "mean": 0.6754280620145073,
+            "stderr": 0.10845631812446191
           },
           "total_reward": {
-            "mean": -0.19381078796464596,
-            "stderr": 0.09385688568471015
+            "mean": -0.19357041779458406,
+            "stderr": 0.09376166132531527
           },
           "steps": {
             "mean": 2.6666666666666665,
@@ -1182,8 +1182,8 @@
             "stderr": 0.07347986346039588
           },
           "total_reward": {
-            "mean": 0.02078266765331816,
-            "stderr": 0.060461122127826214
+            "mean": 0.020782667653318154,
+            "stderr": 0.06046112212782623
           },
           "steps": {
             "mean": 3.388888888888889,
@@ -1545,11 +1545,11 @@
       "diagnostics": {
         "regime_label": "interesting",
         "interesting_for_rl": true,
-        "interestingness_score": 0.46312890645371513,
+        "interestingness_score": 0.46313611755881706,
         "final_anc_spread": 0.2829547340964399,
         "threshold_hit_spread": 0.2222222222222222,
         "rounds_spread": 0.22222222222222232,
-        "mean_final_anc": 0.6479004381432631,
+        "mean_final_anc": 0.6478824103805083,
         "mean_threshold_hit": 0.6888888888888889,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "greedy",
@@ -1626,12 +1626,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.5076513243294648,
-            "stderr": 0.11623433823244325
+            "mean": 0.5075611855156915,
+            "stderr": 0.1162561470822093
           },
           "total_reward": {
-            "mean": -0.3233441129986153,
-            "stderr": 0.09720040076432444
+            "mean": -0.3234342518123885,
+            "stderr": 0.0972239300596373
           },
           "steps": {
             "mean": 3.2777777777777777,
@@ -1664,7 +1664,7 @@
             "stderr": 0.09360181602721532
           },
           "total_reward": {
-            "mean": -0.047270061214411976,
+            "mean": -0.04727006121441197,
             "stderr": 0.0824175924107055
           },
           "steps": {
@@ -1735,11 +1735,11 @@
       "diagnostics": {
         "regime_label": "interesting",
         "interesting_for_rl": true,
-        "interestingness_score": 0.2616970789427424,
+        "interestingness_score": 0.2616610234172331,
         "final_anc_spread": 0.33178902499028073,
         "threshold_hit_spread": 0.11111111111111116,
         "rounds_spread": 0.6111111111111112,
-        "mean_final_anc": 0.8692100114528056,
+        "mean_final_anc": 0.8693001502665789,
         "mean_threshold_hit": 0.9444444444444444,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "degree",
@@ -1753,7 +1753,7 @@
           },
           "total_reward": {
             "mean": -0.16278446231836075,
-            "stderr": 0.09705424635999547
+            "stderr": 0.09705424635999546
           },
           "steps": {
             "mean": 4.833333333333333,
@@ -1816,12 +1816,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.730660427125411,
-            "stderr": 0.10240380384799248
+            "mean": 0.731111121194277,
+            "stderr": 0.10222725833891891
           },
           "total_reward": {
-            "mean": -0.10033501020266905,
-            "stderr": 0.09212650076344264
+            "mean": -0.099884316133803,
+            "stderr": 0.09194369940742025
           },
           "steps": {
             "mean": 4.722222222222222,
@@ -1942,7 +1942,7 @@
             "stderr": 0.08710212252497444
           },
           "total_reward": {
-            "mean": 0.0037409411901554138,
+            "mean": 0.0037409411901554077,
             "stderr": 0.0772540992933079
           },
           "steps": {
@@ -2305,11 +2305,11 @@
       "diagnostics": {
         "regime_label": "interesting",
         "interesting_for_rl": true,
-        "interestingness_score": 0.5512423322524209,
+        "interestingness_score": 0.5512231026388159,
         "final_anc_spread": 0.22294214250113614,
         "threshold_hit_spread": 0.11111111111111116,
         "rounds_spread": 0.0555555555555558,
-        "mean_final_anc": 0.5132773896960658,
+        "mean_final_anc": 0.5133254637300783,
         "mean_threshold_hit": 0.5666666666666667,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "greedy",
@@ -2386,12 +2386,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.4065411032360608,
-            "stderr": 0.1127041622985635
+            "mean": 0.4067814734061227,
+            "stderr": 0.11265628874896767
           },
           "total_reward": {
-            "mean": -0.3891060546176042,
-            "stderr": 0.09555848265346288
+            "mean": -0.3888656844475423,
+            "stderr": 0.09550966381434031
           },
           "steps": {
             "mean": 3.7777777777777777,
@@ -2495,11 +2495,11 @@
       "diagnostics": {
         "regime_label": "interesting",
         "interesting_for_rl": true,
-        "interestingness_score": 0.3809956302046576,
+        "interestingness_score": 0.38101726351996323,
         "final_anc_spread": 0.31089501004429887,
         "threshold_hit_spread": 0.2777777777777778,
         "rounds_spread": 0.44444444444444464,
-        "mean_final_anc": 0.8089084594712969,
+        "mean_final_anc": 0.8088543761830328,
         "mean_threshold_hit": 0.8777777777777779,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "greedy",
@@ -2512,8 +2512,8 @@
             "stderr": 0.11443963594584834
           },
           "total_reward": {
-            "mean": -0.182960841208452,
-            "stderr": 0.09786688351655098
+            "mean": -0.18296084120845202,
+            "stderr": 0.097866883516551
           },
           "steps": {
             "mean": 5.666666666666667,
@@ -2576,12 +2576,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.691489093540616,
-            "stderr": 0.09870529871757114
+            "mean": 0.6912186770992964,
+            "stderr": 0.09880787785362162
           },
           "total_reward": {
-            "mean": -0.10415806431304897,
-            "stderr": 0.08388430910803334
+            "mean": -0.1044284807543686,
+            "stderr": 0.0839952042140726
           },
           "steps": {
             "mean": 5.722222222222222,
@@ -2685,11 +2685,11 @@
       "diagnostics": {
         "regime_label": "trivial",
         "interesting_for_rl": false,
-        "interestingness_score": 0.17286500265490634,
+        "interestingness_score": 0.1728650026549064,
         "final_anc_spread": 0.14625984142156057,
         "threshold_hit_spread": 0.05555555555555558,
         "rounds_spread": 0.5555555555555554,
-        "mean_final_anc": 0.9462903669118902,
+        "mean_final_anc": 0.94629036691189,
         "mean_threshold_hit": 0.9777777777777779,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "degree",
@@ -2702,7 +2702,7 @@
             "stderr": 0.06915660762025852
           },
           "total_reward": {
-            "mean": 0.08206451812734575,
+            "mean": 0.08206451812734576,
             "stderr": 0.06503549111592663
           },
           "steps": {
@@ -2875,11 +2875,11 @@
       "diagnostics": {
         "regime_label": "trivial",
         "interesting_for_rl": false,
-        "interestingness_score": 0.10328510700882974,
+        "interestingness_score": 0.10328510700882979,
         "final_anc_spread": 0.05126973664443246,
         "threshold_hit_spread": 0.0,
         "rounds_spread": 0.5555555555555556,
-        "mean_final_anc": 0.9801793199026502,
+        "mean_final_anc": 0.9801793199026501,
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "degree",
@@ -4602,7 +4602,7 @@
             "stderr": 0.08690668742988593
           },
           "total_reward": {
-            "mean": 0.004128994140130997,
+            "mean": 0.004128994140130984,
             "stderr": 0.08144091419294587
           },
           "steps": {
@@ -5362,8 +5362,8 @@
             "stderr": 0.09415940943384975
           },
           "total_reward": {
-            "mean": -0.01742373061274897,
-            "stderr": 0.08380802215421924
+            "mean": -0.017423730612748975,
+            "stderr": 0.08380802215421926
           },
           "steps": {
             "mean": 3.4444444444444446,
@@ -5430,7 +5430,7 @@
             "stderr": 0.07712172445273839
           },
           "total_reward": {
-            "mean": 0.05276103893454885,
+            "mean": 0.05276103893454884,
             "stderr": 0.06930289176514436
           },
           "steps": {
@@ -5498,7 +5498,7 @@
             "stderr": 0.061163441309793835
           },
           "total_reward": {
-            "mean": 0.10522649393837974,
+            "mean": 0.10522649393837975,
             "stderr": 0.056383973140668626
           },
           "steps": {
@@ -12184,7 +12184,7 @@
     "pfail": 0.08,
     "budget": 2,
     "regime_label": "interesting",
-    "interestingness_score": 0.2616970789427424,
+    "interestingness_score": 0.2616610234172331,
     "best_policy": "degree",
     "worst_policy": "random",
     "final_anc_spread": 0.33178902499028073,

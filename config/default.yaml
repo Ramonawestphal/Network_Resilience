@@ -4,7 +4,7 @@ graph:
   m: 2
 
 cascade:
-  alpha: 0.6
+  alpha: 0.2
   pfail: 0.05
 
 recovery:

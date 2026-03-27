@@ -17,7 +17,6 @@ from cascading_rl.metrics.connectivity import accumulated_normalized_connectivit
 
 Node = Hashable
 
-
 @dataclass(frozen=True)
 class RecoveryObservation:
     graph: nx.Graph
@@ -27,7 +26,9 @@ class RecoveryObservation:
     failed: frozenset[Node]
     frontier: frozenset[Node]
     remaining_budget: int
+    budget: int  
     current_round: int
+    max_rounds: int
 
     @property
     def valid_actions(self) -> tuple[Node, ...]:
@@ -88,7 +89,9 @@ class RecoveryEnv:
             failed=frozenset(self.state.failed),
             frontier=frozenset(self.state.frontier),
             remaining_budget=self.remaining_budget,
+            budget=self.budget,
             current_round=self.current_round,
+            max_rounds=self.max_rounds,
         )
 
     def current_anc(self) -> float:
@@ -141,5 +144,44 @@ class RecoveryEnv:
             "reactivated_node": action,
             "newly_failed_nodes": newly_failed,
             "cascade_executed": round_complete,
+        }
+        return self.observe(), reward, done, info
+
+    def step_batch(self, actions: list[Node]) -> tuple[RecoveryObservation, float, bool, dict]:
+        """Reactivate up to B nodes at once, then fire one cascade."""
+        if self.state is None:
+            raise RuntimeError("Environment must be reset before use.")
+        if len(actions) > self.budget:
+            raise ValueError(f"Cannot reactivate more than {self.budget} nodes per round.")
+        if len(set(actions)) != len(actions):
+            raise ValueError("Duplicate actions in batch.")
+
+        previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+
+        for action in actions:
+            self.state = reactivate_node(self.state, action)
+
+        newly_failed: list[Node] = []
+        if self.state.failed:
+            newly_failed = advance_cascade_round(self.state)
+
+        next_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = next_anc - previous_anc
+
+        exhausted_rounds = self.current_round >= self.max_rounds
+        done = not self.state.failed or exhausted_rounds
+
+        if not done:
+            self.current_round += 1
+            self.remaining_budget = self.budget
+
+        info = {
+            "anc": next_anc,
+            "failed_nodes": len(self.state.failed),
+            "active_nodes": len(self.state.active),
+            "newly_failed_nodes": newly_failed,
+            "action_round": self.current_round,
+            "max_rounds_reached": exhausted_rounds,
+            "cascade_executed": True,
         }
         return self.observe(), reward, done, info
