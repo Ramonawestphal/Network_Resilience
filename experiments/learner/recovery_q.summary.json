@@ -1,184 +1,719 @@
 {
   "checkpoint_path": "experiments\\learner\\recovery_q.pt",
-  "num_episodes": 500,
-  "final_reward_mean_last_10": -0.07481346429872336,
-  "final_anc_mean_last_10": 0.7022189781404218,
-  "num_updates": 2925,
+  "num_episodes": 2000,
+  "alpha_values": [
+    0.15,
+    0.2,
+    0.25
+  ],
+  "pfail_values": [
+    0.05,
+    0.08,
+    0.1
+  ],
+  "final_reward_mean_last_10": -0.035746851675799066,
+  "final_anc_mean_last_10": 0.8515711662075299,
+  "num_updates": 11266,
   "validation_history": [
     {
-      "final_anc_mean": 0.5010079409048939,
-      "final_anc_stderr": 0.20371273950556562,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.33351542012927055,
+      "final_anc_stderr": 0.1923975504291542,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.6666666666666665,
       "episode": 20
     },
     {
-      "final_anc_mean": 0.5095992742565371,
-      "final_anc_stderr": 0.20034553118879286,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.16695510014631337,
+      "final_anc_stderr": 0.15209253099903755,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.666666666666667,
       "episode": 40
     },
     {
-      "final_anc_mean": 0.3345252078826393,
-      "final_anc_stderr": 0.19210607538148267,
-      "threshold_hit_mean": 0.5,
+      "final_anc_mean": 0.3385916655399315,
+      "final_anc_stderr": 0.1909433049197033,
+      "threshold_hit_mean": 0.3333333333333333,
       "rounds_mean": 3.5,
       "episode": 60
     },
     {
-      "final_anc_mean": 0.6119801678841471,
-      "final_anc_stderr": 0.16869821331845444,
-      "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.1666666666666665,
+      "final_anc_mean": 0.667309670781893,
+      "final_anc_stderr": 0.19207904485790064,
+      "threshold_hit_mean": 0.6666666666666666,
+      "rounds_mean": 3.0,
       "episode": 80
     },
     {
-      "final_anc_mean": 0.3473761451485269,
-      "final_anc_stderr": 0.18870047778450502,
+      "final_anc_mean": 0.33664333674891106,
+      "final_anc_stderr": 0.19151167471109443,
       "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.6666666666666665,
+      "rounds_mean": 3.8333333333333335,
       "episode": 100
     },
     {
-      "final_anc_mean": 0.5053765607837988,
-      "final_anc_stderr": 0.20196020159523367,
+      "final_anc_mean": 0.33357617930903166,
+      "final_anc_stderr": 0.19238003851350446,
       "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.1666666666666665,
+      "rounds_mean": 3.5,
       "episode": 120
     },
     {
-      "final_anc_mean": 0.5502795355837413,
-      "final_anc_stderr": 0.18387821371207938,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.33480174782998434,
+      "final_anc_stderr": 0.19202676904259874,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.5,
       "episode": 140
     },
     {
-      "final_anc_mean": 0.8037916638133066,
-      "final_anc_stderr": 0.1488876930941111,
-      "threshold_hit_mean": 0.8333333333333334,
-      "rounds_mean": 2.8333333333333335,
+      "final_anc_mean": 0.34360079304388846,
+      "final_anc_stderr": 0.1896795686949509,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
       "episode": 160
     },
     {
-      "final_anc_mean": 0.6546597532822663,
-      "final_anc_stderr": 0.18726186217266708,
-      "threshold_hit_mean": 0.8333333333333334,
-      "rounds_mean": 3.5,
+      "final_anc_mean": 0.33372992266508034,
+      "final_anc_stderr": 0.19233591090844218,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
       "episode": 180
     },
     {
-      "final_anc_mean": 0.4023485016088917,
-      "final_anc_stderr": 0.18176151819852887,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.6666666666666665,
+      "final_anc_mean": 0.0008703840318581812,
+      "final_anc_stderr": 0.00031560624232790255,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 5.0,
       "episode": 200
     },
     {
-      "final_anc_mean": 0.5325156601076547,
-      "final_anc_stderr": 0.19265490141311617,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.3334278155706727,
+      "final_anc_stderr": 0.19242283245432087,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
       "episode": 220
     },
     {
-      "final_anc_mean": 0.34576981940618307,
-      "final_anc_stderr": 0.18891759377360176,
-      "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.5,
+      "final_anc_mean": 0.16685185185185186,
+      "final_anc_stderr": 0.15211143500823734,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
       "episode": 240
     },
     {
-      "final_anc_mean": 0.33706594565180426,
-      "final_anc_stderr": 0.19137595375783642,
+      "final_anc_mean": 0.3383944665510322,
+      "final_anc_stderr": 0.19100904517634656,
       "threshold_hit_mean": 0.3333333333333333,
       "rounds_mean": 3.6666666666666665,
       "episode": 260
     },
     {
-      "final_anc_mean": 0.6670439112720689,
-      "final_anc_stderr": 0.1922322948586003,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.16666666666666666,
+      "final_anc_stderr": 0.15214515486254615,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
       "episode": 280
     },
     {
-      "final_anc_mean": 0.5002858207319746,
-      "final_anc_stderr": 0.2040075212715728,
+      "final_anc_mean": 0.17008656585579662,
+      "final_anc_stderr": 0.15152507041100127,
       "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.5,
+      "rounds_mean": 4.333333333333333,
       "episode": 300
     },
     {
-      "final_anc_mean": 0.6730835934790149,
-      "final_anc_stderr": 0.1887998078010732,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.1666666666666665,
+      "final_anc_mean": 0.3432628825387333,
+      "final_anc_stderr": 0.18961799989501357,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
       "episode": 320
     },
     {
-      "final_anc_mean": 0.36899826920581763,
-      "final_anc_stderr": 0.18314850874508767,
-      "threshold_hit_mean": 0.6666666666666666,
+      "final_anc_mean": 0.33658453350567835,
+      "final_anc_stderr": 0.19151243471987342,
+      "threshold_hit_mean": 0.3333333333333333,
       "rounds_mean": 3.6666666666666665,
       "episode": 340
     },
     {
-      "final_anc_mean": 0.9650205761316872,
-      "final_anc_stderr": 0.031931699168682534,
-      "threshold_hit_mean": 0.8333333333333334,
-      "rounds_mean": 3.1666666666666665,
+      "final_anc_mean": 0.16791005596879108,
+      "final_anc_stderr": 0.15192045816288016,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
       "episode": 360
     },
     {
-      "final_anc_mean": 0.5250825586295268,
-      "final_anc_stderr": 0.18650688721125505,
-      "threshold_hit_mean": 0.6666666666666666,
+      "final_anc_mean": 0.34406971760935434,
+      "final_anc_stderr": 0.1894785510716094,
+      "threshold_hit_mean": 0.3333333333333333,
       "rounds_mean": 3.5,
       "episode": 380
     },
     {
-      "final_anc_mean": 0.6118373985506853,
-      "final_anc_stderr": 0.16440985662866192,
+      "final_anc_mean": 0.5030609121518212,
+      "final_anc_stderr": 0.202889926546467,
       "threshold_hit_mean": 0.5,
       "rounds_mean": 3.1666666666666665,
       "episode": 400
     },
     {
-      "final_anc_mean": 0.5205341395817586,
-      "final_anc_stderr": 0.1960071716266489,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.1666666666666665,
+      "final_anc_mean": 0.1687713109935332,
+      "final_anc_stderr": 0.1517617118868487,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
       "episode": 420
     },
     {
-      "final_anc_mean": 0.6309489487156156,
-      "final_anc_stderr": 0.1841903063311235,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.16823144409877033,
+      "final_anc_stderr": 0.1518601258191669,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.5,
       "episode": 440
     },
     {
-      "final_anc_mean": 0.7182814492371279,
-      "final_anc_stderr": 0.15414214255270534,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.16874527588813304,
+      "final_anc_stderr": 0.15176998358464985,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
       "episode": 460
     },
     {
-      "final_anc_mean": 0.3371517943912259,
-      "final_anc_stderr": 0.19135014678689966,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.6666666666666665,
+      "final_anc_mean": 0.33447873281965845,
+      "final_anc_stderr": 0.1921200330877173,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.8333333333333335,
       "episode": 480
     },
     {
-      "final_anc_mean": 0.5607586002402977,
-      "final_anc_stderr": 0.185809728458532,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
+      "final_anc_mean": 0.16770789948632514,
+      "final_anc_stderr": 0.1519559405093015,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.333333333333333,
       "episode": 500
+    },
+    {
+      "final_anc_mean": 0.338259025148729,
+      "final_anc_stderr": 0.19103591465042083,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 520
+    },
+    {
+      "final_anc_mean": 0.3370883909208917,
+      "final_anc_stderr": 0.19136666538642066,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 540
+    },
+    {
+      "final_anc_mean": 0.17210104375809873,
+      "final_anc_stderr": 0.15115366904824537,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 560
+    },
+    {
+      "final_anc_mean": 0.17729166666666668,
+      "final_anc_stderr": 0.15023439702986108,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
+      "episode": 580
+    },
+    {
+      "final_anc_mean": 0.339858396942914,
+      "final_anc_stderr": 0.19057458542223715,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 600
+    },
+    {
+      "final_anc_mean": 0.3353832429208987,
+      "final_anc_stderr": 0.19186198695252782,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 620
+    },
+    {
+      "final_anc_mean": 0.1668,
+      "final_anc_stderr": 0.15212082916769376,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.333333333333333,
+      "episode": 640
+    },
+    {
+      "final_anc_mean": 0.3388721109848009,
+      "final_anc_stderr": 0.19085466014843083,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 660
+    },
+    {
+      "final_anc_mean": 0.3385626359387292,
+      "final_anc_stderr": 0.19095585786924393,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 680
+    },
+    {
+      "final_anc_mean": 0.1728074074074074,
+      "final_anc_stderr": 0.15103344751394296,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.166666666666667,
+      "episode": 700
+    },
+    {
+      "final_anc_mean": 0.3373503465658475,
+      "final_anc_stderr": 0.1912912035574115,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.8333333333333335,
+      "episode": 720
+    },
+    {
+      "final_anc_mean": 0.34258761181838104,
+      "final_anc_stderr": 0.18980391195493768,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 740
+    },
+    {
+      "final_anc_mean": 0.3445902662993572,
+      "final_anc_stderr": 0.18924407997980186,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 760
+    },
+    {
+      "final_anc_mean": 0.16793868069252685,
+      "final_anc_stderr": 0.1519158589367782,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.333333333333333,
+      "episode": 780
+    },
+    {
+      "final_anc_mean": 0.3385388869678524,
+      "final_anc_stderr": 0.19094972551268982,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 800
+    },
+    {
+      "final_anc_mean": 0.3460374436357025,
+      "final_anc_stderr": 0.18884842900884763,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 820
+    },
+    {
+      "final_anc_mean": 0.3494897959183673,
+      "final_anc_stderr": 0.18778984643753266,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 840
+    },
+    {
+      "final_anc_mean": 0.339926971031485,
+      "final_anc_stderr": 0.19056450681833076,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 860
+    },
+    {
+      "final_anc_mean": 0.17786008230452674,
+      "final_anc_stderr": 0.15013687655106128,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.833333333333333,
+      "episode": 880
+    },
+    {
+      "final_anc_mean": 0.507646849589509,
+      "final_anc_stderr": 0.20102836277373823,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.1666666666666665,
+      "episode": 900
+    },
+    {
+      "final_anc_mean": 0.3378984375,
+      "final_anc_stderr": 0.19114358939950765,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 920
+    },
+    {
+      "final_anc_mean": 0.3337950138504155,
+      "final_anc_stderr": 0.19231722966465822,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 940
+    },
+    {
+      "final_anc_mean": 0.335431058289964,
+      "final_anc_stderr": 0.19185181017127043,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 960
+    },
+    {
+      "final_anc_mean": 0.3361191314217515,
+      "final_anc_stderr": 0.19164698366155342,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 980
+    },
+    {
+      "final_anc_mean": 0.3403399670301555,
+      "final_anc_stderr": 0.190462361772228,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1000
+    },
+    {
+      "final_anc_mean": 0.34965856481481483,
+      "final_anc_stderr": 0.1877972709493202,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 1020
+    },
+    {
+      "final_anc_mean": 0.16868253377739986,
+      "final_anc_stderr": 0.1517782597551641,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1040
+    },
+    {
+      "final_anc_mean": 0.33743008314436884,
+      "final_anc_stderr": 0.1912712602094347,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1060
+    },
+    {
+      "final_anc_mean": 0.3375,
+      "final_anc_stderr": 0.19124847991763388,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1080
+    },
+    {
+      "final_anc_mean": 0.34321042387543255,
+      "final_anc_stderr": 0.18961297324676127,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1100
+    },
+    {
+      "final_anc_mean": 0.3395942911209147,
+      "final_anc_stderr": 0.19064331124607017,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1120
+    },
+    {
+      "final_anc_mean": 0.3459069386268439,
+      "final_anc_stderr": 0.18895613788062224,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1140
+    },
+    {
+      "final_anc_mean": 0.3397564847364256,
+      "final_anc_stderr": 0.1906009175532419,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1160
+    },
+    {
+      "final_anc_mean": 0.5043055555555556,
+      "final_anc_stderr": 0.20236875310316924,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 1180
+    },
+    {
+      "final_anc_mean": 0.34748699271592093,
+      "final_anc_stderr": 0.188442106429936,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.5,
+      "episode": 1200
+    },
+    {
+      "final_anc_mean": 0.339559751338177,
+      "final_anc_stderr": 0.19066697200826008,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1220
+    },
+    {
+      "final_anc_mean": 0.3355016069788797,
+      "final_anc_stderr": 0.19182533370527963,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1240
+    },
+    {
+      "final_anc_mean": 0.34136819766326976,
+      "final_anc_stderr": 0.1901862141212575,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1260
+    },
+    {
+      "final_anc_mean": 0.3382053848140496,
+      "final_anc_stderr": 0.1910590958059367,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1280
+    },
+    {
+      "final_anc_mean": 0.33531052540607714,
+      "final_anc_stderr": 0.19187943538440966,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1300
+    },
+    {
+      "final_anc_mean": 0.17098487390471245,
+      "final_anc_stderr": 0.1513672952615012,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
+      "episode": 1320
+    },
+    {
+      "final_anc_mean": 0.3361592214416519,
+      "final_anc_stderr": 0.19163942824793548,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.8333333333333335,
+      "episode": 1340
+    },
+    {
+      "final_anc_mean": 0.18214033082020692,
+      "final_anc_stderr": 0.14955074139453328,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1360
+    },
+    {
+      "final_anc_mean": 0.33452526878544425,
+      "final_anc_stderr": 0.19210717486798365,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1380
+    },
+    {
+      "final_anc_mean": 0.17326182636019283,
+      "final_anc_stderr": 0.1509814815043005,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1400
+    },
+    {
+      "final_anc_mean": 0.5046485260770975,
+      "final_anc_stderr": 0.20224360217442144,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.1666666666666665,
+      "episode": 1420
+    },
+    {
+      "final_anc_mean": 0.17828506681539572,
+      "final_anc_stderr": 0.15008556539654164,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1440
+    },
+    {
+      "final_anc_mean": 0.3518865740740741,
+      "final_anc_stderr": 0.18721477821641194,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1460
+    },
+    {
+      "final_anc_mean": 0.3434012319483559,
+      "final_anc_stderr": 0.18955485522776494,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1480
+    },
+    {
+      "final_anc_mean": 0.3430286266431651,
+      "final_anc_stderr": 0.1897815425837393,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1500
+    },
+    {
+      "final_anc_mean": 0.3380630451503162,
+      "final_anc_stderr": 0.19109370967694053,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.333333333333333,
+      "episode": 1520
+    },
+    {
+      "final_anc_mean": 0.33956037649219467,
+      "final_anc_stderr": 0.19065753685005948,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1540
+    },
+    {
+      "final_anc_mean": 0.34458652210884355,
+      "final_anc_stderr": 0.18925673998080467,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1560
+    },
+    {
+      "final_anc_mean": 0.3419053819444444,
+      "final_anc_stderr": 0.19009499689303433,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1580
+    },
+    {
+      "final_anc_mean": 0.347685068599196,
+      "final_anc_stderr": 0.1883336886712252,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1600
+    },
+    {
+      "final_anc_mean": 0.502211097018783,
+      "final_anc_stderr": 0.20322413675676554,
+      "threshold_hit_mean": 0.6666666666666666,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1620
+    },
+    {
+      "final_anc_mean": 0.34117236327007167,
+      "final_anc_stderr": 0.1902076154378447,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1640
+    },
+    {
+      "final_anc_mean": 0.17718820861678006,
+      "final_anc_stderr": 0.15029113420704118,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
+      "episode": 1660
+    },
+    {
+      "final_anc_mean": 0.18124558277014682,
+      "final_anc_stderr": 0.14952057849253525,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
+      "episode": 1680
+    },
+    {
+      "final_anc_mean": 0.34484611107987734,
+      "final_anc_stderr": 0.1891526953237493,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 1700
+    },
+    {
+      "final_anc_mean": 0.16981511182944772,
+      "final_anc_stderr": 0.151576033853213,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1720
+    },
+    {
+      "final_anc_mean": 0.33816090194878073,
+      "final_anc_stderr": 0.19106028240797018,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.8333333333333335,
+      "episode": 1740
+    },
+    {
+      "final_anc_mean": 0.33758574684745657,
+      "final_anc_stderr": 0.19122650252078785,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.0,
+      "episode": 1760
+    },
+    {
+      "final_anc_mean": 0.4657471436692216,
+      "final_anc_stderr": 0.18058188923327595,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 1780
+    },
+    {
+      "final_anc_mean": 0.6739369247019767,
+      "final_anc_stderr": 0.18830141652495044,
+      "threshold_hit_mean": 0.6666666666666666,
+      "rounds_mean": 2.8333333333333335,
+      "episode": 1800
+    },
+    {
+      "final_anc_mean": 0.33541941240129464,
+      "final_anc_stderr": 0.19184892005027754,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.0,
+      "episode": 1820
+    },
+    {
+      "final_anc_mean": 0.34299251037371054,
+      "final_anc_stderr": 0.18970066980697375,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 1840
+    },
+    {
+      "final_anc_mean": 0.33800728903761795,
+      "final_anc_stderr": 0.19110719712728966,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1860
+    },
+    {
+      "final_anc_mean": 0.3424752070465601,
+      "final_anc_stderr": 0.18983634158975968,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1880
+    },
+    {
+      "final_anc_mean": 0.33686035063779995,
+      "final_anc_stderr": 0.19143792772474238,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.6666666666666665,
+      "episode": 1900
+    },
+    {
+      "final_anc_mean": 0.3365358391567985,
+      "final_anc_stderr": 0.19152970302240296,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.0,
+      "episode": 1920
+    },
+    {
+      "final_anc_mean": 0.33215031782858007,
+      "final_anc_stderr": 0.18111485627678106,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 4.166666666666667,
+      "episode": 1940
+    },
+    {
+      "final_anc_mean": 0.3392824074074074,
+      "final_anc_stderr": 0.19076763433060967,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.5,
+      "episode": 1960
+    },
+    {
+      "final_anc_mean": 0.5048044110564357,
+      "final_anc_stderr": 0.20217227793977668,
+      "threshold_hit_mean": 0.5,
+      "rounds_mean": 3.3333333333333335,
+      "episode": 1980
+    },
+    {
+      "final_anc_mean": 0.355175379372428,
+      "final_anc_stderr": 0.1861780633112658,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.5,
+      "episode": 2000
     }
   ]
 }

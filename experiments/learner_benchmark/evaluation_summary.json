@@ -1,50 +1,50 @@
 {
   "rl": {
-    "final_anc_mean": 0.8346027375306123,
-    "final_anc_stderr": 0.07768475383114833,
-    "threshold_hit_mean": 0.7777777777777778,
-    "rounds_mean": 3.0,
-    "solved_fraction_mean": 0.7222222222222222,
-    "b_star": 3
+    "final_anc_mean": 0.5029990500318023,
+    "final_anc_stderr": 0.1171526724705422,
+    "threshold_hit_mean": 0.6111111111111112,
+    "rounds_mean": 3.5,
+    "solved_fraction_mean": 0.5,
+    "b_star": null
   },
   "random": {
-    "final_anc_mean": 0.4484989832837105,
-    "final_anc_stderr": 0.11627386720219424,
-    "threshold_hit_mean": 0.7777777777777778,
-    "rounds_mean": 3.4444444444444446,
-    "solved_fraction_mean": 0.4444444444444444,
-    "b_star": 3
+    "final_anc_mean": 0.284068662705539,
+    "final_anc_stderr": 0.10465597332892734,
+    "threshold_hit_mean": 0.6111111111111112,
+    "rounds_mean": 4.055555555555555,
+    "solved_fraction_mean": 0.2777777777777778,
+    "b_star": null
   },
   "degree": {
-    "final_anc_mean": 0.9643311365475777,
-    "final_anc_stderr": 0.024587984113425505,
-    "threshold_hit_mean": 0.9444444444444444,
-    "rounds_mean": 2.7777777777777777,
-    "solved_fraction_mean": 0.8888888888888888,
-    "b_star": 2
+    "final_anc_mean": 0.7420168266032037,
+    "final_anc_stderr": 0.0870581679702096,
+    "threshold_hit_mean": 0.7222222222222222,
+    "rounds_mean": 3.2777777777777777,
+    "solved_fraction_mean": 0.6111111111111112,
+    "b_star": 5
   },
   "risk": {
-    "final_anc_mean": 0.6372476589530696,
-    "final_anc_stderr": 0.10428619498020122,
-    "threshold_hit_mean": 0.7777777777777778,
-    "rounds_mean": 3.3333333333333335,
-    "solved_fraction_mean": 0.5,
-    "b_star": 3
+    "final_anc_mean": 0.301658579880001,
+    "final_anc_stderr": 0.10216048109224896,
+    "threshold_hit_mean": 0.6111111111111112,
+    "rounds_mean": 3.9444444444444446,
+    "solved_fraction_mean": 0.2777777777777778,
+    "b_star": null
   },
   "greedy": {
-    "final_anc_mean": 0.9930627818244884,
-    "final_anc_stderr": 0.006741764244242465,
-    "threshold_hit_mean": 1.0,
-    "rounds_mean": 2.7222222222222223,
-    "solved_fraction_mean": 0.9444444444444444,
-    "b_star": 2
+    "final_anc_mean": 0.7755565064239457,
+    "final_anc_stderr": 0.07912113339749537,
+    "threshold_hit_mean": 0.7222222222222222,
+    "rounds_mean": 3.2222222222222223,
+    "solved_fraction_mean": 0.6111111111111112,
+    "b_star": 4
   },
   "betweenness": {
-    "final_anc_mean": 0.9672439168023361,
-    "final_anc_stderr": 0.022258253396273263,
-    "threshold_hit_mean": 0.8888888888888888,
-    "rounds_mean": 2.7222222222222223,
-    "solved_fraction_mean": 0.8888888888888888,
-    "b_star": 2
+    "final_anc_mean": 0.7424101812239636,
+    "final_anc_stderr": 0.08687925594377416,
+    "threshold_hit_mean": 0.7222222222222222,
+    "rounds_mean": 3.2777777777777777,
+    "solved_fraction_mean": 0.6111111111111112,
+    "b_star": 5
   }
 }
