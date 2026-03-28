@@ -71,4 +71,6 @@ def test_environment_reward_matches_anc_gain_on_manual_state():
 
     _, reward, _, info = env.step(0)
 
-    assert reward == info["anc"] - (2 / 16)
+    previous_anc = 2 / 16
+    assert reward == info["anc_after_reactivation"] - previous_anc
+    assert info["anc"] == info["anc_after_cascade"]

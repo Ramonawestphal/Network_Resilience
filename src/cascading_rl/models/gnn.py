@@ -85,17 +85,29 @@ def observation_to_graph_tensor(
         adjacency[left_index, right_index] = 1.0
         adjacency[right_index, left_index] = 1.0
 
-    degrees = adjacency.sum(dim=1)
+    virtual_index = num_nodes
+    virtual_features = node_features.mean(dim=0, keepdim=True)
+    augmented_features = torch.cat([node_features, virtual_features], dim=0)
+
+    augmented_adj = torch.zeros((num_nodes + 1, num_nodes + 1), dtype=torch.float32)
+    augmented_adj[:num_nodes, :num_nodes] = adjacency
+    augmented_adj[virtual_index, :num_nodes] = 1.0
+    augmented_adj[:num_nodes, virtual_index] = 1.0
+    augmented_adj[virtual_index, virtual_index] = 1.0
+
+    degrees = augmented_adj.sum(dim=1)
     inv_sqrt_degree = torch.pow(degrees, -0.5)
     inv_sqrt_degree[torch.isinf(inv_sqrt_degree)] = 0.0
     normalized_adjacency = (
-        inv_sqrt_degree.unsqueeze(1) * adjacency * inv_sqrt_degree.unsqueeze(0)
+        inv_sqrt_degree.unsqueeze(1) * augmented_adj * inv_sqrt_degree.unsqueeze(0)
     )
 
+    augmented_valid = torch.cat([valid_mask, torch.zeros(1, dtype=torch.bool)])
+
     graph_tensor = GraphTensor(
-        node_features=node_features,
+        node_features=augmented_features,
         adjacency=normalized_adjacency,
-        valid_mask=valid_mask,
+        valid_mask=augmented_valid,
         node_ids=node_ids,
         node_to_index=node_to_index,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -12,7 +13,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 
-from cascading_rl.envs.recovery import RecoveryEnv
+from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
 from cascading_rl.models import (
@@ -31,28 +32,28 @@ class TrainingConfig:
     device: str = "cpu"
     alpha: float = 0.2
     pfail: float = 0.1
-    alpha_values: tuple[float, ...] | None = None
-    pfail_values: tuple[float, ...] | None = None
+    alpha_values: tuple[float, ...] = (0.05, 0.1)
+    pfail_values: tuple[float, ...] = (0.10, 0.15, 0.20)
     budget: int = 2
     max_rounds: int = 5
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
-    num_episodes: int = 120
-    replay_capacity: int = 5000
-    warmup_transitions: int = 64
-    batch_size: int = 32
+    num_episodes: int = 8000
+    replay_capacity: int = 20000
+    warmup_transitions: int = 500
+    batch_size: int = 64
     gamma: float = 0.99
     learning_rate: float = 1e-3
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
-    epsilon_decay_episodes: int = 100
-    target_update_interval: int = 50
+    epsilon_decay_episodes: int = 6000
+    target_update_interval: int = 200
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
-    validation_graphs: int = 2
-    validation_seeds: tuple[int, ...] = (0, 1, 2)
-    validation_every: int = 20
+    validation_graphs: int = 20
+    validation_seeds: tuple[int, ...] = (0, 1, 2, 3, 4)
+    validation_every: int = 200
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
 
@@ -64,7 +65,7 @@ class TrainingState:
     episode_alpha: list[float] = field(default_factory=list)
     episode_pfail: list[float] = field(default_factory=list)
     losses: list[float] = field(default_factory=list)
-    validation_history: list[dict] = field(default_factory=list)
+    validation_history: list[dict[str, Any]] = field(default_factory=list)
     total_steps: int = 0
 
 
@@ -96,6 +97,27 @@ def _mean_recent(values: list[float], window: int = 10) -> float:
     return sum(recent) / len(recent)
 
 
+def _reset_with_non_empty_failures(
+    env: RecoveryEnv,
+    base_seed: int,
+    rng: Random,
+    *,
+    max_attempts: int = 1024,
+) -> RecoveryObservation:
+    """Reset until at least one node failed; Bernoulli pfail can yield an empty episode otherwise."""
+    seed = base_seed
+    for _ in range(max_attempts):
+        observation = env.reset(seed=seed)
+        if observation.failed:
+            return observation
+        seed = rng.randint(0, 10**9)
+    raise RuntimeError(
+        f"After {max_attempts} reset attempts, no episode started with failed nodes "
+        f"(pfail={env.pfail}, n_nodes={env.base_graph.number_of_nodes()}). "
+        "Training requires stochastic failures or a positive pfail."
+    )
+
+
 def _render_progress_line(
     episode: int,
     total_episodes: int,
@@ -120,7 +142,7 @@ def _render_progress_line(
     )
 
 
-def _print_validation_update(validation: dict) -> None:
+def _print_validation_update(validation: dict[str, Any]) -> None:
     print(
         "\n"
         f"[validation] ep={validation['episode']} "
@@ -139,23 +161,25 @@ def compute_dqn_loss(
     gamma: float,
     device: torch.device,
 ) -> torch.Tensor:
-    losses = []
+    """Per-graph forwards; stack predictions and targets; single smooth_l1 over the batch."""
+    q_selected: list[torch.Tensor] = []
+    targets: list[torch.Tensor] = []
     for transition in transitions:
         graph_tensor = observation_to_graph_tensor(transition.observation, device=device)
         q_values = model(graph_tensor)
         action_index = graph_tensor.node_to_index[transition.action]
-        q_sa = q_values[action_index]
+        q_selected.append(q_values[action_index])
 
         with torch.no_grad():
-            target_value = torch.tensor(float(transition.reward), device=device)
+            reward_t = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
             if not transition.done and transition.next_observation.failed:
                 next_tensor = observation_to_graph_tensor(transition.next_observation, device=device)
                 next_q_values = target_model(next_tensor)
-                target_value = target_value + gamma * torch.max(next_q_values)
+                targets.append(reward_t + gamma * torch.max(next_q_values))
+            else:
+                targets.append(reward_t)
 
-        losses.append(F.smooth_l1_loss(q_sa, target_value))
-
-    return torch.stack(losses).mean()
+    return F.smooth_l1_loss(torch.stack(q_selected), torch.stack(targets))
 
 
 def validate_policy(
@@ -164,7 +188,7 @@ def validate_policy(
     *,
     device: torch.device,
     graph_seed_offset: int,
-) -> dict:
+) -> dict[str, Any]:
     validation_graphs = make_graph_batch(
         num_graphs=config.validation_graphs,
         n_range=config.n_range,
@@ -210,6 +234,8 @@ def save_checkpoint(
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
                 "episode_final_anc": training_state.episode_final_anc,
+                "episode_alpha": training_state.episode_alpha,
+                "episode_pfail": training_state.episode_pfail,
                 "losses": training_state.losses,
                 "validation_history": training_state.validation_history,
                 "total_steps": training_state.total_steps,
@@ -221,6 +247,9 @@ def save_checkpoint(
 
 
 def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, TrainingState, Path]:
+    assert epsilon_for_episode(config, 100) > 0.5, "epsilon decays too fast"
+    assert epsilon_for_episode(config, 6000) < 0.1, "epsilon decays too slow"
+
     device = resolve_device(config.device)
     rng = Random(config.seed)
     torch.manual_seed(config.seed)
@@ -234,7 +263,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     alpha_values = tuple(config.alpha_values) if config.alpha_values else (config.alpha,)
     pfail_values = tuple(config.pfail_values) if config.pfail_values else (config.pfail,)
     if not alpha_values or not pfail_values:
-        raise ValueError("alpha_values and pfail_values must be non-empty when provided.")
+        raise ValueError("alpha_values and pfail_values must be non-empty.")
 
     checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
 
@@ -254,7 +283,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             seed=graph_seed,
         )
 
-        observation = env.reset(seed=graph_seed)
+        observation = _reset_with_non_empty_failures(env, graph_seed, rng)
         done = False
         total_reward = 0.0
 
@@ -290,7 +319,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                     device=device,
                 )
                 optimizer.zero_grad()
-                loss.backward()
+                loss.backward()  # type: ignore[no-untyped-call]
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 training_state.losses.append(float(loss.item()))

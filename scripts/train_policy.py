@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
-import yaml
-
+import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -16,29 +17,46 @@ if str(SRC) not in sys.path:
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
-def load_config(path: Path) -> dict:
+def load_config(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
-        return yaml.safe_load(file)
+        data = yaml.safe_load(file)
+    if not isinstance(data, dict):
+        raise ValueError("Config root must be a mapping.")
+    return data
 
 
-def build_training_config(config: dict, episodes_override: int | None = None) -> TrainingConfig:
+def build_training_config(config: dict[str, Any], *, episodes_override: int | None = None) -> TrainingConfig:
+    defaults = TrainingConfig()
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
-    alpha_values = regime.get("alpha_values")
-    pfail_values = regime.get("pfail_values")
+    alpha_values_raw = regime.get("alpha_values")
+    pfail_values_raw = regime.get("pfail_values")
+    num_episodes = (
+        int(episodes_override)
+        if episodes_override is not None
+        else int(training["num_episodes"])
+    )
     return TrainingConfig(
         seed=int(training["seed"]),
         device=str(training["device"]),
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
-        alpha_values=tuple(float(value) for value in alpha_values) if alpha_values is not None else None,
-        pfail_values=tuple(float(value) for value in pfail_values) if pfail_values is not None else None,
+        alpha_values=(
+            tuple(float(value) for value in alpha_values_raw)
+            if alpha_values_raw is not None
+            else defaults.alpha_values
+        ),
+        pfail_values=(
+            tuple(float(value) for value in pfail_values_raw)
+            if pfail_values_raw is not None
+            else defaults.pfail_values
+        ),
         budget=int(regime["budget"]),
         max_rounds=int(regime["max_rounds"]),
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
-        num_episodes=int(episodes_override or training["num_episodes"]),
+        num_episodes=num_episodes,
         replay_capacity=int(training["replay_capacity"]),
         warmup_transitions=int(training["warmup_transitions"]),
         batch_size=int(training["batch_size"]),
@@ -46,7 +64,9 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         learning_rate=float(training["learning_rate"]),
         epsilon_start=float(training["epsilon_start"]),
         epsilon_end=float(training["epsilon_end"]),
-        epsilon_decay_episodes=int(training["epsilon_decay_episodes"]),
+        epsilon_decay_episodes=int(
+            training.get("epsilon_decay_episodes", defaults.epsilon_decay_episodes)
+        ),
         target_update_interval=int(training["target_update_interval"]),
         hidden_dim=int(training["hidden_dim"]),
         embed_dim=int(training["embed_dim"]),
@@ -67,11 +87,38 @@ def parse_args() -> argparse.Namespace:
         default=ROOT / "config" / "default.yaml",
         help="Path to the YAML config file.",
     )
+    parser.add_argument("--alpha", type=float, default=None, help="Override single regime alpha (reference).")
+    parser.add_argument("--pfail", type=float, default=None, help="Override single regime pfail (reference).")
+    parser.add_argument(
+        "--alpha-values",
+        type=float,
+        nargs="+",
+        default=None,
+        help="Override per-episode alpha grid.",
+    )
+    parser.add_argument(
+        "--pfail-values",
+        type=float,
+        nargs="+",
+        default=None,
+        help="Override per-episode pfail grid.",
+    )
     parser.add_argument(
         "--episodes",
         type=int,
         default=None,
-        help="Optional override for the number of training episodes.",
+        help="Number of training episodes (default: from config).",
+    )
+    parser.add_argument(
+        "--hard-regime",
+        action="store_true",
+        help="Use hard-regime grids and 8000 episodes (overridden by --episodes if set).",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default="experiments/learner",
+        help="Directory for checkpoints.",
     )
     return parser.parse_args()
 
@@ -79,17 +126,38 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
-    training_config = build_training_config(config, episodes_override=args.episodes)
+    training_config = build_training_config(config, episodes_override=None)
+
+    if args.alpha is not None:
+        training_config = replace(training_config, alpha=args.alpha)
+    if args.pfail is not None:
+        training_config = replace(training_config, pfail=args.pfail)
+    if args.alpha_values is not None:
+        training_config = replace(training_config, alpha_values=tuple(args.alpha_values))
+    if args.pfail_values is not None:
+        training_config = replace(training_config, pfail_values=tuple(args.pfail_values))
+    if args.hard_regime:
+        training_config = replace(
+            training_config,
+            alpha_values=(0.10, 0.15, 0.20),
+            pfail_values=(0.10, 0.15, 0.20),
+            num_episodes=8000,
+        )
+    if args.episodes is not None:
+        training_config = replace(training_config, num_episodes=args.episodes)
+    training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
+
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
 
     summary_path = checkpoint_path.with_suffix(".summary.json")
     summary = {
         "checkpoint_path": str(checkpoint_path),
         "num_episodes": training_config.num_episodes,
-        "alpha_values": training_config.alpha_values,
-        "pfail_values": training_config.pfail_values,
+        "alpha_values": list(training_config.alpha_values),
+        "pfail_values": list(training_config.pfail_values),
         "final_reward_mean_last_10": (
-            sum(training_state.episode_rewards[-10:]) / max(1, len(training_state.episode_rewards[-10:]))
+            sum(training_state.episode_rewards[-10:])
+            / max(1, len(training_state.episode_rewards[-10:]))
         ),
         "final_anc_mean_last_10": (
             sum(training_state.episode_final_anc[-10:])

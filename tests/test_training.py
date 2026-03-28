@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import networkx as nx
+import torch
 
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor
@@ -21,9 +22,12 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation)
 
-    assert graph_tensor.node_features.shape == (4, 9)
-    assert graph_tensor.adjacency.shape == (4, 4)
-    assert graph_tensor.valid_mask.tolist() == [False, False, True, True]
+    assert graph_tensor.node_features.shape == (5, 9)
+    assert graph_tensor.adjacency.shape == (5, 5)
+    assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
+    assert torch.allclose(
+        graph_tensor.node_features[4], graph_tensor.node_features[:4].mean(dim=0)
+    )
 
 
 def test_q_network_masks_invalid_actions():
@@ -45,6 +49,33 @@ def test_q_network_masks_invalid_actions():
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
     assert q_values[1].item() < -1e8
+
+
+def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path):
+    checkpoint_dir = tmp_path / "learner_short"
+    config = TrainingConfig(
+        num_episodes=5,
+        warmup_transitions=4,
+        batch_size=4,
+        replay_capacity=256,
+        alpha_values=(0.2,),
+        pfail_values=(0.1,),
+        validation_graphs=1,
+        validation_seeds=(0,),
+        validation_every=100_000,
+        checkpoint_dir=str(checkpoint_dir),
+        checkpoint_name="short_run.pt",
+        n_range=(10, 12),
+        budget=2,
+        max_rounds=3,
+        device="cpu",
+    )
+
+    _model, training_state, checkpoint_path = train_recovery_agent(config)
+
+    assert checkpoint_path.exists()
+    assert training_state.losses
+    assert all(0.0 <= value <= 1.0 for value in training_state.episode_final_anc)
 
 
 def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):

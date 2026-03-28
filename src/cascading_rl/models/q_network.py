@@ -42,8 +42,11 @@ class RecoveryQNetwork(nn.Module):
 
     def forward(self, graph_tensor: GraphTensor) -> torch.Tensor:
         node_embeddings = self.encoder(graph_tensor)
-        q_values = self.q_head(node_embeddings).squeeze(-1)
-        return q_values.masked_fill(~graph_tensor.valid_mask, -1e9)
+        num_real = len(graph_tensor.node_ids)
+        real_embeddings = node_embeddings[:num_real]
+        real_valid = graph_tensor.valid_mask[:num_real]
+        q_values = self.q_head(real_embeddings).squeeze(-1)
+        return q_values.masked_fill(~real_valid, -1e9)
 
     def score_observation(
         self,
