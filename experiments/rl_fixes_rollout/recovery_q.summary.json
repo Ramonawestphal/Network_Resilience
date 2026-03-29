@@ -1,0 +1,493 @@
+{
+  "checkpoint_path": "experiments/rl_fixes_rollout/recovery_q.pt",
+  "training_config": {
+    "seed": 7,
+    "device": "cpu",
+    "alpha": 0.1,
+    "pfail": 0.15,
+    "alpha_values": [
+      0.1,
+      0.15,
+      0.2
+    ],
+    "pfail_values": [
+      0.1,
+      0.15,
+      0.2
+    ],
+    "budget": 2,
+    "max_rounds": 5,
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "n_range": [
+      30,
+      50
+    ],
+    "m": 2,
+    "num_episodes": 8000,
+    "replay_capacity": 10000,
+    "warmup_transitions": 500,
+    "batch_size": 64,
+    "gamma": 0.99,
+    "learning_rate": 0.0003,
+    "epsilon_start": 1.0,
+    "epsilon_end": 0.05,
+    "epsilon_decay_episodes": 6000,
+    "target_update_interval": 200,
+    "hidden_dim": 128,
+    "embed_dim": 128,
+    "num_layers": 2,
+    "validation_graphs": 2,
+    "validation_seeds": [
+      0,
+      1,
+      2
+    ],
+    "validation_every": 200,
+    "checkpoint_dir": "experiments/rl_fixes_rollout",
+    "checkpoint_name": "recovery_q.pt"
+  },
+  "num_episodes_completed": 800,
+  "alpha_values": [
+    0.1,
+    0.15,
+    0.2
+  ],
+  "pfail_values": [
+    0.1,
+    0.15,
+    0.2
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "final_reward_mean_last_10": 0.12080346867959749,
+  "final_anc_mean_last_10": 0.016957537312306186,
+  "final_loss_mean_last_10": 0.00205456274561584,
+  "num_updates": 6918,
+  "total_steps": 7417,
+  "validation_history": [
+    {
+      "final_anc_mean": 0.0,
+      "final_anc_stderr": 0.0,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 5.0,
+      "reference": {
+        "alpha": 0.1,
+        "pfail": 0.15,
+        "budget": 2,
+        "max_rounds": 5,
+        "final_anc_mean": 0.0,
+        "final_anc_stderr": 0.0,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 5.0
+      },
+      "grid": {
+        "alpha_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "pfail_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "cell_count": 9,
+        "final_anc_mean": 0.1111111111111111,
+        "threshold_hit_mean": 0.3888888888888889,
+        "rounds_mean": 4.62962962962963,
+        "cells": [
+          {
+            "alpha": 0.1,
+            "pfail": 0.1,
+            "final_anc_mean": 0.0,
+            "threshold_hit_mean": 0.5,
+            "rounds_mean": 5.0
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.15,
+            "final_anc_mean": 0.0,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 5.0
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.2,
+            "final_anc_mean": 0.0,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 5.0
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.5,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.15,
+            "final_anc_mean": 0.0,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 5.0
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.2,
+            "final_anc_mean": 0.0,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 5.0
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.5,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.15,
+            "final_anc_mean": 0.16666666666666666,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.666666666666667
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.2,
+            "final_anc_mean": 0.16666666666666666,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.666666666666667
+          }
+        ]
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null
+      },
+      "episode": 200
+    },
+    {
+      "final_anc_mean": 0.34098561371288644,
+      "final_anc_stderr": 0.19035645902018636,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "reference": {
+        "alpha": 0.1,
+        "pfail": 0.15,
+        "budget": 2,
+        "max_rounds": 5,
+        "final_anc_mean": 0.34098561371288644,
+        "final_anc_stderr": 0.19035645902018636,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 3.6666666666666665
+      },
+      "grid": {
+        "alpha_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "pfail_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "cell_count": 9,
+        "final_anc_mean": 0.3367635271287175,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 3.611111111111111,
+        "cells": [
+          {
+            "alpha": 0.1,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.5
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.15,
+            "final_anc_mean": 0.34098561371288644,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3410951907455404,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.5
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.15,
+            "final_anc_mean": 0.34098561371288644,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.2,
+            "final_anc_mean": 0.34098561371288644,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3334863789409244,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.5
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.15,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          }
+        ]
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null
+      },
+      "episode": 400
+    },
+    {
+      "final_anc_mean": 0.3334863789409244,
+      "final_anc_stderr": 0.192405954919952,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 3.6666666666666665,
+      "reference": {
+        "alpha": 0.1,
+        "pfail": 0.15,
+        "budget": 2,
+        "max_rounds": 5,
+        "final_anc_mean": 0.3334863789409244,
+        "final_anc_stderr": 0.192405954919952,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 3.6666666666666665
+      },
+      "grid": {
+        "alpha_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "pfail_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "cell_count": 9,
+        "final_anc_mean": 0.33352902446178967,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 3.5555555555555554,
+        "cells": [
+          {
+            "alpha": 0.1,
+            "pfail": 0.1,
+            "final_anc_mean": 0.33349609375,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.3333333333333335
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.15,
+            "final_anc_mean": 0.3334863789409244,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.3333333333333335
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.15,
+            "final_anc_mean": 0.3336588541666667,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3336588541666667,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3336394245485155,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.3333333333333335
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.15,
+            "final_anc_mean": 0.33349609375,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3336588541666667,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.6666666666666665
+          }
+        ]
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null
+      },
+      "episode": 600
+    },
+    {
+      "final_anc_mean": 0.1667658139996034,
+      "final_anc_stderr": 0.15212707896628078,
+      "threshold_hit_mean": 0.3333333333333333,
+      "rounds_mean": 4.333333333333333,
+      "reference": {
+        "alpha": 0.1,
+        "pfail": 0.15,
+        "budget": 2,
+        "max_rounds": 5,
+        "final_anc_mean": 0.1667658139996034,
+        "final_anc_stderr": 0.15212707896628078,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 4.333333333333333
+      },
+      "grid": {
+        "alpha_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "pfail_values": [
+          0.1,
+          0.15,
+          0.2
+        ],
+        "cell_count": 9,
+        "final_anc_mean": 0.2245099955908217,
+        "threshold_hit_mean": 0.3333333333333333,
+        "rounds_mean": 4.092592592592593,
+        "cells": [
+          {
+            "alpha": 0.1,
+            "pfail": 0.1,
+            "final_anc_mean": 0.16686496133254017,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.166666666666667
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.15,
+            "final_anc_mean": 0.1667658139996034,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.333333333333333
+          },
+          {
+            "alpha": 0.1,
+            "pfail": 0.2,
+            "final_anc_mean": 0.1667658139996034,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.333333333333333
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.1,
+            "final_anc_mean": 0.16666666666666666,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.166666666666667
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.15,
+            "final_anc_mean": 0.16701800694013122,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.333333333333333
+          },
+          {
+            "alpha": 0.15,
+            "pfail": 0.2,
+            "final_anc_mean": 0.16691885960719446,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 4.333333333333333
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.1,
+            "final_anc_mean": 0.3431282522191613,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.5
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.15,
+            "final_anc_mean": 0.3431282522191613,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.8333333333333335
+          },
+          {
+            "alpha": 0.2,
+            "pfail": 0.2,
+            "final_anc_mean": 0.3333333333333333,
+            "threshold_hit_mean": 0.3333333333333333,
+            "rounds_mean": 3.8333333333333335
+          }
+        ]
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null
+      },
+      "episode": 800
+    }
+  ],
+  "terminated_early": true
+}

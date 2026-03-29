@@ -1,10 +1,10 @@
 {
   "rl": {
-    "final_anc_mean": 0.31129984055521287,
-    "final_anc_stderr": 0.1056274424319213,
+    "final_anc_mean": 0.3726061903307828,
+    "final_anc_stderr": 0.10769064135846529,
     "threshold_hit_mean": 0.6111111111111112,
-    "rounds_mean": 3.9444444444444446,
-    "solved_fraction_mean": 0.2777777777777778,
+    "rounds_mean": 3.8333333333333335,
+    "solved_fraction_mean": 0.3333333333333333,
     "b_star": null
   },
   "random": {

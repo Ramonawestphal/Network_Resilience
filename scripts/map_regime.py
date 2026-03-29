@@ -16,7 +16,12 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.evaluation import build_policy_factories, build_regime_cells
+from cascading_rl.evaluation import (
+    build_policy_factories,
+    build_regime_cells,
+    serialize_regime_cell,
+    summarize_regime_buckets,
+)
 from cascading_rl.graph.generation import make_graph_batch
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
 
@@ -24,50 +29,6 @@ from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmap
 def load_config(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as file:
         return yaml.safe_load(file)
-
-
-def serialize_metric(metric) -> dict | None:
-    if metric is None:
-        return None
-    return {"mean": metric.mean, "stderr": metric.stderr}
-
-
-def serialize_policy_summary(summary) -> dict:
-    return {
-        "final_anc": serialize_metric(summary.final_anc),
-        "total_reward": serialize_metric(summary.total_reward),
-        "steps": serialize_metric(summary.steps),
-        "rounds": serialize_metric(summary.rounds),
-        "solved_fraction": serialize_metric(summary.solved_fraction),
-        "threshold_hit_fraction": serialize_metric(summary.threshold_hit_fraction),
-        "threshold_step": serialize_metric(summary.threshold_step),
-        "threshold_round": serialize_metric(summary.threshold_round),
-    }
-
-
-def serialize_cell(cell) -> dict:
-    return {
-        "alpha": cell.alpha,
-        "pfail": cell.pfail,
-        "budget": cell.budget,
-        "diagnostics": {
-            "regime_label": cell.diagnostics.regime_label,
-            "interesting_for_rl": cell.diagnostics.interesting_for_rl,
-            "interestingness_score": cell.diagnostics.interestingness_score,
-            "final_anc_spread": cell.diagnostics.final_anc_spread,
-            "threshold_hit_spread": cell.diagnostics.threshold_hit_spread,
-            "rounds_spread": cell.diagnostics.rounds_spread,
-            "mean_final_anc": cell.diagnostics.mean_final_anc,
-            "mean_threshold_hit": cell.diagnostics.mean_threshold_hit,
-            "budget_sensitivity": cell.diagnostics.budget_sensitivity,
-            "best_policy": cell.diagnostics.best_policy,
-            "worst_policy": cell.diagnostics.worst_policy,
-        },
-        "policy_summaries": {
-            policy_name: serialize_policy_summary(summary)
-            for policy_name, summary in cell.policy_summaries.items()
-        },
-    }
 
 
 def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
@@ -85,6 +46,9 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
         "budget_sensitivity",
         "best_policy",
         "worst_policy",
+        "best_heuristic",
+        "best_heuristic_final_anc",
+        "rl_vs_best_heuristic_gap",
     ]
     for policy_name in policies:
         fieldnames.extend(
@@ -115,6 +79,9 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                 "budget_sensitivity": row["diagnostics"]["budget_sensitivity"],
                 "best_policy": row["diagnostics"]["best_policy"],
                 "worst_policy": row["diagnostics"]["worst_policy"],
+                "best_heuristic": row["diagnostics"]["best_heuristic"],
+                "best_heuristic_final_anc": row["diagnostics"]["best_heuristic_final_anc"],
+                "rl_vs_best_heuristic_gap": row["diagnostics"]["rl_vs_best_heuristic_gap"],
             }
             for policy_name in policies:
                 policy_summary = row["policy_summaries"][policy_name]
@@ -274,8 +241,9 @@ def main() -> None:
         spread_threshold=float(regime_config["spread_threshold"]),
     )
 
-    serialized_cells = [serialize_cell(cell) for cell in cells]
+    serialized_cells = [serialize_regime_cell(cell) for cell in cells]
     recommendation = build_recommendation(serialized_cells)
+    bucket_summary = summarize_regime_buckets(cells)
     results = {
         "config_path": str(args.config),
         "policies": selected_policies,
@@ -283,6 +251,7 @@ def main() -> None:
         "seeds": seeds,
         "num_graphs": len(graphs),
         "cells": serialized_cells,
+        "bucket_summary": bucket_summary,
         "recommendation": recommendation,
     }
 

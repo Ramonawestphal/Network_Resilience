@@ -6,14 +6,14 @@
 
 ## Recommendation
 
-Start RL training and baseline comparison around `alpha=0.2`, `pfail=0.08`, and `budget=2`.
+Start RL training and baseline comparison around `alpha=0.2`, `pfail=0.08`, and `budget=3`.
 
 ## Why This Cell
 
-- regime label: `interesting`
-- interestingness score: `0.262`
-- final ANC spread across heuristics: `0.332`
-- threshold-hit spread across heuristics: `0.111`
-- budget sensitivity at this `(alpha, pfail)`: `0.216`
-- current best heuristic in this cell: `degree`
+- regime label: `decision-sensitive`
+- interestingness score: `0.425`
+- final ANC spread across heuristics: `0.298`
+- threshold-hit spread across heuristics: `0.222`
+- budget sensitivity at this `(alpha, pfail)`: `0.061`
+- current best heuristic in this cell: `greedy`
 - current weakest heuristic in this cell: `random`

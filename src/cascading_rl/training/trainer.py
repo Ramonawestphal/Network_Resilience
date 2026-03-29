@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
@@ -30,29 +30,34 @@ from cascading_rl.training.replay import ReplayBuffer, Transition
 class TrainingConfig:
     seed: int = 7
     device: str = "cpu"
-    alpha: float = 0.2
-    pfail: float = 0.1
-    alpha_values: tuple[float, ...] = (0.05, 0.1)
+    alpha: float = 0.10
+    pfail: float = 0.15
+    alpha_values: tuple[float, ...] = (0.10, 0.15, 0.20)
     pfail_values: tuple[float, ...] = (0.10, 0.15, 0.20)
     budget: int = 2
     max_rounds: int = 5
+    capacity_noise: float = 0.0
+    failure_bias: str = "uniform"
+    action_space: str = "failed"
+    obs_hops: int | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
     num_episodes: int = 8000
-    replay_capacity: int = 20000
+    replay_capacity: int = 10000
     warmup_transitions: int = 500
     batch_size: int = 64
     gamma: float = 0.99
-    learning_rate: float = 1e-3
+    learning_rate: float = 3e-4
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
     epsilon_decay_episodes: int = 6000
     target_update_interval: int = 200
-    hidden_dim: int = 64
-    embed_dim: int = 64
+    hidden_dim: int = 128
+    embed_dim: int = 128
     num_layers: int = 2
-    validation_graphs: int = 20
-    validation_seeds: tuple[int, ...] = (0, 1, 2, 3, 4)
+    validation_graphs: int = 2
+    validation_seeds: tuple[int, ...] = (0, 1, 2)
+    validation_seed: int = 42
     validation_every: int = 200
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
@@ -143,12 +148,18 @@ def _render_progress_line(
 
 
 def _print_validation_update(validation: dict[str, Any]) -> None:
+    reference = validation["reference"]
+    per_alpha = validation["per_alpha_anc"]
+    per_alpha_text = "  ".join(
+        f"{alpha:.2f}->{mean:.3f}" for alpha, mean in sorted(per_alpha.items())
+    )
     print(
         "\n"
         f"[validation] ep={validation['episode']} "
-        f"final_anc={validation['final_anc_mean']:.3f}±{validation['final_anc_stderr']:.3f} "
-        f"threshold_hit={validation['threshold_hit_mean']:.3f} "
-        f"rounds={validation['rounds_mean']:.3f}",
+        f"final_anc={reference['final_anc_mean']:.3f}±{reference['final_anc_stderr']:.3f} "
+        f"threshold_hit={reference['threshold_hit_mean']:.3f} "
+        f"rounds={reference['rounds_mean']:.3f}\n"
+        f"per-alpha: {per_alpha_text}",
         flush=True,
     )
 
@@ -182,21 +193,25 @@ def compute_dqn_loss(
     return F.smooth_l1_loss(torch.stack(q_selected), torch.stack(targets))
 
 
+def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
+    return {
+        "capacity_noise": config.capacity_noise,
+        "failure_bias": config.failure_bias,
+        "action_space": config.action_space,
+        "obs_hops": config.obs_hops,
+    }
+
+
 def validate_policy(
     model: RecoveryQNetwork,
     config: TrainingConfig,
     *,
     device: torch.device,
-    graph_seed_offset: int,
+    validation_graphs: Sequence[Any],
 ) -> dict[str, Any]:
-    validation_graphs = make_graph_batch(
-        num_graphs=config.validation_graphs,
-        n_range=config.n_range,
-        m=config.m,
-        seed=config.seed + graph_seed_offset,
-    )
     policy = build_greedy_policy(model, device=device)
-    summaries = evaluate_policy_factories_on_graphs(
+    env_kwargs = _env_kwargs_from_config(config)
+    reference_summaries = evaluate_policy_factories_on_graphs(
         validation_graphs,
         {"rl": lambda graph_index, seed: policy},
         alpha=config.alpha,
@@ -205,13 +220,75 @@ def validate_policy(
         max_rounds=config.max_rounds,
         seeds=config.validation_seeds,
         tau=0.8,
+        env_kwargs=env_kwargs,
     )
-    summary = summaries["rl"]
+    reference_summary = reference_summaries["rl"]
+    grid_cells: list[dict[str, float]] = []
+    for alpha in config.alpha_values:
+        for pfail in config.pfail_values:
+            grid_summary = evaluate_policy_factories_on_graphs(
+                validation_graphs,
+                {"rl": lambda graph_index, seed: policy},
+                alpha=alpha,
+                pfail=pfail,
+                budget=config.budget,
+                max_rounds=config.max_rounds,
+                seeds=config.validation_seeds,
+                tau=0.8,
+                env_kwargs=env_kwargs,
+            )["rl"]
+            grid_cells.append(
+                {
+                    "alpha": alpha,
+                    "pfail": pfail,
+                    "final_anc_mean": grid_summary.final_anc.mean,
+                    "threshold_hit_mean": grid_summary.threshold_hit_fraction.mean,
+                    "rounds_mean": grid_summary.rounds.mean,
+                }
+            )
+    grid_final_anc_mean = sum(cell["final_anc_mean"] for cell in grid_cells) / len(grid_cells)
+    grid_threshold_hit_mean = sum(cell["threshold_hit_mean"] for cell in grid_cells) / len(grid_cells)
+    grid_rounds_mean = sum(cell["rounds_mean"] for cell in grid_cells) / len(grid_cells)
+    per_alpha_anc: dict[float, float] = {}
+    for alpha in config.alpha_values:
+        per_alpha_summary = evaluate_policy_factories_on_graphs(
+            validation_graphs,
+            {"rl": lambda graph_index, seed: policy},
+            alpha=alpha,
+            pfail=config.pfail,
+            budget=config.budget,
+            max_rounds=config.max_rounds,
+            seeds=config.validation_seeds,
+            tau=0.8,
+            env_kwargs=env_kwargs,
+        )["rl"]
+        per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
     return {
-        "final_anc_mean": summary.final_anc.mean,
-        "final_anc_stderr": summary.final_anc.stderr,
-        "threshold_hit_mean": summary.threshold_hit_fraction.mean,
-        "rounds_mean": summary.rounds.mean,
+        "final_anc_mean": reference_summary.final_anc.mean,
+        "final_anc_stderr": reference_summary.final_anc.stderr,
+        "threshold_hit_mean": reference_summary.threshold_hit_fraction.mean,
+        "rounds_mean": reference_summary.rounds.mean,
+        "reference": {
+            "alpha": config.alpha,
+            "pfail": config.pfail,
+            "budget": config.budget,
+            "max_rounds": config.max_rounds,
+            "final_anc_mean": reference_summary.final_anc.mean,
+            "final_anc_stderr": reference_summary.final_anc.stderr,
+            "threshold_hit_mean": reference_summary.threshold_hit_fraction.mean,
+            "rounds_mean": reference_summary.rounds.mean,
+        },
+        "grid": {
+            "alpha_values": list(config.alpha_values),
+            "pfail_values": list(config.pfail_values),
+            "cell_count": len(grid_cells),
+            "final_anc_mean": grid_final_anc_mean,
+            "threshold_hit_mean": grid_threshold_hit_mean,
+            "rounds_mean": grid_rounds_mean,
+            "cells": grid_cells,
+        },
+        "per_alpha_anc": per_alpha_anc,
+        "env": env_kwargs,
     }
 
 
@@ -264,13 +341,24 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     pfail_values = tuple(config.pfail_values) if config.pfail_values else (config.pfail,)
     if not alpha_values or not pfail_values:
         raise ValueError("alpha_values and pfail_values must be non-empty.")
+    validation_graphs = make_graph_batch(
+        num_graphs=config.validation_graphs,
+        n_range=config.n_range,
+        m=config.m,
+        seed=config.validation_seed,
+    )
+    regime_combinations = [
+        (float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values
+    ]
 
     checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
 
     for episode in range(config.num_episodes):
         epsilon = epsilon_for_episode(config, episode)
-        alpha = float(rng.choice(alpha_values))
-        pfail = float(rng.choice(pfail_values))
+        cycle_index = episode % len(regime_combinations)
+        if cycle_index == 0 and episode > 0:
+            rng.shuffle(regime_combinations)
+        alpha, pfail = regime_combinations[cycle_index]
         graph_size = rng.randint(config.n_range[0], config.n_range[1])
         graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
@@ -281,6 +369,10 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             budget=config.budget,
             max_rounds=config.max_rounds,
             seed=graph_seed,
+            capacity_noise=config.capacity_noise,
+            failure_bias=config.failure_bias,
+            action_space=config.action_space,
+            obs_hops=config.obs_hops,
         )
 
         observation = _reset_with_non_empty_failures(env, graph_seed, rng)
@@ -344,7 +436,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 model,
                 config,
                 device=device,
-                graph_seed_offset=episode + 1,
+                validation_graphs=validation_graphs,
             )
             validation["episode"] = episode + 1
             training_state.validation_history.append(validation)

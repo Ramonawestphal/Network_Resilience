@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     graph = training["graph"]
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
+    obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
     num_episodes = (
         int(episodes_override)
         if episodes_override is not None
@@ -54,6 +55,10 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         ),
         budget=int(regime["budget"]),
         max_rounds=int(regime["max_rounds"]),
+        capacity_noise=float(regime.get("capacity_noise", defaults.capacity_noise)),
+        failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),
+        action_space=str(regime.get("action_space", defaults.action_space)),
+        obs_hops=int(obs_hops_raw) if obs_hops_raw is not None else None,
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
         num_episodes=num_episodes,
@@ -139,6 +144,8 @@ def main() -> None:
     if args.hard_regime:
         training_config = replace(
             training_config,
+            alpha=0.10,
+            pfail=0.15,
             alpha_values=(0.10, 0.15, 0.20),
             pfail_values=(0.10, 0.15, 0.20),
             num_episodes=8000,
@@ -152,9 +159,16 @@ def main() -> None:
     summary_path = checkpoint_path.with_suffix(".summary.json")
     summary = {
         "checkpoint_path": str(checkpoint_path),
+        "training_config": asdict(training_config),
         "num_episodes": training_config.num_episodes,
         "alpha_values": list(training_config.alpha_values),
         "pfail_values": list(training_config.pfail_values),
+        "env": {
+            "capacity_noise": training_config.capacity_noise,
+            "failure_bias": training_config.failure_bias,
+            "action_space": training_config.action_space,
+            "obs_hops": training_config.obs_hops,
+        },
         "final_reward_mean_last_10": (
             sum(training_state.episode_rewards[-10:])
             / max(1, len(training_state.episode_rewards[-10:]))
@@ -163,7 +177,11 @@ def main() -> None:
             sum(training_state.episode_final_anc[-10:])
             / max(1, len(training_state.episode_final_anc[-10:]))
         ),
+        "final_loss_mean_last_10": (
+            sum(training_state.losses[-10:]) / max(1, len(training_state.losses[-10:]))
+        ),
         "num_updates": len(training_state.losses),
+        "total_steps": training_state.total_steps,
         "validation_history": training_state.validation_history,
     }
     with summary_path.open("w", encoding="utf-8") as file:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from math import sqrt
 from statistics import mean, pstdev
 
@@ -21,6 +21,7 @@ def estimate_minimum_budget(
     alpha: float = 0.2,
     pfail: float = 0.1,
     max_rounds: int | None = None,
+    env_kwargs: Mapping[str, object] | None = None,
 ) -> tuple[int | None, dict[int, tuple[float, float]]]:
     """Estimate the smallest budget whose expected final ANC exceeds tau."""
     if trials < 1:
@@ -30,6 +31,7 @@ def estimate_minimum_budget(
 
     results: dict[int, tuple[float, float]] = {}
     minimum_budget: int | None = None
+    resolved_env_kwargs = dict(env_kwargs or {})
 
     for budget in budgets:
         anc_values = []
@@ -41,6 +43,7 @@ def estimate_minimum_budget(
                 budget=budget,
                 max_rounds=max_rounds,
                 seed=seed,
+                **resolved_env_kwargs,
             )
             episode = rollout_policy(env, policy, seed=seed, tau=tau)
             anc_values.append(episode.final_anc)

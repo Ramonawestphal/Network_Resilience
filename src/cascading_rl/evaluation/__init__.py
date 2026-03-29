@@ -14,6 +14,9 @@ from cascading_rl.evaluation.regime import (
     build_regime_cells,
     compute_regime_diagnostics,
     evaluate_policy_factories_on_graphs,
+    serialize_policy_summary,
+    serialize_regime_cell,
+    summarize_regime_buckets,
 )
 
 __all__ = [
@@ -29,5 +32,8 @@ __all__ = [
     "evaluate_policies",
     "evaluate_policy_factories_on_graphs",
     "rollout_policy",
+    "serialize_policy_summary",
+    "serialize_regime_cell",
     "summarize_episode_results",
+    "summarize_regime_buckets",
 ]
