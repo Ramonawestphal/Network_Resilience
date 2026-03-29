@@ -323,6 +323,43 @@ Copy this block for each run:
   - compare this `curriculum_easy` checkpoint directly against the imitation-warmstarted run on the same two-cell curriculum holdout
   - if imitation warmstart does not close the heuristic gap, prioritize checkpoint selection and training-objective improvements before expanding to harder ablations
 
+### Experiment E006: Scaled large-graph evaluation for curriculum checkpoint
+
+- Date: 2026-03-29
+- Question: Does the `curriculum_easy` checkpoint retain competitive behavior on much larger BA graphs when recovery budget is scaled with graph size instead of being kept fixed?
+- Motivation:
+  - the first naive large-graph attempt used the full heuristic suite on `n=1000` and proved too slow to serve as a routine scaling probe
+  - a fixed `budget=50` across all sizes also made smaller graphs artificially easy, so the benchmark was changed to scale the intervention budget with graph size
+- Scaling rule:
+  - reference regime: training-like budget `2` on reference size `40`, so `beta = 2 / 40 = 0.05`
+  - scaled budget: `round(beta * n)`, giving `n=100 -> 5`, `n=300 -> 15`, `n=500 -> 25`, `n=1000 -> 50`
+  - scaled max rounds from the chosen regime stayed at `10` for `pfail=0.10`
+- Evaluation command pattern:
+  - efficient staged benchmark used `scripts/evaluate_scaling.py` on fixed graph sizes with the same graph-generation seed rule and matched rollout seeds `0..4`
+  - regime: `alpha=0.20`, `pfail=0.10`, `num_graphs=1`, `seeds=0 1 2 3 4`
+- Artifacts:
+  - `experiments/scaling_scaled/curriculum_easy_rl_degree_a0.20_p0.10_b5_mr10.json`
+  - `experiments/scaling_scaled/curriculum_easy_rl_degree_a0.20_p0.10_b15_mr10.json`
+  - `experiments/scaling_scaled/curriculum_easy_rl_degree_a0.20_p0.10_b25_mr10.json`
+  - `experiments/scaling_scaled/curriculum_easy_rl_degree_a0.20_p0.10_b50_mr10.json`
+- RL vs degree on scaled large graphs:
+  - `n=100`, `budget=5`: RL `final_anc=0.364`, degree `0.357`, elapsed `4.0s`
+  - `n=300`, `budget=15`: RL `final_anc=0.234`, degree `0.247`, elapsed `41.5s`
+  - `n=500`, `budget=25`: RL `final_anc=0.243`, degree `0.246`, elapsed `112.4s`
+  - `n=1000`, `budget=50`: RL `final_anc=0.247`, degree `0.250`, elapsed `359.0s`
+- Additional heuristic coverage on the same fixed graphs:
+  - completed for `n=100` and `n=300` only; the `n=500` / `n=1000` runs with `greedy` and especially `betweenness` were stopped because they were too expensive for a routine benchmark
+  - `n=100`, `budget=5`: random `0.111`, risk `0.029`, greedy `0.204`, betweenness `0.357`
+  - `n=300`, `budget=15`: random `0.157`, risk `0.194`, greedy `0.243`, betweenness `0.245`
+- Interpretation:
+  - the scaled benchmark is much more meaningful than the earlier fixed-`budget=50` sweep because smaller graphs are no longer trivially saturated
+  - RL does not collapse on larger graphs; from `n=300` onward it remains very close to degree, with only a small gap at `300`, `500`, and `1000`
+  - on the completed all-heuristic comparisons, RL is clearly stronger than `random` and `risk`, competitive with `greedy`, but still not clearly better than the strongest structural baselines
+  - the runtime bottleneck for large-graph evaluation is the expensive heuristic suite, not the RL policy itself, which supports using the lightweight `rl` / `degree` scaling benchmark as the default workflow
+- Next action:
+  - repeat the same scaled large-graph benchmark for the imitation-warmstarted checkpoint
+  - only run `greedy` / `betweenness` on `n>=500` as optional follow-up analysis when a direct all-heuristic comparison is specifically needed
+
 ### Implementation note: evaluation-script caveat
 
 - Date: 2026-03-28
@@ -350,6 +387,7 @@ Copy this block for each run:
 ## Immediate Next Runs
 
 1. Run one imitation-warmstarted training job and compare it against the current MC baseline on the same broader holdout cells.
-2. Evaluate intermediate and final checkpoints from the robust-default and warmstarted runs on the same regime grid.
-3. Add best-checkpoint selection based on validation-grid metrics before the next long run if instability persists.
-4. Only after that, start Stage B and Stage C ablations.
+2. Repeat the scaled large-graph `rl` vs `degree` benchmark for the imitation-warmstarted checkpoint.
+3. Evaluate intermediate and final checkpoints from the robust-default and warmstarted runs on the same regime grid.
+4. Add best-checkpoint selection based on validation-grid metrics before the next long run if instability persists.
+5. Only after that, start Stage B and Stage C ablations.

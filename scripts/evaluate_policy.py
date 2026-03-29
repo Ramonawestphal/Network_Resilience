@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from random import Random
@@ -14,12 +15,17 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import (
+    RegimeCellResult,
     build_policy_factories,
     build_regime_cells,
+    compute_regime_diagnostics,
     estimate_minimum_budget,
     evaluate_policy_factories_on_graphs,
+    rollout_policy,
     serialize_regime_cell,
+    summarize_episode_results,
     summarize_regime_buckets,
 )
 from cascading_rl.graph.generation import make_graph_batch
@@ -94,6 +100,26 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Optional max-rounds override for the grid evaluation.",
+    )
+    parser.add_argument(
+        "--scale-budget",
+        action="store_true",
+        help="Scale the evaluation budget with graph size using beta = budget / reference_n.",
+    )
+    parser.add_argument(
+        "--scale-max-rounds",
+        action="store_true",
+        help="Scale max_rounds per graph as max(10, ceil(3 * pfail * n / budget)).",
+    )
+    parser.add_argument(
+        "--reference-n",
+        type=int,
+        default=40,
+        help=(
+            "Reference graph size used to compute the recovery rate beta = budget / "
+            "reference_n when --scale-budget is active. Default: 40 (midpoint of the "
+            "default training range [30, 50])."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -182,14 +208,273 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
     }
 
 
+def compute_scaled_budget(*, budget: int, reference_n: int, num_nodes: int) -> int:
+    beta = budget / reference_n
+    return max(1, round(beta * num_nodes))
+
+
+def compute_scaled_max_rounds(*, pfail: float, num_nodes: int, budget: int) -> int:
+    return max(10, math.ceil(3 * pfail * num_nodes / budget))
+
+
+def build_scaling_metadata(
+    *,
+    scale_budget: bool,
+    scale_max_rounds: bool,
+    reference_budget: int,
+    reference_n: int,
+) -> dict[str, Any] | None:
+    if not scale_budget and not scale_max_rounds:
+        return None
+    return {
+        "scale_budget": scale_budget,
+        "scale_max_rounds": scale_max_rounds,
+        "reference_budget": reference_budget,
+        "reference_n": reference_n,
+        "beta": (reference_budget / reference_n) if scale_budget else None,
+    }
+
+
+def resolve_budget_and_rounds(
+    *,
+    num_nodes: int,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None,
+    scale_budget: bool,
+    scale_max_rounds: bool,
+    reference_budget: int,
+    reference_n: int,
+) -> tuple[int, int | None]:
+    resolved_budget = (
+        compute_scaled_budget(
+            budget=reference_budget,
+            reference_n=reference_n,
+            num_nodes=num_nodes,
+        )
+        if scale_budget
+        else budget
+    )
+    resolved_max_rounds = (
+        compute_scaled_max_rounds(
+            pfail=pfail,
+            num_nodes=num_nodes,
+            budget=resolved_budget,
+        )
+        if scale_max_rounds
+        else max_rounds
+    )
+    return resolved_budget, resolved_max_rounds
+
+
+def log_scaling_decisions(
+    *,
+    graphs: list[Any],
+    pfail: float,
+    budget: int,
+    max_rounds: int | None,
+    scale_budget: bool,
+    scale_max_rounds: bool,
+    reference_budget: int,
+    reference_n: int,
+) -> None:
+    if not scale_budget and not scale_max_rounds:
+        return
+
+    if scale_budget:
+        beta = reference_budget / reference_n
+        print(
+            f"Budget scaling active: beta={beta:.3f} "
+            f"(budget={reference_budget}, reference_n={reference_n})"
+        )
+    else:
+        print(f"Max-round scaling active: using fixed budget={budget}")
+
+    for num_nodes in sorted({graph.number_of_nodes() for graph in graphs}):
+        scaled_budget, scaled_max_rounds = resolve_budget_and_rounds(
+            num_nodes=num_nodes,
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
+            reference_budget=reference_budget,
+            reference_n=reference_n,
+        )
+        print(
+            f"For n={num_nodes}: scaled_budget={scaled_budget}, "
+            f"scaled_max_rounds={scaled_max_rounds}"
+        )
+
+
+def evaluate_policy_factories_with_optional_scaling(
+    graphs: list[Any],
+    policy_factories: dict[str, Any],
+    *,
+    alpha: float,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None,
+    seeds: list[int],
+    tau: float,
+    env_kwargs: dict[str, object],
+    scale_budget: bool,
+    scale_max_rounds: bool,
+    reference_budget: int,
+    reference_n: int,
+) -> dict[str, Any]:
+    if not scale_budget and not scale_max_rounds:
+        return evaluate_policy_factories_on_graphs(
+            graphs,
+            policy_factories,
+            alpha=alpha,
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            seeds=seeds,
+            tau=tau,
+            env_kwargs=env_kwargs,
+        )
+
+    episode_results_by_policy: dict[str, list[Any]] = {name: [] for name in policy_factories}
+    for graph_index, graph in enumerate(graphs):
+        resolved_budget, resolved_max_rounds = resolve_budget_and_rounds(
+            num_nodes=graph.number_of_nodes(),
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
+            reference_budget=reference_budget,
+            reference_n=reference_n,
+        )
+        for seed in seeds:
+            for policy_name, policy_factory in policy_factories.items():
+                env = RecoveryEnv(
+                    graph,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=resolved_budget,
+                    max_rounds=resolved_max_rounds,
+                    seed=seed,
+                    **env_kwargs,
+                )
+                policy = policy_factory(graph_index, seed)
+                result = rollout_policy(env, policy, seed=seed, tau=tau)
+                episode_results_by_policy[policy_name].append(result)
+
+    return {
+        policy_name: summarize_episode_results(episode_results)
+        for policy_name, episode_results in episode_results_by_policy.items()
+    }
+
+
+def build_regime_cells_with_optional_scaling(
+    graphs: list[Any],
+    policy_factories: dict[str, Any],
+    *,
+    alpha_values: list[float],
+    pfail_values: list[float],
+    budgets: list[int],
+    max_rounds: int | None,
+    seeds: list[int],
+    tau: float,
+    hopeless_threshold: float,
+    trivial_threshold: float,
+    spread_threshold: float,
+    env_kwargs: dict[str, object],
+    scale_budget: bool,
+    scale_max_rounds: bool,
+    reference_budget: int,
+    reference_n: int,
+) -> list[RegimeCellResult]:
+    if not scale_budget and not scale_max_rounds:
+        return build_regime_cells(
+            graphs,
+            policy_factories,
+            alpha_values=alpha_values,
+            pfail_values=pfail_values,
+            budgets=budgets,
+            max_rounds=max_rounds,
+            seeds=seeds,
+            tau=tau,
+            hopeless_threshold=hopeless_threshold,
+            trivial_threshold=trivial_threshold,
+            spread_threshold=spread_threshold,
+            env_kwargs=env_kwargs,
+        )
+
+    cells: list[RegimeCellResult] = []
+    grouped_best_anc: dict[tuple[float, float], list[float]] = {}
+    grouped_cells: dict[tuple[float, float], list[tuple[int, dict[str, Any]]]] = {}
+
+    for alpha in alpha_values:
+        for pfail in pfail_values:
+            for budget in budgets:
+                policy_summaries = evaluate_policy_factories_with_optional_scaling(
+                    graphs,
+                    policy_factories,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=budget,
+                    max_rounds=max_rounds,
+                    seeds=seeds,
+                    tau=tau,
+                    env_kwargs=env_kwargs,
+                    scale_budget=scale_budget,
+                    scale_max_rounds=scale_max_rounds,
+                    reference_budget=reference_budget,
+                    reference_n=reference_n,
+                )
+                grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
+                grouped_best_anc.setdefault((alpha, pfail), []).append(
+                    max(summary.final_anc.mean for summary in policy_summaries.values())
+                )
+
+    for (alpha, pfail), budget_summaries in grouped_cells.items():
+        anc_values = grouped_best_anc[(alpha, pfail)]
+        budget_sensitivity = max(anc_values) - min(anc_values) if len(anc_values) > 1 else 0.0
+        for budget, policy_summaries in budget_summaries:
+            diagnostics = compute_regime_diagnostics(
+                policy_summaries,
+                hopeless_threshold=hopeless_threshold,
+                trivial_threshold=trivial_threshold,
+                spread_threshold=spread_threshold,
+                budget_sensitivity=budget_sensitivity,
+            )
+            cells.append(
+                RegimeCellResult(
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=budget,
+                    diagnostics=diagnostics,
+                    policy_summaries=dict(policy_summaries),
+                )
+            )
+
+    return sorted(cells, key=lambda cell: (cell.alpha, cell.pfail, cell.budget))
+
+
 def main() -> None:
     args = parse_args()
+    if args.reference_n < 1:
+        raise ValueError("--reference-n must be at least 1.")
+
     config = load_config(args.config)
     training = config["training"]
     regime = training["regime"]
     graph_cfg = training["graph"]
     evaluation = config["evaluation"]
     env_kwargs = resolve_env_kwargs(config)
+    benchmark_reference_budget = (
+        int(args.budgets[0]) if args.budgets is not None else int(regime["budget"])
+    )
+    scaling_metadata = build_scaling_metadata(
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=benchmark_reference_budget,
+        reference_n=args.reference_n,
+    )
 
     policy_factories = build_eval_policy_factories(
         args.checkpoint,
@@ -205,16 +490,30 @@ def main() -> None:
     )
 
     tau = float(evaluation["tau"])
-    summaries = evaluate_policy_factories_on_graphs(
+    log_scaling_decisions(
+        graphs=graphs,
+        pfail=float(regime["pfail"]),
+        budget=int(regime["budget"]),
+        max_rounds=int(regime["max_rounds"]),
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=benchmark_reference_budget,
+        reference_n=args.reference_n,
+    )
+    summaries = evaluate_policy_factories_with_optional_scaling(
         graphs,
         policy_factories,
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
         budget=int(regime["budget"]),
         max_rounds=int(regime["max_rounds"]),
-        seeds=training["benchmark_seeds"],
+        seeds=list(training["benchmark_seeds"]),
         tau=tau,
         env_kwargs=env_kwargs,
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=benchmark_reference_budget,
+        reference_n=args.reference_n,
     )
 
     serialized = {
@@ -301,8 +600,16 @@ def main() -> None:
     }
     for policy_name, value in b_star.items():
         serialized[policy_name]["b_star"] = value
+    serialized["scaling"] = scaling_metadata
 
     grid_spec = resolve_grid_spec(config, args)
+    grid_reference_budget = int(grid_spec["budgets"][0])
+    grid_scaling_metadata = build_scaling_metadata(
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=grid_reference_budget,
+        reference_n=args.reference_n,
+    )
     grid_graphs = make_graph_batch(
         num_graphs=grid_spec["num_graphs"],
         n_range=grid_spec["n_range"],
@@ -310,7 +617,17 @@ def main() -> None:
         seed=grid_spec["graph_seed"],
     )
     threshold_cfg = config["regime_mapping"]
-    cells = build_regime_cells(
+    log_scaling_decisions(
+        graphs=grid_graphs,
+        pfail=float(grid_spec["pfail_values"][0]),
+        budget=int(grid_spec["budgets"][0]),
+        max_rounds=grid_spec["max_rounds"],
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=grid_reference_budget,
+        reference_n=args.reference_n,
+    )
+    cells = build_regime_cells_with_optional_scaling(
         grid_graphs,
         policy_factories,
         alpha_values=grid_spec["alpha_values"],
@@ -323,6 +640,10 @@ def main() -> None:
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
         env_kwargs=env_kwargs,
+        scale_budget=args.scale_budget,
+        scale_max_rounds=args.scale_max_rounds,
+        reference_budget=grid_reference_budget,
+        reference_n=args.reference_n,
     )
     grid_results = {
         "checkpoint": str(args.checkpoint),
@@ -333,6 +654,7 @@ def main() -> None:
             for key, value in grid_spec.items()
         },
         "tau": tau,
+        "scaling": grid_scaling_metadata,
         "cells": [serialize_regime_cell(cell) for cell in cells],
         "bucket_summary": summarize_regime_buckets(cells),
     }
@@ -349,6 +671,8 @@ def main() -> None:
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")
     for policy_name, metrics in serialized.items():
+        if policy_name == "scaling":
+            continue
         print(
             f"{policy_name}: final_anc={metrics['final_anc_mean']:.3f}, "
             f"threshold_hit={metrics['threshold_hit_mean']:.3f}, "

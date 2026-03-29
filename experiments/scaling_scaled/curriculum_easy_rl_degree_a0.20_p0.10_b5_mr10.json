@@ -1,0 +1,102 @@
+{
+  "checkpoint": "experiments\\curriculum_easy\\recovery_q.pt",
+  "config": "C:\\Users\\Ramona\\.vscode\\Seminar_ML\\Cascading-RL\\config\\default.yaml",
+  "alpha": 0.2,
+  "pfail": 0.1,
+  "budget": 5,
+  "max_rounds": 10,
+  "m": 2,
+  "graph_seed": 1007,
+  "tau": 0.8,
+  "policies": [
+    "rl",
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness"
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "elapsed_seconds_total": 15.070320300059393,
+  "results": [
+    {
+      "graph_size": 100,
+      "num_graphs": 1,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "elapsed_seconds": 15.063101600040682,
+      "policy_summaries": {
+        "rl": {
+          "final_anc_mean": 0.36386,
+          "final_anc_stderr": 0.14227660833742137,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 8.4,
+          "rounds_stderr": 1.4310835055998654,
+          "solved_fraction_mean": 0.2,
+          "solved_fraction_stderr": 0.17888543819998318
+        },
+        "degree": {
+          "final_anc_mean": 0.3569,
+          "final_anc_stderr": 0.14394271638398382,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 8.4,
+          "rounds_stderr": 1.4310835055998654,
+          "solved_fraction_mean": 0.2,
+          "solved_fraction_stderr": 0.17888543819998318
+        },
+        "random": {
+          "final_anc_mean": 0.11059999999999999,
+          "final_anc_stderr": 0.018948055309186737,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 10.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 0.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "risk": {
+          "final_anc_mean": 0.029280000000000004,
+          "final_anc_stderr": 0.005773137794995025,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 10.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 0.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "greedy": {
+          "final_anc_mean": 0.20432,
+          "final_anc_stderr": 0.0016278574876198463,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 10.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 0.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "betweenness": {
+          "final_anc_mean": 0.3569,
+          "final_anc_stderr": 0.14394271638398382,
+          "threshold_hit_mean": 0.6,
+          "threshold_hit_stderr": 0.21908902300206642,
+          "rounds_mean": 8.4,
+          "rounds_stderr": 1.4310835055998654,
+          "solved_fraction_mean": 0.2,
+          "solved_fraction_stderr": 0.17888543819998318
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "checkpoint": "experiments\\curriculum_easy\\recovery_q.pt",
+  "config": "C:\\Users\\Ramona\\.vscode\\Seminar_ML\\Cascading-RL\\config\\default.yaml",
+  "alpha": 0.2,
+  "pfail": 0.1,
+  "budget": 50,
+  "max_rounds": 20,
+  "m": 2,
+  "graph_seed": 1007,
+  "tau": 0.8,
+  "policies": [
+    "rl",
+    "degree"
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "elapsed_seconds_total": 1135.2502204000484,
+  "results": [
+    {
+      "graph_size": 100,
+      "num_graphs": 1,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "elapsed_seconds": 8.842248500091955,
+      "policy_summaries": {
+        "rl": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 2.6,
+          "rounds_stderr": 0.35777087639996635,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "degree": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 2.6,
+          "rounds_stderr": 0.35777087639996635,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        }
+      }
+    },
+    {
+      "graph_size": 300,
+      "num_graphs": 1,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "elapsed_seconds": 72.5052035000408,
+      "policy_summaries": {
+        "rl": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 7.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "degree": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 6.4,
+          "rounds_stderr": 0.21908902300206642,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        }
+      }
+    },
+    {
+      "graph_size": 500,
+      "num_graphs": 1,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "elapsed_seconds": 209.6905710999854,
+      "policy_summaries": {
+        "rl": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 11.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "degree": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 10.8,
+          "rounds_stderr": 0.17888543819998318,
+          "solved_fraction_mean": 1.0,
+          "solved_fraction_stderr": 0.0
+        }
+      }
+    },
+    {
+      "graph_size": 1000,
+      "num_graphs": 1,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "elapsed_seconds": 844.1885880000191,
+      "policy_summaries": {
+        "rl": {
+          "final_anc_mean": 0.9932122,
+          "final_anc_stderr": 0.0007133504272095163,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 20.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 0.0,
+          "solved_fraction_stderr": 0.0
+        },
+        "degree": {
+          "final_anc_mean": 0.9988018,
+          "final_anc_stderr": 0.0010717026602560934,
+          "threshold_hit_mean": 1.0,
+          "threshold_hit_stderr": 0.0,
+          "rounds_mean": 20.0,
+          "rounds_stderr": 0.0,
+          "solved_fraction_mean": 0.8,
+          "solved_fraction_stderr": 0.17888543819998318
+        }
+      }
+    }
+  ]
+}
