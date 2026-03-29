@@ -72,55 +72,10 @@ conditioned on both its local structural context and the global system state.
   embedding).
  
 Together they give a richer summary than either alone.
-
-### Per-node feature changes — `FEATURE_NAMES` reduced from 9 to 8
- 
-The original per-node features included `remaining_budget_norm` and
-`current_round_norm`, both normalized by dividing by the number of nodes.
-These were treated differently:
-
-**`remaining_budget / num_nodes` — kept, renamed to `budget_coverage`.**
-Dividing budget by graph size is semantically meaningful. Reactivating 5 nodes
-out of a 30-node graph is a much more impactful round than 5 out of a 100-node
-graph — the agent recovers a larger fraction of the system in the same number
-of actions. This is a genuine signal about how much the agent can move the
-needle in a single round, relative to the scale of the problem. The
-normalization by `num_nodes` is therefore intentional and correct here.
-
-**`current_round / num_nodes` — removed.** Round number has nothing to do
-with graph size. Round 2 of 5 on a 40-node graph is the exact same temporal
-situation as round 2 of 5 on a 50-node graph — the agent is 40% through its
-episode horizon either way. Dividing by `num_nodes` instead of `max_rounds`
-gives different feature values for identical situations just because the graph
-is a different size. This is noise, not signal, and directly hurts
-generalization across graph sizes.
-
-`current_round_norm` now lives exclusively in the global features, computed
-as `current_round / max_rounds` — the correct denominator — once per step,
-not once per node
-
-The updated per-node feature set:
- 
-```python
-FEATURE_NAMES = (
-    "load_norm",
-    "capacity_norm",
-    "load_capacity_ratio",
-    "failed_flag",
-    "active_flag",
-    "frontier_flag",
-    "budget_coverage",      # remaining_budget / num_nodes
-    "degree_norm",
-)
-```
----
  
 ## 2. Q-Network with Global Context — `src/cascading_rl/models/q_network.py`
  
 ### What changed?
- 
-**`QNetworkConfig`** — `input_dim` updated from 9 to 8 to reflect the reduced
-per-node feature set.
  
 **`RecoveryQNetwork.__init__`** now creates the global readout layer and
 adjusts the Q-head input size accordingly.
@@ -258,8 +213,8 @@ training, matching exactly what it receives at inference time.
  
 | File | What changed |
 |---|---|
-| `src/cascading_rl/models/gnn.py` | Added `GLOBAL_FEATURE_NAMES`, `observation_to_global_features`, `GlobalReadout`. Removed `current_round_norm` from per-node features, kept `budget_coverage` (remaining_budget / num_nodes). `FEATURE_NAMES` reduced from 9 to 8 entries. |
-| `src/cascading_rl/models/q_network.py` | `QNetworkConfig.input_dim` changed from 9 to 8. Updated `RecoveryQNetwork` to use global readout. Added `select_top_b`. Updated `score_observation` and `compute_dqn_loss` for global features and batch actions. |
+| `src/cascading_rl/models/gnn.py` | Added `GLOBAL_FEATURE_NAMES`, `observation_to_global_features`, `GlobalReadout`.
+| `src/cascading_rl/models/q_network.py` | ` Updated `RecoveryQNetwork` to use global readout. Added `select_top_b`. Updated `score_observation` and `compute_dqn_loss` for global features and batch actions. |
 | `src/cascading_rl/envs/recovery.py` | Added `budget` and `max_rounds` to `RecoveryObservation`. Added `step_batch` method. Updated `observe()` to populate new fields. |
 | `src/cascading_rl/training/trainer.py` | Simplified training loop to use `select_top_b` and `step_batch`. Updated `compute_dqn_loss` for batch actions and global features. |
 | `src/cascading_rl/models/__init__.py` | Exported `GlobalReadout`, `GLOBAL_FEATURE_NAMES`, `observation_to_global_features`, `select_top_b`. |

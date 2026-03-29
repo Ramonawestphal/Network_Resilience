@@ -3,7 +3,7 @@ from pathlib import Path
 import networkx as nx
 
 from cascading_rl.envs.recovery import RecoveryEnv
-from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor
+from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor, observation_to_global_features
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
@@ -21,9 +21,9 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation)
 
-    assert graph_tensor.node_features.shape == (4, 9)
-    assert graph_tensor.adjacency.shape == (4, 4)
-    assert graph_tensor.valid_mask.tolist() == [False, False, True, True]
+    assert graph_tensor.node_features.shape == (5, 9)
+    assert graph_tensor.adjacency.shape == (5, 5)
+    assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
 
 
 def test_q_network_masks_invalid_actions():
@@ -40,7 +40,8 @@ def test_q_network_masks_invalid_actions():
 
     model = RecoveryQNetwork()
     graph_tensor = observation_to_graph_tensor(observation)
-    q_values = model(graph_tensor)
+    global_features = observation_to_global_features(observation)
+    q_values = model(graph_tensor, global_features)
 
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8

@@ -22,7 +22,7 @@ Node = Hashable
 
 @dataclass(frozen=True)
 class QNetworkConfig:
-    input_dim: int = 7
+    input_dim: int = 9
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
@@ -58,12 +58,14 @@ class RecoveryQNetwork(nn.Module):
 
     def forward(self, graph_tensor: GraphTensor, global_features: torch.Tensor) -> torch.Tensor:
         node_embeddings = self.encoder(graph_tensor)
+        num_real_nodes = len(graph_tensor.node_ids)
+        node_embeddings = node_embeddings[:num_real_nodes]
         global_vec = self.global_readout(node_embeddings, global_features)
-        # broadcast global_vec to each node and concatenate
         global_expanded = global_vec.unsqueeze(0).expand(node_embeddings.size(0), -1)
         node_global = torch.cat([node_embeddings, global_expanded], dim=1)
         q_values = self.q_head(node_global).squeeze(-1)
-        return q_values.masked_fill(~graph_tensor.valid_mask, -1e9)
+        valid_mask = graph_tensor.valid_mask[:num_real_nodes]
+        return q_values.masked_fill(~valid_mask, -1e9)
 
     def score_observation(
         self,
@@ -72,6 +74,8 @@ class RecoveryQNetwork(nn.Module):
     ) -> tuple[GraphTensor, torch.Tensor]:
         graph_tensor = observation_to_graph_tensor(observation, device=device)
         global_features = observation_to_global_features(observation)
+        if device is not None:
+            global_features = global_features.to(device)
         return graph_tensor, self(graph_tensor, global_features)
 
 
