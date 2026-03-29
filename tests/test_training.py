@@ -8,7 +8,13 @@ from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor
 from cascading_rl.training import TrainingConfig, train_recovery_agent
-from cascading_rl.training.trainer import validate_policy
+from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
+from cascading_rl.training.trainer import (
+    _imitation_agreement_rate,
+    generate_imitation_data,
+    pretrain_by_imitation,
+    validate_policy,
+)
 
 
 def test_observation_to_graph_tensor_builds_features_and_mask():
@@ -180,3 +186,41 @@ def test_train_recovery_agent_cycles_all_regime_combinations_once(tmp_path: Path
 
     assert set(seen) == expected
     assert all(count == 1 for count in seen.values())
+
+
+def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
+    train_graphs = make_graph_batch(num_graphs=50, n_range=(10, 12), m=2, seed=123)
+    samples = generate_imitation_data(
+        train_graphs,
+        alpha=0.20,
+        pfail=0.10,
+        budget=2,
+        max_rounds=3,
+        num_seeds=3,
+        policy=choose_highest_degree_failed_node,
+        base_seed=321,
+    )
+    model = RecoveryQNetwork()
+    model, losses = pretrain_by_imitation(
+        model,
+        samples,
+        lr=1e-3,
+        epochs=10,
+        batch_size=64,
+    )
+    heldout_graphs = make_graph_batch(num_graphs=10, n_range=(10, 12), m=2, seed=456)
+    heldout_samples = generate_imitation_data(
+        heldout_graphs,
+        alpha=0.20,
+        pfail=0.10,
+        budget=2,
+        max_rounds=3,
+        num_seeds=3,
+        policy=choose_highest_degree_failed_node,
+        base_seed=654,
+    )
+
+    agreement = _imitation_agreement_rate(model, heldout_samples, device=torch.device("cpu"))
+
+    assert losses[-1] <= losses[0]
+    assert agreement > 0.60

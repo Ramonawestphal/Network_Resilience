@@ -66,6 +66,9 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         warmup_transitions=int(training["warmup_transitions"]),
         batch_size=int(training["batch_size"]),
         gamma=float(training["gamma"]),
+        use_monte_carlo_returns=bool(
+            training.get("use_monte_carlo_returns", defaults.use_monte_carlo_returns)
+        ),
         learning_rate=float(training["learning_rate"]),
         epsilon_start=float(training["epsilon_start"]),
         epsilon_end=float(training["epsilon_end"]),
@@ -76,6 +79,12 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         hidden_dim=int(training["hidden_dim"]),
         embed_dim=int(training["embed_dim"]),
         num_layers=int(training["num_layers"]),
+        use_imitation_warmstart=bool(
+            training.get("use_imitation_warmstart", defaults.use_imitation_warmstart)
+        ),
+        imitation_graphs=int(training.get("imitation_graphs", defaults.imitation_graphs)),
+        imitation_seeds=int(training.get("imitation_seeds", defaults.imitation_seeds)),
+        imitation_epochs=int(training.get("imitation_epochs", defaults.imitation_epochs)),
         validation_graphs=int(training["validation_graphs"]),
         validation_seeds=tuple(training["validation_seeds"]),
         validation_every=int(training["validation_every"]),
