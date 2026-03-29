@@ -90,6 +90,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional matched-seed override for the grid evaluation.",
     )
     parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=None,
+        help="Optional max-rounds override for the grid evaluation.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -169,7 +175,7 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         "budgets": list(args.budgets) if args.budgets is not None else list(budgets),
         "num_graphs": int(args.num_graphs) if args.num_graphs is not None else int(num_graphs),
         "seeds": list(args.seeds) if args.seeds is not None else list(seeds),
-        "max_rounds": int(max_rounds),
+        "max_rounds": int(args.max_rounds) if args.max_rounds is not None else int(max_rounds),
         "graph_seed": int(graph_seed),
         "n_range": tuple(n_range),
         "m": int(m),
