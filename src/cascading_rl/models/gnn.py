@@ -27,7 +27,6 @@ GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
-    "current_round_norm",
 )
 
 
@@ -49,7 +48,6 @@ def observation_to_global_features(
             len(failed) / max(num_nodes, 1),
             sum(ratios) / len(ratios),
             max(ratios),
-            observation.current_round / observation.max_rounds,
         ],
         dtype=torch.float32,
     )

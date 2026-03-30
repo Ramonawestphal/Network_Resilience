@@ -10,6 +10,7 @@ from torch import nn
 
 from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.models.gnn import (
+    FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
     GlobalReadout,
     GraphStateEncoder,
@@ -23,7 +24,7 @@ Node = Hashable
 
 @dataclass(frozen=True)
 class QNetworkConfig:
-    input_dim: int = 9
+    input_dim: int = len(FEATURE_NAMES)
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
