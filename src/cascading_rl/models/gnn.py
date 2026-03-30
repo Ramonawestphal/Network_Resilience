@@ -16,6 +16,8 @@ FEATURE_NAMES = (
     "failed_flag",
     "active_flag",
     "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
     "degree_norm",
 )
 
@@ -114,6 +116,8 @@ def observation_to_graph_tensor(
                 1.0 if node in observation.failed else 0.0,
                 1.0 if node in observation.active else 0.0,
                 1.0 if node in observation.frontier else 0.0,
+                float(observation.remaining_budget) / max(1.0, float(num_nodes)),
+                float(observation.current_round) / max(1.0, float(num_nodes)),
                 degree / max(1.0, float(max_degree)),
             ],
             dtype=torch.float32,
@@ -181,7 +185,7 @@ class GraphStateEncoder(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.output_dim = embed_dim
 
-    def forward(self, graph_tensor: GraphTensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, graph_tensor: GraphTensor) -> torch.Tensor:
         hidden = graph_tensor.node_features
         for layer in self.layers:
             hidden = layer(hidden, graph_tensor.adjacency)

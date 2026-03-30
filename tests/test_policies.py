@@ -20,7 +20,9 @@ def make_observation() -> RecoveryObservation:
         failed=frozenset({0, 3}),
         frontier=frozenset({3}),
         remaining_budget=2,
+        budget=2,
         current_round=1,
+        max_rounds=3,
     )
 
 
