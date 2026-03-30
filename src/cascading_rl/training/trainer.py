@@ -8,7 +8,6 @@ from random import Random
 import sys
 
 import torch
-from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 
@@ -20,7 +19,6 @@ from cascading_rl.models import (
     RecoveryQNetwork,
     build_greedy_policy,
     observation_to_graph_tensor,
-    select_action,
     observation_to_global_features,
     select_top_b,
 )
@@ -50,11 +48,14 @@ class TrainingConfig:
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
+    use_global_features: bool = True
+    use_virtual_node: bool = False
     validation_graphs: int = 2
     validation_seeds: tuple[int, ...] = (0, 1, 2)
     validation_every: int = 20
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
+    episode_graph_specs: tuple[tuple[int, int], ...] | None = None
 
 
 @dataclass
@@ -84,6 +85,8 @@ def build_model_config(config: TrainingConfig) -> QNetworkConfig:
         hidden_dim=config.hidden_dim,
         embed_dim=config.embed_dim,
         num_layers=config.num_layers,
+        use_global_features=config.use_global_features,
+        use_virtual_node=config.use_virtual_node,
     )
 
 
@@ -122,7 +125,7 @@ def _print_validation_update(validation: dict) -> None:
     print(
         "\n"
         f"[validation] ep={validation['episode']} "
-        f"final_anc={validation['final_anc_mean']:.3f}±{validation['final_anc_stderr']:.3f} "
+        f"final_anc={validation['final_anc_mean']:.3f}+/-{validation['final_anc_stderr']:.3f} "
         f"threshold_hit={validation['threshold_hit_mean']:.3f} "
         f"rounds={validation['rounds_mean']:.3f}",
         flush=True,
@@ -140,8 +143,14 @@ def compute_dqn_loss(
 ) -> torch.Tensor:
     losses = []
     for transition in transitions:
-        graph_tensor = observation_to_graph_tensor(transition.observation, device=device)
-        global_features = observation_to_global_features(transition.observation).to(device)
+        graph_tensor = observation_to_graph_tensor(
+            transition.observation,
+            use_virtual_node=model.config.use_virtual_node,
+            device=device,
+        )
+        global_features = None
+        if model.config.use_global_features:
+            global_features = observation_to_global_features(transition.observation).to(device)
         q_values = model(graph_tensor, global_features)
 
         # mean Q over selected actions — each node in the batch contributed equally
@@ -155,11 +164,15 @@ def compute_dqn_loss(
             target_value = torch.tensor(float(transition.reward), device=device)
             if not transition.done and transition.next_observation.failed:
                 next_tensor = observation_to_graph_tensor(
-                    transition.next_observation, device=device
+                    transition.next_observation,
+                    use_virtual_node=target_model.config.use_virtual_node,
+                    device=device,
                 )
-                next_global = observation_to_global_features(
-                    transition.next_observation
-                ).to(device)
+                next_global = None
+                if target_model.config.use_global_features:
+                    next_global = observation_to_global_features(
+                        transition.next_observation
+                    ).to(device)
                 next_q = target_model(next_tensor, next_global)
                 # target: mean of top-B Q-values in next state
                 valid_next = [
@@ -242,6 +255,8 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     device = resolve_device(config.device)
     rng = Random(config.seed)
     torch.manual_seed(config.seed)
+    if config.episode_graph_specs is not None and len(config.episode_graph_specs) != config.num_episodes:
+        raise ValueError("episode_graph_specs length must match num_episodes.")
 
     model = RecoveryQNetwork(build_model_config(config)).to(device)
     target_model = deepcopy(model).to(device)
@@ -251,8 +266,11 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
 
     for episode in range(config.num_episodes):
         epsilon = epsilon_for_episode(config, episode)
-        graph_size = rng.randint(config.n_range[0], config.n_range[1])
-        graph_seed = rng.randint(0, 10**9)
+        if config.episode_graph_specs is not None:
+            graph_size, graph_seed = config.episode_graph_specs[episode]
+        else:
+            graph_size = rng.randint(config.n_range[0], config.n_range[1])
+            graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
         env = RecoveryEnv(
             graph,
@@ -271,14 +289,13 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             epsilon = epsilon_for_episode(config, episode)
 
             actions = select_top_b(
-                    model,
-                    observation,
-                    budget=config.budget,
-                    max_rounds=config.max_rounds,
-                    epsilon=epsilon,
-                    rng=rng,
-                    device=device,
-                )
+                model,
+                observation,
+                budget=config.budget,
+                epsilon=epsilon,
+                rng=rng,
+                device=device,
+            )
             next_observation, reward, done, info = env.step_batch(actions)
             
             # store as single transition (one per round, not per reactivation)

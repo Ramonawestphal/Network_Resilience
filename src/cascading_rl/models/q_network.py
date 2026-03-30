@@ -9,12 +9,13 @@ import torch
 from torch import nn
 
 from cascading_rl.envs.recovery import RecoveryObservation
-from cascading_rl.models.gnn import (GraphStateEncoder, 
-                                     GraphTensor, 
-                                     observation_to_graph_tensor, 
-                                     GLOBAL_FEATURE_NAMES, 
-                                     GlobalReadout,
-                                     observation_to_global_features,
+from cascading_rl.models.gnn import (
+    GLOBAL_FEATURE_NAMES,
+    GlobalReadout,
+    GraphStateEncoder,
+    GraphTensor,
+    observation_to_global_features,
+    observation_to_graph_tensor,
 )
 
 Node = Hashable
@@ -26,6 +27,8 @@ class QNetworkConfig:
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
+    use_global_features: bool = True
+    use_virtual_node: bool = False
 
 
 class RecoveryQNetwork(nn.Module):
@@ -41,38 +44,59 @@ class RecoveryQNetwork(nn.Module):
             num_layers=self.config.num_layers,
         )
 
-        global_feat_dim = len(GLOBAL_FEATURE_NAMES)
-        global_out_dim = self.config.embed_dim // 2  # e.g. 32 if embed_dim=64
-        
-        self.global_readout = GlobalReadout(
-            embed_dim=self.config.embed_dim,
-            global_feat_dim=global_feat_dim,
-            out_dim=global_out_dim,
-        )
-        # Q-head now takes node embedding + global context
+        global_out_dim = self.config.embed_dim // 2 if self.config.use_global_features else 0
+        self.global_readout = None
+        if self.config.use_global_features:
+            global_feat_dim = len(GLOBAL_FEATURE_NAMES)
+            self.global_readout = GlobalReadout(
+                embed_dim=self.config.embed_dim,
+                global_feat_dim=global_feat_dim,
+                out_dim=global_out_dim,
+            )
         self.q_head = nn.Sequential(
             nn.Linear(self.config.embed_dim + global_out_dim, self.config.embed_dim),
             nn.ReLU(),
             nn.Linear(self.config.embed_dim, 1),
         )
 
-    def forward(self, graph_tensor: GraphTensor, global_features: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        graph_tensor: GraphTensor,
+        global_features: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         node_embeddings = self.encoder(graph_tensor)
-        global_vec = self.global_readout(node_embeddings, global_features)
-        global_expanded = global_vec.unsqueeze(0).expand(node_embeddings.size(0), -1)
-        node_global = torch.cat([node_embeddings, global_expanded], dim=1)
-        q_values = self.q_head(node_global).squeeze(-1)
-        return q_values.masked_fill(~graph_tensor.valid_mask, -1e9)
+        num_real_nodes = len(graph_tensor.node_ids)
+        if self.config.use_virtual_node:
+            node_embeddings = node_embeddings[:num_real_nodes]
+
+        if self.config.use_global_features:
+            if global_features is None:
+                raise ValueError("global_features are required when use_global_features=True.")
+            global_vec = self.global_readout(node_embeddings, global_features)
+            global_expanded = global_vec.unsqueeze(0).expand(node_embeddings.size(0), -1)
+            node_input = torch.cat([node_embeddings, global_expanded], dim=1)
+        else:
+            node_input = node_embeddings
+
+        q_values = self.q_head(node_input).squeeze(-1)
+        valid_mask = graph_tensor.valid_mask[:num_real_nodes] if self.config.use_virtual_node else graph_tensor.valid_mask
+        return q_values.masked_fill(~valid_mask, -1e9)
 
     def score_observation(
         self,
         observation: RecoveryObservation,
         device: torch.device | str | None = None,
     ) -> tuple[GraphTensor, torch.Tensor]:
-        graph_tensor = observation_to_graph_tensor(observation, device=device)
-        global_features = observation_to_global_features(observation)
-        if device is not None:
-            global_features = global_features.to(device)
+        graph_tensor = observation_to_graph_tensor(
+            observation,
+            use_virtual_node=self.config.use_virtual_node,
+            device=device,
+        )
+        global_features = None
+        if self.config.use_global_features:
+            global_features = observation_to_global_features(observation)
+            if device is not None:
+                global_features = global_features.to(device)
         return graph_tensor, self(graph_tensor, global_features)
 
 
@@ -131,7 +155,6 @@ def select_top_b(
     model: RecoveryQNetwork,
     observation: RecoveryObservation,
     budget: int,
-    max_rounds: int,
     *,
     epsilon: float = 0.0,
     rng: Random | None = None,
@@ -145,23 +168,24 @@ def select_top_b(
     rng = rng or Random()
     b = min(budget, len(valid_actions))
 
-    # epsilon: random subset instead of top-B
     if rng.random() < epsilon:
         return rng.sample(list(valid_actions), b)
 
     model.eval()
     with torch.no_grad():
-        graph_tensor = observation_to_graph_tensor(observation, device=device)
-        global_features = observation_to_global_features(observation)
-        if device is not None:
-            global_features = global_features.to(device)
+        graph_tensor = observation_to_graph_tensor(
+            observation,
+            use_virtual_node=model.config.use_virtual_node,
+            device=device,
+        )
+        global_features = None
+        if model.config.use_global_features:
+            global_features = observation_to_global_features(observation)
+            if device is not None:
+                global_features = global_features.to(device)
         q_values = model(graph_tensor, global_features)
 
-    # mask non-failed nodes already done via forward()
-    # now just argsort and take top-B among valid
-    valid_indices = [
-        graph_tensor.node_to_index[node] for node in valid_actions
-    ]
+    valid_indices = [graph_tensor.node_to_index[node] for node in valid_actions]
     valid_q = [(q_values[i].item(), graph_tensor.node_ids[i]) for i in valid_indices]
     valid_q.sort(key=lambda x: x[0], reverse=True)
 
