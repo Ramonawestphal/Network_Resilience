@@ -1,15 +1,6 @@
 graph:
-  generator: barabasi_albert
   n_range: [30, 50]
   m: 2
-
-cascade:
-  alpha: 0.6
-  pfail: 0.05
-
-recovery:
-  budget: 3
-  max_rounds: 5
 
 evaluation:
   tau: 0.8

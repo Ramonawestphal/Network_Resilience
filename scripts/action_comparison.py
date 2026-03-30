@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint",
         type=Path,
-        default=ROOT / "experiments" / "mc_returns" / "recovery_q.pt",
+        default=ROOT / "experiments" / "curriculum_easy" / "recovery_q.pt",
         help="Path to the trained checkpoint.",
     )
     parser.add_argument("--num-graphs", type=int, default=10, help="Number of graphs to compare.")

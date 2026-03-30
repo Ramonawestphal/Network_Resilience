@@ -32,6 +32,8 @@ from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.policies import choose_random_failed_node
 
+SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
+
 
 def load_config(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
@@ -102,6 +104,27 @@ def parse_args() -> argparse.Namespace:
         help="Optional max-rounds override for the grid evaluation.",
     )
     parser.add_argument(
+        "--policies",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Optional subset of policies to evaluate.",
+    )
+    parser.add_argument(
+        "--n-range",
+        type=int,
+        nargs=2,
+        metavar=("MIN_N", "MAX_N"),
+        default=None,
+        help="Optional graph-size range override for generated evaluation graphs.",
+    )
+    parser.add_argument(
+        "--graph-seed",
+        type=int,
+        default=None,
+        help="Optional graph-generation seed override for evaluation graphs.",
+    )
+    parser.add_argument(
         "--scale-budget",
         action="store_true",
         help="Scale the evaluation budget with graph size using beta = budget / reference_n.",
@@ -130,18 +153,40 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_eval_policy_factories(checkpoint_path: Path, *, base_seed: int) -> dict[str, Any]:
-    model, _ = load_q_network(checkpoint_path)
-    rl_policy = build_greedy_policy(model)
+def serialize_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path.resolve())
+
+
+def build_eval_policy_factories(
+    checkpoint_path: Path,
+    *,
+    base_seed: int,
+    selected_policies: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_policies = list(dict.fromkeys(selected_policies or list(SUPPORTED_POLICIES)))
+    invalid = [policy for policy in selected_policies if policy not in SUPPORTED_POLICIES]
+    if invalid:
+        raise ValueError(
+            f"Unsupported policies: {invalid}. Supported values: {list(SUPPORTED_POLICIES)}"
+        )
+
+    rl_policy = None
+    if "rl" in selected_policies:
+        model, _ = load_q_network(checkpoint_path)
+        rl_policy = build_greedy_policy(model)
     base_factories = build_policy_factories(base_seed=base_seed)
-    return {
-        "rl": lambda _graph_index, _seed: rl_policy,
-        "random": base_factories["random"],
-        "degree": base_factories["degree"],
-        "risk": base_factories["risk"],
-        "greedy": base_factories["greedy"],
-        "betweenness": base_factories["betweenness"],
-    }
+    policy_factories: dict[str, Any] = {}
+    for policy_name in selected_policies:
+        if policy_name == "rl":
+            if rl_policy is None:
+                raise ValueError("RL policy requested but no checkpoint could be loaded.")
+            policy_factories["rl"] = lambda _graph_index, _seed: rl_policy
+        else:
+            policy_factories[policy_name] = base_factories[policy_name]
+    return policy_factories
 
 
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
@@ -202,10 +247,49 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         "num_graphs": int(args.num_graphs) if args.num_graphs is not None else int(num_graphs),
         "seeds": list(args.seeds) if args.seeds is not None else list(seeds),
         "max_rounds": int(args.max_rounds) if args.max_rounds is not None else int(max_rounds),
-        "graph_seed": int(graph_seed),
-        "n_range": tuple(n_range),
+        "graph_seed": int(args.graph_seed) if args.graph_seed is not None else int(graph_seed),
+        "n_range": tuple(args.n_range) if args.n_range is not None else tuple(n_range),
         "m": int(m),
     }
+
+
+def estimate_b_star_for_policies(
+    *,
+    policy_names: list[str],
+    representative_graph: Any,
+    rl_policy: Any | None,
+    base_seed: int,
+    tau: float,
+    evaluation_budgets: list[int],
+    trials: int,
+    alpha: float,
+    pfail: float,
+    max_rounds: int | None,
+    env_kwargs: dict[str, object],
+) -> dict[str, int | None]:
+    base_factories = build_policy_factories(base_seed=base_seed)
+    b_star: dict[str, int | None] = {}
+    for policy_name in policy_names:
+        if policy_name == "rl":
+            if rl_policy is None:
+                raise ValueError("Cannot estimate RL b_star without an RL policy.")
+            policy = rl_policy
+        elif policy_name == "random":
+            policy = lambda observation: choose_random_failed_node(observation, rng=Random(0))
+        else:
+            policy = base_factories[policy_name](0, 0)
+        b_star[policy_name] = estimate_minimum_budget(
+            representative_graph,
+            policy,
+            tau=tau,
+            budgets=evaluation_budgets,
+            trials=trials,
+            alpha=alpha,
+            pfail=pfail,
+            max_rounds=max_rounds,
+            env_kwargs=env_kwargs,
+        )[0]
+    return b_star
 
 
 def compute_scaled_budget(*, budget: int, reference_n: int, num_nodes: int) -> int:
@@ -479,14 +563,16 @@ def main() -> None:
     policy_factories = build_eval_policy_factories(
         args.checkpoint,
         base_seed=int(training["seed"]),
+        selected_policies=args.policies,
     )
-    rl_policy = policy_factories["rl"](0, 0)
+    rl_policy = policy_factories["rl"](0, 0) if "rl" in policy_factories else None
+    selected_policy_names = list(policy_factories.keys())
 
     graphs = make_graph_batch(
         num_graphs=int(training["benchmark_graphs"]),
-        n_range=tuple(graph_cfg["n_range"]),
+        n_range=tuple(args.n_range) if args.n_range is not None else tuple(graph_cfg["n_range"]),
         m=int(graph_cfg["m"]),
-        seed=int(training["seed"]) + 1000,
+        seed=int(args.graph_seed) if args.graph_seed is not None else int(training["seed"]) + 1000,
     )
 
     tau = float(evaluation["tau"])
@@ -529,75 +615,19 @@ def main() -> None:
 
     representative_graph = graphs[0]
     evaluation_budgets = evaluation["budgets"]
-    base_factories = build_policy_factories(base_seed=int(training["seed"]))
-    b_star = {
-        "rl": estimate_minimum_budget(
-            representative_graph,
-            rl_policy,
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-        "degree": estimate_minimum_budget(
-            representative_graph,
-            base_factories["degree"](0, 0),
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-        "greedy": estimate_minimum_budget(
-            representative_graph,
-            base_factories["greedy"](0, 0),
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-        "risk": estimate_minimum_budget(
-            representative_graph,
-            base_factories["risk"](0, 0),
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-        "betweenness": estimate_minimum_budget(
-            representative_graph,
-            base_factories["betweenness"](0, 0),
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-        "random": estimate_minimum_budget(
-            representative_graph,
-            lambda observation: choose_random_failed_node(observation, rng=Random(0)),
-            tau=tau,
-            budgets=evaluation_budgets,
-            trials=len(training["benchmark_seeds"]),
-            alpha=float(regime["alpha"]),
-            pfail=float(regime["pfail"]),
-            max_rounds=int(regime["max_rounds"]),
-            env_kwargs=env_kwargs,
-        )[0],
-    }
+    b_star = estimate_b_star_for_policies(
+        policy_names=selected_policy_names,
+        representative_graph=representative_graph,
+        rl_policy=rl_policy,
+        base_seed=int(training["seed"]),
+        tau=tau,
+        evaluation_budgets=list(evaluation_budgets),
+        trials=len(training["benchmark_seeds"]),
+        alpha=float(regime["alpha"]),
+        pfail=float(regime["pfail"]),
+        max_rounds=int(regime["max_rounds"]),
+        env_kwargs=env_kwargs,
+    )
     for policy_name, value in b_star.items():
         serialized[policy_name]["b_star"] = value
     serialized["scaling"] = scaling_metadata
@@ -646,8 +676,9 @@ def main() -> None:
         reference_n=args.reference_n,
     )
     grid_results = {
-        "checkpoint": str(args.checkpoint),
+        "checkpoint": serialize_path(args.checkpoint),
         "grid_source": args.grid_source,
+        "policies": selected_policy_names,
         "env": env_kwargs,
         "grid_spec": {
             key: list(value) if isinstance(value, tuple) else value
@@ -663,15 +694,21 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "evaluation_summary.json"
     grid_path = output_dir / "evaluation_grid_summary.json"
+    summary_payload = {
+        "checkpoint": serialize_path(args.checkpoint),
+        "config": serialize_path(args.config),
+        "policies": selected_policy_names,
+        **serialized,
+    }
     with summary_path.open("w", encoding="utf-8") as file:
-        json.dump(serialized, file, indent=2)
+        json.dump(summary_payload, file, indent=2)
     with grid_path.open("w", encoding="utf-8") as file:
         json.dump(grid_results, file, indent=2)
 
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")
-    for policy_name, metrics in serialized.items():
-        if policy_name == "scaling":
+    for policy_name, metrics in summary_payload.items():
+        if policy_name in {"checkpoint", "config", "policies", "scaling"}:
             continue
         print(
             f"{policy_name}: final_anc={metrics['final_anc_mean']:.3f}, "
