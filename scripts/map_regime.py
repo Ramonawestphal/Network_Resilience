@@ -210,6 +210,7 @@ def main() -> None:
     regime_config = config["regime_mapping"]
     graph_config = config["graph"]
     evaluation_config = config["evaluation"]
+    budget_scaling = config.get("budget_scaling", {})
 
     output_dir = ROOT / regime_config["output_dir"]
     tau = float(evaluation_config["tau"])
@@ -239,6 +240,8 @@ def main() -> None:
         hopeless_threshold=float(regime_config["hopeless_threshold"]),
         trivial_threshold=float(regime_config["trivial_threshold"]),
         spread_threshold=float(regime_config["spread_threshold"]),
+        scale_budget=bool(budget_scaling.get("enabled", True)),
+        reference_n=int(budget_scaling.get("reference_n", 40)),
     )
 
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]

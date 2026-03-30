@@ -2,6 +2,10 @@ graph:
   n_range: [30, 50]
   m: 2
 
+budget_scaling:
+  enabled: true
+  reference_n: 40
+
 evaluation:
   tau: 0.8
   trials: 100
@@ -13,8 +17,8 @@ regime_mapping:
   graph_seed: 123
   num_graphs: 3
   seeds: [0, 1, 2, 3, 4, 5]
-  alpha_values: [0.2, 0.4, 0.6, 0.8]
-  pfail_values: [0.02, 0.05, 0.08, 0.1]
+  alpha_values: [0.10, 0.15, 0.20, 0.25]
+  pfail_values: [0.05, 0.08, 0.10, 0.15]
   budgets: [1, 2, 3, 4]
   policies: [random, degree, risk, greedy, betweenness]
   hopeless_threshold: 0.25
@@ -27,8 +31,8 @@ hard_regime:
   pfail: 0.15
   alpha_values: [0.10, 0.15, 0.20]
   pfail_values: [0.10, 0.15, 0.20]
-  budget: 2
-  max_rounds: 10
+  budget: 4
+  max_rounds: 5
   n_range: [30, 50]
   m: 2
   num_graphs: 30
@@ -46,7 +50,7 @@ training:
     # If provided, each episode samples one alpha and one pfail uniformly.
     alpha_values: [0.10, 0.15, 0.20]
     pfail_values: [0.10, 0.15, 0.20]
-    budget: 2
+    budget: 4
     max_rounds: 5
     capacity_noise: 0.0
     failure_bias: uniform

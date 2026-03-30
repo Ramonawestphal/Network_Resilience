@@ -4,6 +4,7 @@ from collections import Counter
 import networkx as nx
 import torch
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor
@@ -69,6 +70,7 @@ def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path
         replay_capacity=256,
         alpha_values=(0.2,),
         pfail_values=(0.1,),
+        scale_budget=False,
         validation_graphs=1,
         validation_seeds=(0,),
         validation_every=100_000,
@@ -94,6 +96,7 @@ def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):
         pfail=0.10,
         alpha_values=(0.10,),
         pfail_values=(0.10,),
+        scale_budget=False,
         num_episodes=6,
         replay_capacity=64,
         warmup_transitions=4,
@@ -132,6 +135,7 @@ def test_validate_policy_is_deterministic_with_fixed_graphs():
         pfail=0.10,
         alpha_values=(0.10, 0.15, 0.20),
         pfail_values=(0.10, 0.15, 0.20),
+        scale_budget=False,
         validation_graphs=1,
         validation_seeds=(0,),
         validation_seed=42,
@@ -166,6 +170,7 @@ def test_train_recovery_agent_cycles_all_regime_combinations_once(tmp_path: Path
         batch_size=4,
         alpha_values=(0.10, 0.15, 0.20),
         pfail_values=(0.10, 0.15, 0.20),
+        scale_budget=False,
         validation_graphs=1,
         validation_seeds=(0,),
         validation_every=100_000,
@@ -224,3 +229,10 @@ def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
 
     assert losses[-1] <= losses[0]
     assert agreement > 0.60
+
+
+def test_budget_scaling_helper_matches_canonical_reference_rule():
+    assert compute_scaled_budget(2, num_nodes=40, reference_n=40, enabled=True) == 2
+    assert compute_scaled_budget(2, num_nodes=30, reference_n=40, enabled=True) == 2
+    assert compute_scaled_budget(2, num_nodes=50, reference_n=40, enabled=True) == 2
+    assert compute_scaled_budget(2, num_nodes=100, reference_n=40, enabled=True) == 5

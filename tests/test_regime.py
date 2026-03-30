@@ -1,8 +1,10 @@
 import networkx as nx
 import pytest
 
+import cascading_rl.evaluation.regime as regime_module
 from cascading_rl.evaluation import (
     AggregateMetric,
+    EpisodeResult,
     PolicyEvaluationSummary,
     RegimeCellResult,
     build_policy_factories,
@@ -69,6 +71,55 @@ def test_build_regime_cells_produces_budget_sensitivity_for_same_alpha_pfail():
 
     assert len(cells) == 2
     assert all(cell.diagnostics.budget_sensitivity is not None for cell in cells)
+
+
+def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch):
+    graphs = [nx.path_graph(40), nx.path_graph(100)]
+    budgets_seen: list[tuple[int, int]] = []
+
+    class DummyEnv:
+        def __init__(
+            self,
+            graph,
+            alpha,
+            pfail,
+            budget,
+            max_rounds=None,
+            seed=None,
+            **kwargs,
+        ):
+            self.graph = graph
+            self.budget = budget
+            budgets_seen.append((graph.number_of_nodes(), budget))
+
+    def fake_rollout_policy(env, policy, seed=None, tau=None):
+        return EpisodeResult(
+            total_reward=0.0,
+            final_anc=float(env.budget),
+            steps=0,
+            rounds=0,
+            remaining_failed_nodes=0,
+            threshold_step=None,
+            threshold_round=None,
+        )
+
+    monkeypatch.setattr(regime_module, "RecoveryEnv", DummyEnv)
+    monkeypatch.setattr(regime_module, "rollout_policy", fake_rollout_policy)
+
+    summaries = evaluate_policy_factories_on_graphs(
+        graphs,
+        {"degree": lambda _graph_index, _seed: lambda _observation: 0},
+        alpha=0.2,
+        pfail=0.1,
+        budget=2,
+        seeds=[0],
+        tau=0.5,
+        scale_budget=True,
+        reference_n=40,
+    )
+
+    assert budgets_seen == [(40, 2), (100, 5)]
+    assert summaries["degree"].final_anc.mean == pytest.approx(3.5)
 
 
 def _summary(

@@ -13,6 +13,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
@@ -38,6 +39,8 @@ class TrainingConfig:
     alpha_values: tuple[float, ...] = (0.10, 0.15, 0.20)
     pfail_values: tuple[float, ...] = (0.10, 0.15, 0.20)
     budget: int = 2
+    scale_budget: bool = True
+    budget_reference_n: int = 40
     max_rounds: int = 5
     capacity_noise: float = 0.0
     failure_bias: str = "uniform"
@@ -219,6 +222,15 @@ def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
     }
 
 
+def _resolve_budget_for_graph(config: TrainingConfig, graph: Any) -> int:
+    return compute_scaled_budget(
+        config.budget,
+        num_nodes=graph.number_of_nodes(),
+        reference_n=config.budget_reference_n,
+        enabled=config.scale_budget,
+    )
+
+
 def _compute_discounted_returns(
     transitions: Sequence[Transition],
     *,
@@ -244,6 +256,8 @@ def generate_imitation_data(
     *,
     env_kwargs: dict[str, Any] | None = None,
     base_seed: int = 0,
+    scale_budget: bool = False,
+    budget_reference_n: int = 40,
 ) -> list[ImitationSample]:
     if num_seeds < 1:
         raise ValueError("num_seeds must be at least 1.")
@@ -252,13 +266,19 @@ def generate_imitation_data(
     rng = Random(base_seed)
     samples: list[ImitationSample] = []
     for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=budget_reference_n,
+            enabled=scale_budget,
+        )
         for seed_offset in range(num_seeds):
             rollout_seed = base_seed + graph_index * 10_000 + seed_offset
             env = RecoveryEnv(
                 graph,
                 alpha=alpha,
                 pfail=pfail,
-                budget=budget,
+                budget=resolved_budget,
                 max_rounds=max_rounds,
                 seed=rollout_seed,
                 **env_kwargs,
@@ -361,6 +381,8 @@ def validate_policy(
         seeds=config.validation_seeds,
         tau=0.8,
         env_kwargs=env_kwargs,
+        scale_budget=config.scale_budget,
+        reference_n=config.budget_reference_n,
     )
     reference_summary = reference_summaries["rl"]
     grid_cells: list[dict[str, float]] = []
@@ -376,6 +398,8 @@ def validate_policy(
                 seeds=config.validation_seeds,
                 tau=0.8,
                 env_kwargs=env_kwargs,
+                scale_budget=config.scale_budget,
+                reference_n=config.budget_reference_n,
             )["rl"]
             grid_cells.append(
                 {
@@ -401,6 +425,8 @@ def validate_policy(
             seeds=config.validation_seeds,
             tau=0.8,
             env_kwargs=env_kwargs,
+            scale_budget=config.scale_budget,
+            reference_n=config.budget_reference_n,
         )["rl"]
         per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
     return {
@@ -412,6 +438,8 @@ def validate_policy(
             "alpha": config.alpha,
             "pfail": config.pfail,
             "budget": config.budget,
+            "scale_budget": config.scale_budget,
+            "budget_reference_n": config.budget_reference_n,
             "max_rounds": config.max_rounds,
             "final_anc_mean": reference_summary.final_anc.mean,
             "final_anc_stderr": reference_summary.final_anc.stderr,
@@ -508,6 +536,8 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             policy=choose_highest_degree_failed_node,
             env_kwargs=_env_kwargs_from_config(config),
             base_seed=config.seed + 20_000,
+            scale_budget=config.scale_budget,
+            budget_reference_n=config.budget_reference_n,
         )
         model, imitation_losses = pretrain_by_imitation(
             model,
@@ -539,11 +569,12 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         graph_size = rng.randint(config.n_range[0], config.n_range[1])
         graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
+        resolved_budget = _resolve_budget_for_graph(config, graph)
         env = RecoveryEnv(
             graph,
             alpha=alpha,
             pfail=pfail,
-            budget=config.budget,
+            budget=resolved_budget,
             max_rounds=config.max_rounds,
             seed=graph_seed,
             capacity_noise=config.capacity_noise,

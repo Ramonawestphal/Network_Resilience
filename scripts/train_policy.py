@@ -30,6 +30,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
+    budget_scaling = config.get("budget_scaling", {})
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
     obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
@@ -54,6 +55,10 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
             else defaults.pfail_values
         ),
         budget=int(regime["budget"]),
+        scale_budget=bool(budget_scaling.get("enabled", defaults.scale_budget)),
+        budget_reference_n=int(
+            budget_scaling.get("reference_n", defaults.budget_reference_n)
+        ),
         max_rounds=int(regime["max_rounds"]),
         capacity_noise=float(regime.get("capacity_noise", defaults.capacity_noise)),
         failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),

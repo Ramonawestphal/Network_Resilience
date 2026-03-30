@@ -15,6 +15,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import (
     RegimeCellResult,
@@ -137,11 +138,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reference-n",
         type=int,
-        default=40,
+        default=None,
         help=(
             "Reference graph size used to compute the recovery rate beta = budget / "
-            "reference_n when --scale-budget is active. Default: 40 (midpoint of the "
-            "default training range [30, 50])."
+            "reference_n when budget scaling is active. Defaults to config.budget_scaling.reference_n "
+            f"or {DEFAULT_REFERENCE_N} when omitted."
         ),
     )
     parser.add_argument(
@@ -266,6 +267,8 @@ def estimate_b_star_for_policies(
     pfail: float,
     max_rounds: int | None,
     env_kwargs: dict[str, object],
+    scale_budget: bool,
+    reference_n: int,
 ) -> dict[str, int | None]:
     base_factories = build_policy_factories(base_seed=base_seed)
     b_star: dict[str, int | None] = {}
@@ -288,14 +291,10 @@ def estimate_b_star_for_policies(
             pfail=pfail,
             max_rounds=max_rounds,
             env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            reference_n=reference_n,
         )[0]
     return b_star
-
-
-def compute_scaled_budget(*, budget: int, reference_n: int, num_nodes: int) -> int:
-    beta = budget / reference_n
-    return max(1, round(beta * num_nodes))
-
 
 def compute_scaled_max_rounds(*, pfail: float, num_nodes: int, budget: int) -> int:
     return max(10, math.ceil(3 * pfail * num_nodes / budget))
@@ -332,9 +331,9 @@ def resolve_budget_and_rounds(
 ) -> tuple[int, int | None]:
     resolved_budget = (
         compute_scaled_budget(
-            budget=reference_budget,
-            reference_n=reference_n,
             num_nodes=num_nodes,
+            reference_budget=reference_budget,
+            reference_n=reference_n,
         )
         if scale_budget
         else budget
@@ -541,38 +540,57 @@ def build_regime_cells_with_optional_scaling(
 
 def main() -> None:
     args = parse_args()
-    if args.reference_n < 1:
-        raise ValueError("--reference-n must be at least 1.")
-
     config = load_config(args.config)
     training = config["training"]
     regime = training["regime"]
     graph_cfg = training["graph"]
     evaluation = config["evaluation"]
+    budget_scaling_cfg = config.get("budget_scaling", {})
+    scale_budget_active = bool(args.scale_budget or budget_scaling_cfg.get("enabled", False))
+    reference_n = int(
+        args.reference_n
+        if args.reference_n is not None
+        else budget_scaling_cfg.get("reference_n", DEFAULT_REFERENCE_N)
+    )
+    if reference_n < 1:
+        raise ValueError("--reference-n must be at least 1.")
     env_kwargs = resolve_env_kwargs(config)
     benchmark_reference_budget = (
         int(args.budgets[0]) if args.budgets is not None else int(regime["budget"])
     )
+    benchmark_graph_seed = (
+        int(args.graph_seed) if args.graph_seed is not None else int(training["seed"]) + 1000
+    )
+    grid_spec = resolve_grid_spec(config, args)
     scaling_metadata = build_scaling_metadata(
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=benchmark_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
 
-    policy_factories = build_eval_policy_factories(
+    benchmark_policy_factories = build_eval_policy_factories(
         args.checkpoint,
-        base_seed=int(training["seed"]),
+        base_seed=benchmark_graph_seed,
         selected_policies=args.policies,
     )
-    rl_policy = policy_factories["rl"](0, 0) if "rl" in policy_factories else None
-    selected_policy_names = list(policy_factories.keys())
+    grid_policy_factories = build_eval_policy_factories(
+        args.checkpoint,
+        base_seed=int(grid_spec["graph_seed"]),
+        selected_policies=args.policies,
+    )
+    rl_policy = (
+        benchmark_policy_factories["rl"](0, 0)
+        if "rl" in benchmark_policy_factories
+        else None
+    )
+    selected_policy_names = list(benchmark_policy_factories.keys())
 
     graphs = make_graph_batch(
         num_graphs=int(training["benchmark_graphs"]),
         n_range=tuple(args.n_range) if args.n_range is not None else tuple(graph_cfg["n_range"]),
         m=int(graph_cfg["m"]),
-        seed=int(args.graph_seed) if args.graph_seed is not None else int(training["seed"]) + 1000,
+        seed=benchmark_graph_seed,
     )
 
     tau = float(evaluation["tau"])
@@ -581,14 +599,14 @@ def main() -> None:
         pfail=float(regime["pfail"]),
         budget=int(regime["budget"]),
         max_rounds=int(regime["max_rounds"]),
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=benchmark_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
     summaries = evaluate_policy_factories_with_optional_scaling(
         graphs,
-        policy_factories,
+        benchmark_policy_factories,
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
         budget=int(regime["budget"]),
@@ -596,10 +614,10 @@ def main() -> None:
         seeds=list(training["benchmark_seeds"]),
         tau=tau,
         env_kwargs=env_kwargs,
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=benchmark_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
 
     serialized = {
@@ -627,18 +645,19 @@ def main() -> None:
         pfail=float(regime["pfail"]),
         max_rounds=int(regime["max_rounds"]),
         env_kwargs=env_kwargs,
+        scale_budget=scale_budget_active,
+        reference_n=reference_n,
     )
     for policy_name, value in b_star.items():
         serialized[policy_name]["b_star"] = value
     serialized["scaling"] = scaling_metadata
 
-    grid_spec = resolve_grid_spec(config, args)
     grid_reference_budget = int(grid_spec["budgets"][0])
     grid_scaling_metadata = build_scaling_metadata(
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=grid_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
     grid_graphs = make_graph_batch(
         num_graphs=grid_spec["num_graphs"],
@@ -652,14 +671,14 @@ def main() -> None:
         pfail=float(grid_spec["pfail_values"][0]),
         budget=int(grid_spec["budgets"][0]),
         max_rounds=grid_spec["max_rounds"],
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=grid_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
     cells = build_regime_cells_with_optional_scaling(
         grid_graphs,
-        policy_factories,
+        grid_policy_factories,
         alpha_values=grid_spec["alpha_values"],
         pfail_values=grid_spec["pfail_values"],
         budgets=grid_spec["budgets"],
@@ -670,10 +689,10 @@ def main() -> None:
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
         env_kwargs=env_kwargs,
-        scale_budget=args.scale_budget,
+        scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=grid_reference_budget,
-        reference_n=args.reference_n,
+        reference_n=reference_n,
     )
     grid_results = {
         "checkpoint": serialize_path(args.checkpoint),

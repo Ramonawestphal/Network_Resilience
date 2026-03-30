@@ -82,6 +82,7 @@ def main() -> None:
     hard = config["hard_regime"]
     evaluation = config["evaluation"]
     threshold_cfg = config["regime_mapping"]
+    budget_scaling = config.get("budget_scaling", {})
 
     tau = float(evaluation["tau"])
     alpha_values = list(args.alpha_values) if args.alpha_values is not None else list(
@@ -129,6 +130,8 @@ def main() -> None:
         hopeless_threshold=float(threshold_cfg["hopeless_threshold"]),
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
+        scale_budget=bool(budget_scaling.get("enabled", True)),
+        reference_n=int(budget_scaling.get("reference_n", 40)),
     )
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
     bucket_summary = summarize_regime_buckets(cells)
@@ -145,6 +148,8 @@ def main() -> None:
                 "checkpoint": str(args.checkpoint) if args.checkpoint.exists() else None,
                 "tau": tau,
                 "budget": budget,
+                "scale_budget": bool(budget_scaling.get("enabled", True)),
+                "budget_reference_n": int(budget_scaling.get("reference_n", 40)),
                 "max_rounds": max_rounds,
                 "num_graphs": num_graphs,
                 "seeds": seeds,

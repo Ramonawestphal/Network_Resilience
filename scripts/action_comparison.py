@@ -10,6 +10,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
@@ -21,14 +22,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint",
         type=Path,
-        default=ROOT / "experiments" / "curriculum_easy" / "recovery_q.pt",
+        default=ROOT / "experiments" / "learner" / "recovery_q.pt",
         help="Path to the trained checkpoint.",
     )
     parser.add_argument("--num-graphs", type=int, default=10, help="Number of graphs to compare.")
     parser.add_argument("--seed", type=int, default=42, help="Seed for graph generation and resets.")
     parser.add_argument("--alpha", type=float, default=0.20, help="Cascade alpha.")
     parser.add_argument("--pfail", type=float, default=0.10, help="Initial failure probability.")
-    parser.add_argument("--budget", type=int, default=2, help="Recovery budget per round.")
+    parser.add_argument(
+        "--budget",
+        type=int,
+        default=2,
+        help="Reference recovery budget at the reference graph size.",
+    )
+    parser.add_argument(
+        "--reference-n",
+        type=int,
+        default=DEFAULT_REFERENCE_N,
+        help="Reference graph size used for canonical budget scaling.",
+    )
     parser.add_argument("--max-rounds", type=int, default=10, help="Maximum number of rounds.")
     parser.add_argument(
         "--decision-steps",
@@ -74,11 +86,17 @@ def main() -> None:
     sampled_graphs = 0
 
     for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            args.budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=args.reference_n,
+            enabled=True,
+        )
         env = RecoveryEnv(
             graph,
             alpha=args.alpha,
             pfail=args.pfail,
-            budget=args.budget,
+            budget=resolved_budget,
             max_rounds=args.max_rounds,
             seed=args.seed + graph_index,
         )

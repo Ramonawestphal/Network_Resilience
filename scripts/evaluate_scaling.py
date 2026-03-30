@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pfail", type=float, required=True, help="Initial failure probability.")
     parser.add_argument("--budget", type=int, required=True, help="Recovery budget.")
     parser.add_argument("--max-rounds", type=int, required=True, help="Maximum recovery rounds.")
+    parser.add_argument(
+        "--reference-n",
+        type=int,
+        default=None,
+        help="Optional reference graph size for canonical budget scaling.",
+    )
     parser.add_argument("--m", type=int, default=2, help="BA attachment parameter.")
     parser.add_argument(
         "--policies",
@@ -143,11 +149,14 @@ def main() -> None:
             str(args.graph_seed + graph_size),
             "--output-dir",
             str(temp_output_dir),
+            "--scale-budget",
             "--policies",
             *args.policies,
             "--seeds",
             *[str(seed) for seed in args.seeds],
         ]
+        if args.reference_n is not None:
+            command.extend(["--reference-n", str(args.reference_n)])
         if args.tau is not None:
             command.extend(["--tau", str(args.tau)])
 

@@ -17,6 +17,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
 from cascading_rl.dynamics.cascade import (
     initialize_loads_and_capacities,
 )
@@ -99,7 +100,11 @@ def rollout_frames(
 
         frames.append(
             Frame(
-                label=f"Round {info['action_round']} repair {info['action_index_in_round']}",
+                label=(
+                    f"Round {info['action_round']} repair {info['action_index_in_round']}"
+                    if not info["cascade_executed"]
+                    else f"Round {info['action_round']} cascade after repair {info['action_index_in_round']}"
+                ),
                 observation=next_observation,
                 anc=float(info["anc"]),
                 reward=reward,
@@ -188,7 +193,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--m", type=int, default=2, help="Edges per new node in the BA graph.")
     parser.add_argument("--alpha", type=float, default=0.2, help="Capacity tolerance parameter.")
     parser.add_argument("--pfail", type=float, default=0.1, help="Initial node failure probability.")
-    parser.add_argument("--budget", type=int, default=3, help="Recovery budget.")
+    parser.add_argument(
+        "--budget",
+        type=int,
+        default=3,
+        help="Reference recovery budget at the reference graph size.",
+    )
+    parser.add_argument(
+        "--reference-n",
+        type=int,
+        default=DEFAULT_REFERENCE_N,
+        help="Reference graph size used for canonical budget scaling.",
+    )
     parser.add_argument("--max-rounds", type=int, default=5, help="Maximum number of repair rounds.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(
@@ -209,11 +225,17 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     graph = make_ba_graph(n=args.n, m=args.m, seed=args.seed)
+    resolved_budget = compute_scaled_budget(
+        args.budget,
+        num_nodes=graph.number_of_nodes(),
+        reference_n=args.reference_n,
+        enabled=True,
+    )
     env = RecoveryEnv(
         graph,
         alpha=args.alpha,
         pfail=args.pfail,
-        budget=args.budget,
+        budget=resolved_budget,
         max_rounds=args.max_rounds,
         seed=args.seed,
     )

@@ -6,6 +6,7 @@ from random import Random
 
 import networkx as nx
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     PolicyEvaluationSummary,
@@ -78,19 +79,27 @@ def evaluate_policy_factories_on_graphs(
     seeds: Iterable[int],
     tau: float,
     env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policies across fixed graph instances and matched seeds."""
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
     resolved_env_kwargs = dict(env_kwargs or {})
 
     for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
         for seed in seeds:
             for policy_name, policy_factory in policy_factories.items():
                 env = RecoveryEnv(
                     graph,
                     alpha=alpha,
                     pfail=pfail,
-                    budget=budget,
+                    budget=resolved_budget,
                     max_rounds=max_rounds,
                     seed=seed,
                     **resolved_env_kwargs,
@@ -210,6 +219,8 @@ def build_regime_cells(
     trivial_threshold: float = 0.75,
     spread_threshold: float = 0.05,
     env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
     cells: list[RegimeCellResult] = []
@@ -229,6 +240,8 @@ def build_regime_cells(
                     seeds=seeds,
                     tau=tau,
                     env_kwargs=env_kwargs,
+                    scale_budget=scale_budget,
+                    reference_n=reference_n,
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
                 grouped_best_anc.setdefault((alpha, pfail), []).append(

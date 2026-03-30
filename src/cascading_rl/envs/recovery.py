@@ -96,14 +96,15 @@ class RecoveryObservation:
 
 
 class RecoveryEnv:
-    """Budget-constrained recovery environment with post-action cascade waves.
+    """Budget-constrained recovery environment with batch-per-round cascade waves.
 
     Step semantics:
       1) Reactivate exactly one failed node (action).
       2) Reward = ANC(after reactivation, before cascade) - ANC(before), so cascade
          side-effects do not affect this step's credit assignment.
-      3) Then advance the cascade by one wave (if the pre-step frontier was non-empty).
-      4) Budget is per recovery round; rounds repeat until solved or max_rounds is reached.
+      3) If repair budget remains in the current round, do not advance the cascade yet.
+      4) When the round budget is exhausted, advance the cascade by exactly one wave.
+      5) Rounds repeat until solved or max_rounds is reached.
 
     Partial observability (``obs_hops=k``): the agent only sees load/capacity for nodes
     within ``k`` hops of **any** currently failed node (partial observability around the
@@ -203,7 +204,6 @@ class RecoveryEnv:
         action_round = self.current_round
         action_index_in_round = self.budget - self.remaining_budget + 1
         previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        frontier_before = set(self.state.frontier)
         self.state = reactivate_node(self.state, action)
         self.remaining_budget -= 1
 
@@ -212,13 +212,13 @@ class RecoveryEnv:
 
         newly_failed: list[Node] = []
         cascade_executed = False
-        if frontier_before and self.state.failed:
+        round_complete = self.remaining_budget == 0
+        if round_complete and self.state.frontier and self.state.failed:
             cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
         anc_after_cascade = accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
-        round_complete = self.remaining_budget == 0
         exhausted_rounds = action_round >= self.max_rounds
         if not self.state.failed:
             done = True

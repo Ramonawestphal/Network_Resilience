@@ -6,6 +6,7 @@ from statistics import mean, pstdev
 
 import networkx as nx
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import rollout_policy
 
@@ -22,6 +23,8 @@ def estimate_minimum_budget(
     pfail: float = 0.1,
     max_rounds: int | None = None,
     env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> tuple[int | None, dict[int, tuple[float, float]]]:
     """Estimate the smallest budget whose expected final ANC exceeds tau."""
     if trials < 1:
@@ -35,12 +38,18 @@ def estimate_minimum_budget(
 
     for budget in budgets:
         anc_values = []
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
         for seed in range(trials):
             env = RecoveryEnv(
                 graph,
                 alpha=alpha,
                 pfail=pfail,
-                budget=budget,
+                budget=resolved_budget,
                 max_rounds=max_rounds,
                 seed=seed,
                 **resolved_env_kwargs,

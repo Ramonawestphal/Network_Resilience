@@ -19,7 +19,42 @@ def test_environment_step_rewards_connectivity_gain():
     assert reward > 0.0
     assert 0 in observation.active
     assert info["anc"] == 9 / 16
+    assert info["cascade_executed"] is False
     assert done is False
+
+
+def test_environment_waits_until_round_end_before_cascade():
+    graph = nx.star_graph(4)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=3)
+
+    env.reset()
+    env.state.active = {0, 2}
+    env.state.failed = {1, 3, 4}
+    env.state.frontier = {1}
+    env.state.loads = {0: 0.0, 1: 3.0, 2: 0.0, 3: 0.0, 4: 0.0}
+    env.state.capacities = {0: 2.0, 1: 3.0, 2: 2.0, 3: 2.0, 4: 2.0}
+    env.remaining_budget = 2
+    env.current_round = 1
+
+    obs_after_first, _, done_first, info_first = env.step(3)
+
+    assert done_first is False
+    assert info_first["cascade_executed"] is False
+    assert info_first["round_complete"] is False
+    assert info_first["newly_failed_nodes"] == []
+    assert obs_after_first.current_round == 1
+    assert obs_after_first.remaining_budget == 1
+    assert obs_after_first.frontier == frozenset({1})
+
+    obs_after_second, _, done_second, info_second = env.step(4)
+
+    assert done_second is False
+    assert info_second["cascade_executed"] is True
+    assert info_second["round_complete"] is True
+    assert info_second["newly_failed_nodes"] == [0]
+    assert obs_after_second.current_round == 2
+    assert obs_after_second.remaining_budget == 2
+    assert 0 in obs_after_second.failed
 
 
 def test_environment_starts_new_round_when_budget_is_exhausted():
@@ -39,6 +74,7 @@ def test_environment_starts_new_round_when_budget_is_exhausted():
 
     assert done is False
     assert info["round_complete"] is True
+    assert info["cascade_executed"] is False
     assert info["action_round"] == 1
     assert observation.current_round == 2
     assert observation.remaining_budget == 1
