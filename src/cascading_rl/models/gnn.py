@@ -30,9 +30,52 @@ GLOBAL_FEATURE_NAMES = (
 )
 
 
+def _canonicalize_feature_subset(
+    available_features: tuple[str, ...],
+    requested_features: tuple[str, ...] | None,
+    *,
+    feature_group: str,
+) -> tuple[str, ...]:
+    if requested_features is None:
+        return available_features
+
+    requested_set = set(requested_features)
+    if len(requested_set) != len(requested_features):
+        raise ValueError(f"{feature_group} feature subsets must not contain duplicates.")
+
+    unknown_features = tuple(
+        feature_name
+        for feature_name in requested_features
+        if feature_name not in available_features
+    )
+    if unknown_features:
+        raise ValueError(
+            f"Unknown {feature_group} feature(s): {unknown_features}. "
+            f"Expected a subset of {available_features}."
+        )
+
+    return tuple(
+        feature_name
+        for feature_name in available_features
+        if feature_name in requested_set
+    )
+
+
 def observation_to_global_features(
     observation: RecoveryObservation,
+    active_global_features: tuple[str, ...] | None = None,
 ) -> torch.Tensor:
+    """Compute explicit global scalars for an observation.
+
+    Parameters
+    ----------
+    observation:
+        The environment observation to featurize.
+    active_global_features:
+        Optional subset of `GLOBAL_FEATURE_NAMES` to include. When provided,
+        features are returned in the canonical order defined by
+        `GLOBAL_FEATURE_NAMES`, not in caller order.
+    """
     num_nodes = observation.graph.number_of_nodes()
     active = observation.active
     failed = observation.failed
@@ -43,7 +86,7 @@ def observation_to_global_features(
         for v in active
     ] or [0.0]
 
-    return torch.tensor(
+    global_features = torch.tensor(
         [
             len(failed) / max(num_nodes, 1),
             sum(ratios) / len(ratios),
@@ -51,6 +94,17 @@ def observation_to_global_features(
         ],
         dtype=torch.float32,
     )
+    selected_global_features = _canonicalize_feature_subset(
+        GLOBAL_FEATURE_NAMES,
+        active_global_features,
+        feature_group="global",
+    )
+    selected_global_feature_set = set(selected_global_features)
+    feature_mask = torch.tensor(
+        [feature_name in selected_global_feature_set for feature_name in GLOBAL_FEATURE_NAMES],
+        dtype=torch.bool,
+    )
+    return global_features[feature_mask]
 
 
 class GlobalReadout(nn.Module):
@@ -93,16 +147,42 @@ class GraphTensor:
 def observation_to_graph_tensor(
     observation: RecoveryObservation,
     *,
+    active_node_features: tuple[str, ...] | None = None,
     use_virtual_node: bool = False,
     device: torch.device | str | None = None,
 ) -> GraphTensor:
-    """Convert a RecoveryObservation into tensors for the learner."""
+    """Convert a `RecoveryObservation` into graph tensors for the learner.
+
+    Parameters
+    ----------
+    observation:
+        The environment observation to featurize.
+    active_node_features:
+        Optional subset of `FEATURE_NAMES` to include. When provided, features
+        are returned in the canonical order defined by `FEATURE_NAMES`, not in
+        caller order.
+    use_virtual_node:
+        Whether to append the virtual node and its incident edges.
+    device:
+        Optional device to move the returned tensors to.
+    """
     node_ids = tuple(observation.graph.nodes())
     node_to_index = {node: index for index, node in enumerate(node_ids)}
     num_real_nodes = len(node_ids)
     num_nodes = num_real_nodes + int(use_virtual_node)
     if use_virtual_node:
         node_to_index[VIRTUAL_NODE_ID] = num_real_nodes
+
+    selected_node_features = _canonicalize_feature_subset(
+        FEATURE_NAMES,
+        active_node_features,
+        feature_group="node",
+    )
+    selected_node_feature_set = set(selected_node_features)
+    feature_mask = torch.tensor(
+        [feature_name in selected_node_feature_set for feature_name in FEATURE_NAMES],
+        dtype=torch.bool,
+    )
 
     max_load = max((float(value) for value in observation.loads.values()), default=1.0)
     max_capacity = max((float(value) for value in observation.capacities.values()), default=1.0)
@@ -134,7 +214,7 @@ def observation_to_graph_tensor(
         )
         valid_mask[index] = node in observation.failed
 
-    if use_virtual_node:
+    if use_virtual_node and num_real_nodes > 0:
         node_features[num_real_nodes] = node_features[:num_real_nodes].mean(dim=0)
 
     for left_node, right_node in observation.graph.edges():
@@ -156,7 +236,7 @@ def observation_to_graph_tensor(
     )
 
     graph_tensor = GraphTensor(
-        node_features=node_features,
+        node_features=node_features[:, feature_mask],
         adjacency=normalized_adjacency,
         valid_mask=valid_mask,
         node_ids=node_ids,

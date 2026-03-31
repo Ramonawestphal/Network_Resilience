@@ -1,0 +1,35 @@
+{
+  "name": "drop_global_max_load_capacity_ratio",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [
+    "failed_fraction",
+    "mean_load_capacity_ratio"
+  ],
+  "use_virtual_node": false,
+  "training_episodes": 20,
+  "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_max_load_capacity_ratio.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.4475153973934992,
+      "stderr": 0.11648041263352658
+    },
+    "threshold_hit_fraction": {
+      "mean": 0.7222222222222222,
+      "stderr": 0.10557179862029056
+    },
+    "solved_fraction": {
+      "mean": 0.4444444444444444,
+      "stderr": 0.11712139482105109
+    }
+  }
+}

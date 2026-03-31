@@ -1,0 +1,32 @@
+{
+  "name": "node_virtual",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [],
+  "use_virtual_node": true,
+  "training_episodes": 20,
+  "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_virtual.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.7108256886749165,
+      "stderr": 0.10415837175229256
+    },
+    "threshold_hit_fraction": {
+      "mean": 0.7777777777777778,
+      "stderr": 0.09799078929868855
+    },
+    "solved_fraction": {
+      "mean": 0.6666666666666666,
+      "stderr": 0.11111111111111112
+    }
+  }
+}

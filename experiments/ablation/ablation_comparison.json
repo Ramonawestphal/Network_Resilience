@@ -1,0 +1,560 @@
+{
+  "configs": [
+    {
+      "name": "node_only",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_only.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.6112962191679393,
+          "stderr": 0.11484974530205111
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.8333333333333334,
+          "stderr": 0.08784104611578833
+        },
+        "solved_fraction": {
+          "mean": 0.6111111111111112,
+          "stderr": 0.11490438561102646
+        }
+      }
+    },
+    {
+      "name": "node_global",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_global.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.9134941149432648,
+          "stderr": 0.05550886929233381
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.8888888888888888,
+          "stderr": 0.07407407407407407
+        },
+        "solved_fraction": {
+          "mean": 0.7777777777777778,
+          "stderr": 0.09799078929868855
+        }
+      }
+    },
+    {
+      "name": "node_virtual",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [],
+      "use_virtual_node": true,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_virtual.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.7108256886749165,
+          "stderr": 0.10415837175229256
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7777777777777778,
+          "stderr": 0.09799078929868855
+        },
+        "solved_fraction": {
+          "mean": 0.6666666666666666,
+          "stderr": 0.11111111111111112
+        }
+      }
+    },
+    {
+      "name": "node_global_virtual",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": true,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_global_virtual.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.896055151484311,
+          "stderr": 0.05521105091755424
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.8333333333333334,
+          "stderr": 0.08784104611578833
+        },
+        "solved_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        }
+      }
+    },
+    {
+      "name": "drop_global_failed_fraction",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_failed_fraction.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.44754544366475696,
+          "stderr": 0.11647403394468563
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_global_mean_load_capacity_ratio",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_mean_load_capacity_ratio.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.4475153973934992,
+          "stderr": 0.11648041263352658
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_global_max_load_capacity_ratio",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_max_load_capacity_ratio.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.4475153973934992,
+          "stderr": 0.11648041263352658
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_node_load_norm",
+      "active_node_features": [
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_load_norm.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.7895821911427694,
+          "stderr": 0.08363459779662027
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7777777777777778,
+          "stderr": 0.09799078929868855
+        },
+        "solved_fraction": {
+          "mean": 0.6666666666666666,
+          "stderr": 0.11111111111111112
+        }
+      }
+    },
+    {
+      "name": "drop_node_capacity_norm",
+      "active_node_features": [
+        "load_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_capacity_norm.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.758860480804646,
+          "stderr": 0.08816805933898832
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7777777777777778,
+          "stderr": 0.09799078929868855
+        },
+        "solved_fraction": {
+          "mean": 0.6111111111111112,
+          "stderr": 0.11490438561102646
+        }
+      }
+    },
+    {
+      "name": "drop_node_load_capacity_ratio",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_load_capacity_ratio.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.628253384971943,
+          "stderr": 0.11024161778104048
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.6111111111111112,
+          "stderr": 0.11490438561102646
+        }
+      }
+    },
+    {
+      "name": "drop_node_failed_flag",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_failed_flag.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.42656596127392954,
+          "stderr": 0.1127137957374111
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.3888888888888889,
+          "stderr": 0.11490438561102646
+        }
+      }
+    },
+    {
+      "name": "drop_node_active_flag",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_active_flag.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.4460331779299255,
+          "stderr": 0.11678689570297224
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_node_frontier_flag",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "remaining_budget_norm",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_frontier_flag.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.44534635223493174,
+          "stderr": 0.11693148314588848
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_node_remaining_budget_norm",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "current_round_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_remaining_budget_norm.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.44549892657326884,
+          "stderr": 0.11689933299795399
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_node_current_round_norm",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "degree_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_current_round_norm.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.4455867829959892,
+          "stderr": 0.11688087669125165
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    },
+    {
+      "name": "drop_node_degree_norm",
+      "active_node_features": [
+        "load_norm",
+        "capacity_norm",
+        "load_capacity_ratio",
+        "failed_flag",
+        "active_flag",
+        "frontier_flag",
+        "remaining_budget_norm",
+        "current_round_norm"
+      ],
+      "active_global_features": [
+        "failed_fraction",
+        "mean_load_capacity_ratio",
+        "max_load_capacity_ratio"
+      ],
+      "use_virtual_node": false,
+      "training_episodes": 20,
+      "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_degree_norm.pt",
+      "results": {
+        "final_anc": {
+          "mean": 0.4461279304752032,
+          "stderr": 0.11676820960195454
+        },
+        "threshold_hit_fraction": {
+          "mean": 0.7222222222222222,
+          "stderr": 0.10557179862029056
+        },
+        "solved_fraction": {
+          "mean": 0.4444444444444444,
+          "stderr": 0.11712139482105109
+        }
+      }
+    }
+  ]
+}
