@@ -1,0 +1,2231 @@
+{
+  "metadata": {
+    "generated_by": "map_regime_comprehensive.py",
+    "master_seed": 2026,
+    "timestamp": "2026-03-31T19:11:56.961763+00:00",
+    "n_graphs": 10,
+    "n_seeds": 3,
+    "total_instances": 2430,
+    "grid": {
+      "alpha_values": [
+        0.05,
+        0.1,
+        0.15
+      ],
+      "pfail_values": [
+        0.05,
+        0.1,
+        0.15
+      ],
+      "budget_values": [
+        1,
+        2,
+        3
+      ],
+      "graph_n_range": [
+        30,
+        50
+      ],
+      "graph_m": 2,
+      "max_rounds": 5,
+      "reference_n": 40,
+      "n_graphs": 10,
+      "n_seeds": 3
+    },
+    "thresholds": {
+      "delta_h": 0.3,
+      "delta_t": 0.8,
+      "delta_s": 0.15,
+      "min_ds_frac": 0.5
+    }
+  },
+  "cells": [
+    {
+      "alpha": 0.05,
+      "pfail": 0.05,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.31285986781013203,
+      "within_graph_std_pr_degree": 0.29021237035272457,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.3345833333333333,
+          "graph_std_pr_degree": 0.47052312790009476,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.13799621928166353,
+          "graph_std_pr_degree": 0.18357056843176825,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.008034026465028356,
+          "graph_std_pr_degree": 0.010693486293936447,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.09760000000000002,
+          "graph_std_pr_degree": 0.13746155826266487,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.3722069176614631,
+          "graph_std_pr_degree": 0.44615270050257044,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7214511809106403,
+          "graph_std_pr_degree": 0.39392751773918205,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.7757878661668749,
+          "graph_std_pr_degree": 0.317083840515417,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.33347216437595445,
+          "graph_std_pr_degree": 0.47130638309058037,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.6666666666666666,
+          "graph_std_pr_degree": 0.4714045207910317,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.05,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.10472010938372638,
+      "within_graph_std_pr_degree": 0.08155409351118208,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.6794265910523,
+          "graph_std_pr_degree": 0.4533592626700139,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.8779143037177063,
+          "graph_std_pr_degree": 0.11774242696707375,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.8271553519366931,
+          "graph_std_pr_degree": 0.24443924547473322,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.05,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.05746691871455576,
+      "within_graph_std_pr_degree": 0.027090165277972332,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.8084436042848141,
+          "graph_std_pr_degree": 0.27090165277972333,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.1,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.173208636643879,
+      "within_graph_std_pr_degree": 0.14766205942440697,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.48209366391184577,
+          "graph_std_pr_degree": 0.40836721005799026,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.318125,
+          "graph_std_pr_degree": 0.4472476593007503,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0014177693761814744,
+          "graph_std_pr_degree": 0.0006683428933710278,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.00047258979206049145,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.09746666666666669,
+          "graph_std_pr_degree": 0.13755593609712216,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.0012243648607284973,
+          "graph_std_pr_degree": 0.0008657566956676433,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.33382030679327973,
+          "graph_std_pr_degree": 0.47106017855524573,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.0008329862557267803,
+          "graph_std_pr_degree": 0.0005890102300595979,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.0011106483409690404,
+          "graph_std_pr_degree": 0.0009816837167659965,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.006790402897238569,
+          "graph_std_pr_degree": 0.009284816697096823,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.1,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.32343453358371876,
+      "within_graph_std_pr_degree": 0.24579660450706792,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.051512287334593586,
+          "graph_std_pr_degree": 0.03004818908019248,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.0552930056710775,
+          "graph_std_pr_degree": 0.05785060163633646,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.3992,
+          "graph_std_pr_degree": 0.4318236677163492,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6691153963881237,
+          "graph_std_pr_degree": 0.4679414940083611,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7292427562697833,
+          "graph_std_pr_degree": 0.38290856619403013,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.7066500069415521,
+          "graph_std_pr_degree": 0.22489197699571825,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.3434679994446758,
+          "graph_std_pr_degree": 0.4642382607968409,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.43684925305568134,
+          "graph_std_pr_degree": 0.39826328864285065,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.1,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.15496407667850462,
+      "within_graph_std_pr_degree": 0.11721897776859527,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.5893194706994329,
+          "graph_std_pr_degree": 0.3611655984137972,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.757403906742281,
+          "graph_std_pr_degree": 0.3430826852637943,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6691153963881237,
+          "graph_std_pr_degree": 0.4679414940083611,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.15,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.0025442408546468053,
+      "within_graph_std_pr_degree": 0.0019700042110919543,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.009182736455463728,
+          "graph_std_pr_degree": 0.009804479570276687,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.0022916666666666667,
+          "graph_std_pr_degree": 0.0023570226039551583,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0014177693761814744,
+          "graph_std_pr_degree": 0.0006683428933710278,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.00047258979206049145,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.0004,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.0006121824303642486,
+          "graph_std_pr_degree": 0.0004328783478338216,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.000486973459946433,
+          "graph_std_pr_degree": 0.00034434223578599834,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.0027766208524226013,
+          "graph_std_pr_degree": 0.0028316087816702947,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.002360127724559211,
+          "graph_std_pr_degree": 0.0030479659031098357,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.0003017956843217142,
+          "graph_std_pr_degree": 0.00021340177491671874,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.15,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.18508854383289833,
+      "within_graph_std_pr_degree": 0.17581577264202777,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.5209672482399755,
+          "graph_std_pr_degree": 0.33898133779120065,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.42791666666666667,
+          "graph_std_pr_degree": 0.2877174600290284,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.017170762444864523,
+          "graph_std_pr_degree": 0.010611953240768298,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.04521109010712036,
+          "graph_std_pr_degree": 0.04360535472970844,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.06026666666666666,
+          "graph_std_pr_degree": 0.06091947325955982,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.048056320783593516,
+          "graph_std_pr_degree": 0.034557142399520534,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.37448259069880696,
+          "graph_std_pr_degree": 0.4424041988186469,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.2068582535054838,
+          "graph_std_pr_degree": 0.06874393996348095,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.33708177148410384,
+          "graph_std_pr_degree": 0.46875647264589526,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.003772446054021427,
+          "graph_std_pr_degree": 0.0018603935424683794,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.15,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.307238880460366,
+      "within_graph_std_pr_degree": 0.14043731092548037,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.5209672482399755,
+          "graph_std_pr_degree": 0.33898133779120065,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.866875,
+          "graph_std_pr_degree": 0.18826718049091826,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.3197857592942659,
+          "graph_std_pr_degree": 0.2577598864727763,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.4885003150598613,
+          "graph_std_pr_degree": 0.15836404876890472,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.88,
+          "graph_std_pr_degree": 0.16970562748477136,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.048056320783593516,
+          "graph_std_pr_degree": 0.034557142399520534,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.9354435651811746,
+          "graph_std_pr_degree": 0.09129658565923769,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.7694280971782104,
+          "graph_std_pr_degree": 0.16544130018747444,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.05,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.31176535052005305,
+      "within_graph_std_pr_degree": 0.2904163115350754,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.3364583333333333,
+          "graph_std_pr_degree": 0.4691954365068877,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.13799621928166353,
+          "graph_std_pr_degree": 0.18357056843176825,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.008034026465028356,
+          "graph_std_pr_degree": 0.010693486293936447,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.10480000000000002,
+          "graph_std_pr_degree": 0.14792682875890592,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.38292011019283745,
+          "graph_std_pr_degree": 0.43905453322304483,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7214511809106403,
+          "graph_std_pr_degree": 0.39392751773918205,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.7757878661668749,
+          "graph_std_pr_degree": 0.317083840515417,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.33347216437595445,
+          "graph_std_pr_degree": 0.47130638309058037,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.6666666666666666,
+          "graph_std_pr_degree": 0.4714045207910317,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.05,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.10472010938372638,
+      "within_graph_std_pr_degree": 0.08155409351118208,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.6794265910523,
+          "graph_std_pr_degree": 0.4533592626700139,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.8779143037177063,
+          "graph_std_pr_degree": 0.11774242696707375,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.8271553519366931,
+          "graph_std_pr_degree": 0.24443924547473322,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.05,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.05746691871455576,
+      "within_graph_std_pr_degree": 0.027090165277972332,
+      "across_graph_std_nfailed": 14.179797835888447,
+      "within_graph_std_nfailed": 3.299831645537222,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.8084436042848141,
+          "graph_std_pr_degree": 0.27090165277972333,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.1,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.1833263340871681,
+      "within_graph_std_pr_degree": 0.147140793621466,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.48209366391184577,
+          "graph_std_pr_degree": 0.40836721005799026,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.3364583333333333,
+          "graph_std_pr_degree": 0.4691954365068877,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0018903591682419658,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.00031505986137366095,
+          "graph_std_pr_degree": 0.0002227809644570093,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.10493333333333336,
+          "graph_std_pr_degree": 0.14783245772006756,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.0012243648607284973,
+          "graph_std_pr_degree": 0.0008657566956676433,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.39590942293644993,
+          "graph_std_pr_degree": 0.43387244688231424,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.0009718172983479104,
+          "graph_std_pr_degree": 0.0007853469734127973,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.0011106483409690404,
+          "graph_std_pr_degree": 0.0009816837167659965,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.006790402897238569,
+          "graph_std_pr_degree": 0.009284816697096823,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.1,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.32459698395102005,
+      "within_graph_std_pr_degree": 0.23811113455542188,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.06033396345305608,
+          "graph_std_pr_degree": 0.03672508893155251,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.06962822936357908,
+          "graph_std_pr_degree": 0.06000256952582745,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.40653333333333336,
+          "graph_std_pr_degree": 0.4251858051356946,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6691153963881237,
+          "graph_std_pr_degree": 0.4679414940083611,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7292427562697833,
+          "graph_std_pr_degree": 0.38290856619403013,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.7888379841732611,
+          "graph_std_pr_degree": 0.14994793799750297,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.34360683048729695,
+          "graph_std_pr_degree": 0.4641400612869633,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.44243247321563306,
+          "graph_std_pr_degree": 0.3942598224742867,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.1,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.12954614244251053,
+      "within_graph_std_pr_degree": 0.118240004702199,
+      "across_graph_std_nfailed": 8.275868534480233,
+      "within_graph_std_nfailed": 1.7441967269268173,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.7296786389413988,
+          "graph_std_pr_degree": 0.38229213500822795,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.7651228733459358,
+          "graph_std_pr_degree": 0.33216641800540087,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6691153963881237,
+          "graph_std_pr_degree": 0.4679414940083611,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.15,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.0023844286447131666,
+      "within_graph_std_pr_degree": 0.002147866795749254,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.008876645240281604,
+          "graph_std_pr_degree": 0.00998439328454245,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.0022916666666666667,
+          "graph_std_pr_degree": 0.0023570226039551583,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0014177693761814744,
+          "graph_std_pr_degree": 0.0006683428933710278,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.00047258979206049145,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.0008,
+          "graph_std_pr_degree": 0.000565685424949238,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.0006121824303642486,
+          "graph_std_pr_degree": 0.0004328783478338216,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.0017044071098125154,
+          "graph_std_pr_degree": 0.0013773689431439934,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.0027766208524226013,
+          "graph_std_pr_degree": 0.0028316087816702947,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.002360127724559211,
+          "graph_std_pr_degree": 0.0030479659031098357,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.0003017956843217142,
+          "graph_std_pr_degree": 0.00021340177491671874,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.15,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.2336331188093826,
+      "within_graph_std_pr_degree": 0.18247889446500815,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.5209672482399755,
+          "graph_std_pr_degree": 0.33898133779120065,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.4427083333333333,
+          "graph_std_pr_degree": 0.30530224664347877,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.015437933207309388,
+          "graph_std_pr_degree": 0.010916267258393455,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.05403276622558287,
+          "graph_std_pr_degree": 0.038312496871503815,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.13960000000000003,
+          "graph_std_pr_degree": 0.10898268975698237,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.06366697275788186,
+          "graph_std_pr_degree": 0.03982480800071159,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7216946676406136,
+          "graph_std_pr_degree": 0.3935831755033961,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.32292100513674854,
+          "graph_std_pr_degree": 0.12233669848336759,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.34180202693322226,
+          "graph_std_pr_degree": 0.4654200082895084,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.0043760374226648555,
+          "graph_std_pr_degree": 0.001129216051538838,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.15,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.30526857655333617,
+      "within_graph_std_pr_degree": 0.11413029674279129,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.5209672482399755,
+          "graph_std_pr_degree": 0.33898133779120065,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.9835416666666666,
+          "graph_std_pr_degree": 0.023275598214057218,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.4053245116572149,
+          "graph_std_pr_degree": 0.20596109200593865,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.49621928166351603,
+          "graph_std_pr_degree": 0.14784886862198768,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.9018666666666667,
+          "graph_std_pr_degree": 0.13878149092087977,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.06366697275788186,
+          "graph_std_pr_degree": 0.03982480800071159,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.9354435651811746,
+          "graph_std_pr_degree": 0.09129658565923769,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.8060962728232987,
+          "graph_std_pr_degree": 0.15533318621389966,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.05,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.3101155876078404,
+      "within_graph_std_pr_degree": 0.2757844915561889,
+      "across_graph_std_nfailed": 14.231459673710368,
+      "within_graph_std_nfailed": 7.802116949632951,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.33687500000000004,
+          "graph_std_pr_degree": 0.4689008090737315,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.4716446124763705,
+          "graph_std_pr_degree": 0.4045263721410839,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.010396975425330812,
+          "graph_std_pr_degree": 0.014035200760791585,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.33346666666666663,
+          "graph_std_pr_degree": 0.4713102681768019,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.39853076216712585,
+          "graph_std_pr_degree": 0.4306817609238064,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.7214511809106403,
+          "graph_std_pr_degree": 0.39392751773918205,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 17.333333333333332,
+          "graph_std_nfailed": 22.395436042987765
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.5900319311398028,
+          "graph_std_pr_degree": 0.4276425656037891,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 22.627416997969522
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.8961822845933303,
+          "graph_std_pr_degree": 0.1468204211427025,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.05,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.05893187982811743,
+      "within_graph_std_pr_degree": 0.05091030312496603,
+      "across_graph_std_nfailed": 14.231459673710368,
+      "within_graph_std_nfailed": 7.802116949632951,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.8941398865784499,
+          "graph_std_pr_degree": 0.14970880811511025,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.9187145557655955,
+          "graph_std_pr_degree": 0.11495497765981678,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 17.333333333333332,
+          "graph_std_nfailed": 22.395436042987765
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.8271553519366931,
+          "graph_std_pr_degree": 0.24443924547473322,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 22.627416997969522
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.05,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.0,
+      "within_graph_std_pr_degree": 0.0,
+      "across_graph_std_nfailed": 14.231459673710368,
+      "within_graph_std_nfailed": 7.802116949632951,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 11.0,
+          "graph_std_nfailed": 15.556349186104045
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 12.333333333333334,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 17.333333333333332,
+          "graph_std_nfailed": 22.395436042987765
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 22.627416997969522
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.1,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.2350625954115531,
+      "within_graph_std_pr_degree": 0.23419755058738495,
+      "across_graph_std_nfailed": 9.67034412808332,
+      "within_graph_std_nfailed": 5.468292441175967,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.48209366391184577,
+          "graph_std_pr_degree": 0.40836721005799026,
+          "graph_mean_nfailed": 22.333333333333332,
+          "graph_std_nfailed": 15.084944665313014
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.33687500000000004,
+          "graph_std_pr_degree": 0.4689008090737315,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0026780088216761186,
+          "graph_std_pr_degree": 0.0011139048222850465,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.0009451795841209829,
+          "graph_std_pr_degree": 0.0006683428933710278,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.11253333333333333,
+          "graph_std_pr_degree": 0.15858048079410306,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.04499540863177227,
+          "graph_std_pr_degree": 0.06233899107444737,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.4433893352812272,
+          "graph_std_pr_degree": 0.39398966901782023,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.7012355962793281,
+          "graph_std_pr_degree": 0.36742489835242415,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.33347216437595445,
+          "graph_std_pr_degree": 0.47130638309058037,
+          "graph_mean_nfailed": 33.333333333333336,
+          "graph_std_nfailed": 22.15601247717849
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.006790402897238569,
+          "graph_std_pr_degree": 0.009284816697096823,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.1,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.22484201926007702,
+      "within_graph_std_pr_degree": 0.21395496611995632,
+      "across_graph_std_nfailed": 9.67034412808332,
+      "within_graph_std_nfailed": 5.468292441175967,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 22.333333333333332,
+          "graph_std_nfailed": 15.084944665313014
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.69880277252678,
+          "graph_std_pr_degree": 0.2193486487726417,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.4254883427851292,
+          "graph_std_pr_degree": 0.38688921230595424,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.4142666666666666,
+          "graph_std_pr_degree": 0.4183503263480926,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6681971227425773,
+          "graph_std_pr_degree": 0.4692401290518626,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.7283076495904485,
+          "graph_std_pr_degree": 0.3041818875328521,
+          "graph_mean_nfailed": 33.333333333333336,
+          "graph_std_nfailed": 22.15601247717849
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.5833710577938735,
+          "graph_std_pr_degree": 0.34153945718816014,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.1,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.09830767750031415,
+      "within_graph_std_pr_degree": 0.06260779280295972,
+      "across_graph_std_nfailed": 9.67034412808332,
+      "within_graph_std_nfailed": 5.468292441175967,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 22.333333333333332,
+          "graph_std_nfailed": 15.084944665313014
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.9445494643982356,
+          "graph_std_pr_degree": 0.07841889948886735,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.9445494643982356,
+          "graph_std_pr_degree": 0.07841889948886735,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.6681971227425773,
+          "graph_std_pr_degree": 0.4692401290518626,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 24.666666666666668,
+          "graph_std_nfailed": 17.441967269268172
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 33.333333333333336,
+          "graph_std_nfailed": 22.15601247717849
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.15,
+      "budget_ref": 1,
+      "across_graph_std_pr_degree": 0.09809060266102844,
+      "within_graph_std_pr_degree": 0.05991906973596496,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.008876645240281604,
+          "graph_std_pr_degree": 0.00998439328454245,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.0018750000000000006,
+          "graph_std_pr_degree": 0.0013501543121683046,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.0020478890989287964,
+          "graph_std_pr_degree": 0.00022278096445700935,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.0009451795841209829,
+          "graph_std_pr_degree": 0.0006683428933710278,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.0028000000000000004,
+          "graph_std_pr_degree": 0.002592296279363144,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.0006121824303642486,
+          "graph_std_pr_degree": 0.0004328783478338216,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.06744582420258097,
+          "graph_std_pr_degree": 0.07012755991088558,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 0.05497709287796751,
+          "graph_std_pr_degree": 0.04091395815157954,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.3333333333333333,
+          "graph_std_pr_degree": 0.4714045207910317,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.002112569790251999,
+          "graph_std_pr_degree": 0.001493812424417031,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.15,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.3482720592890626,
+      "within_graph_std_pr_degree": 0.18425879984132296,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.7891031527395164,
+          "graph_std_pr_degree": 0.29825318165750303,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.5854166666666667,
+          "graph_std_pr_degree": 0.3833325407600502,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.05907372400756144,
+          "graph_std_pr_degree": 0.03478166692788219,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.3563327032136106,
+          "graph_std_pr_degree": 0.39573801201629505,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.21146666666666666,
+          "graph_std_pr_degree": 0.1511927099947466,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.1095806550352005,
+          "graph_std_pr_degree": 0.06862453092178158,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 0.9481373265157048,
+          "graph_std_pr_degree": 0.07334489622241759,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 0.4014993752603082,
+          "graph_std_pr_degree": 0.4284469482614356,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.011468236004225139,
+          "graph_std_pr_degree": 0.008873511651117643,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.15,
+      "pfail": 0.15,
+      "budget_ref": 3,
+      "across_graph_std_pr_degree": 0.2593404122911001,
+      "within_graph_std_pr_degree": 0.06816373628527762,
+      "across_graph_std_nfailed": 6.324555320336759,
+      "within_graph_std_nfailed": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 0.7891031527395164,
+          "graph_std_pr_degree": 0.29825318165750303,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 0.9835416666666666,
+          "graph_std_pr_degree": 0.023275598214057218,
+          "graph_mean_nfailed": 40.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 0.8208884688090737,
+          "graph_std_pr_degree": 0.037427202028777605,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 3,
+          "graph_mean_pr_degree": 0.7827662255828608,
+          "graph_std_pr_degree": 0.2013832714820895,
+          "graph_mean_nfailed": 46.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 4,
+          "graph_mean_pr_degree": 0.9868,
+          "graph_std_pr_degree": 0.018667619023324894,
+          "graph_mean_nfailed": 50.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 5,
+          "graph_mean_pr_degree": 0.1095806550352005,
+          "graph_std_pr_degree": 0.06862453092178158,
+          "graph_mean_nfailed": 33.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 6,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 37.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 7,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 8,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0,
+          "graph_mean_nfailed": 49.0,
+          "graph_std_nfailed": 0.0
+        },
+        {
+          "graph_id": 9,
+          "graph_mean_pr_degree": 0.9582012977214426,
+          "graph_std_pr_degree": 0.034005959525242366,
+          "graph_mean_nfailed": 47.0,
+          "graph_std_nfailed": 0.0
+        }
+      ]
+    }
+  ]
+}

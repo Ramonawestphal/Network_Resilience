@@ -1,0 +1,24 @@
+{
+  "best_single_cell": null,
+  "best_budget_ref": 3,
+  "recommended_mixed_regime": {
+    "budget_ref": 3,
+    "alpha_values": [
+      0.05,
+      0.1,
+      0.15
+    ],
+    "pfail_values": [
+      0.15
+    ],
+    "n_ds_cells_covered": 3
+  },
+  "threshold_stability": {
+    "proposed_thresholds_in_stable_zone": true,
+    "stable_delta_s_range": [
+      0.05,
+      0.25
+    ],
+    "n_cells_ds_at_proposed": 3
+  }
+}
