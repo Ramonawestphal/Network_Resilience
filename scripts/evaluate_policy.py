@@ -19,10 +19,30 @@ from cascading_rl.evaluation import (
     build_policy_factories,
     estimate_minimum_budget,
     evaluate_policy_factories_on_graphs,
+    filter_interesting_graphs,
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.policies import choose_random_failed_node
+
+
+def serialize_policy_summary(summary) -> dict:
+    return {
+        "final_anc_mean": summary.final_anc.mean,
+        "final_anc_stderr": summary.final_anc.stderr,
+        "threshold_hit_mean": summary.threshold_hit_fraction.mean,
+        "rounds_mean": summary.rounds.mean,
+        "solved_fraction_mean": summary.solved_fraction.mean,
+        "mean_delta_anc_per_round": summary.mean_delta_anc_per_round.mean,
+        "mean_delta_anc_per_round_stderr": summary.mean_delta_anc_per_round.stderr,
+        "mean_anc_on_failed": (
+            summary.mean_anc_on_failed.mean if summary.mean_anc_on_failed is not None else None
+        ),
+        "anc_by_round": [
+            {"mean": metric.mean, "stderr": metric.stderr}
+            for metric in summary.anc_by_round
+        ],
+    }
 
 
 def load_config(path: Path) -> dict:
@@ -72,6 +92,20 @@ def main() -> None:
         m=int(graph_cfg["m"]),
         seed=int(training["seed"]) + 1000,
     )
+    graphs = filter_interesting_graphs(
+        graphs,
+        policy_factories,
+        alpha=float(regime["alpha"]),
+        pfail=float(regime["pfail"]),
+        budget=int(regime["budget"]),
+        max_rounds=int(regime["max_rounds"]),
+        seeds=training["benchmark_seeds"],
+        tau=float(config["evaluation"]["tau"]),
+    )
+    filtered_out = int(training["benchmark_graphs"]) - len(graphs)
+    print(f"Kept {len(graphs)} benchmark graphs and filtered out {filtered_out}.")
+    if not graphs:
+        raise ValueError("No benchmark graphs remained after filtering.")
 
     summaries = evaluate_policy_factories_on_graphs(
         graphs,
@@ -85,13 +119,7 @@ def main() -> None:
     )
 
     serialized = {
-        policy_name: {
-            "final_anc_mean": summary.final_anc.mean,
-            "final_anc_stderr": summary.final_anc.stderr,
-            "threshold_hit_mean": summary.threshold_hit_fraction.mean,
-            "rounds_mean": summary.rounds.mean,
-            "solved_fraction_mean": summary.solved_fraction.mean,
-        }
+        policy_name: serialize_policy_summary(summary)
         for policy_name, summary in summaries.items()
     }
 
@@ -171,10 +199,15 @@ def main() -> None:
 
     print(f"Saved evaluation summary to {output_path}")
     for policy_name, metrics in serialized.items():
+        anc_by_round_means = [round(item["mean"], 3) for item in metrics["anc_by_round"]]
         print(
             f"{policy_name}: final_anc={metrics['final_anc_mean']:.3f}, "
             f"threshold_hit={metrics['threshold_hit_mean']:.3f}, "
-            f"rounds={metrics['rounds_mean']:.3f}, b_star={metrics['b_star']}"
+            f"rounds={metrics['rounds_mean']:.3f}, "
+            f"mean_delta_anc_per_round={metrics['mean_delta_anc_per_round']:.3f}, "
+            f"mean_anc_on_failed={metrics['mean_anc_on_failed']}, "
+            f"anc_by_round={anc_by_round_means}, "
+            f"b_star={metrics['b_star']}"
         )
 
 

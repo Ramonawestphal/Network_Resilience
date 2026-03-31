@@ -83,6 +83,29 @@ def build_ablation_runs() -> list[dict]:
 ABLATION_RUNS = build_ablation_runs()
 
 
+def serialize_policy_summary(summary) -> dict:
+    return {
+        "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
+        "threshold_hit_fraction": {
+            "mean": summary.threshold_hit_fraction.mean,
+            "stderr": summary.threshold_hit_fraction.stderr,
+        },
+        "solved_fraction": {
+            "mean": summary.solved_fraction.mean,
+            "stderr": summary.solved_fraction.stderr,
+        },
+        "mean_delta_anc_per_round": summary.mean_delta_anc_per_round.mean,
+        "mean_delta_anc_per_round_stderr": summary.mean_delta_anc_per_round.stderr,
+        "mean_anc_on_failed": (
+            summary.mean_anc_on_failed.mean if summary.mean_anc_on_failed is not None else None
+        ),
+        "anc_by_round": [
+            {"mean": metric.mean, "stderr": metric.stderr}
+            for metric in summary.anc_by_round
+        ],
+    }
+
+
 def load_config(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as file:
         return yaml.safe_load(file)
@@ -146,17 +169,7 @@ def evaluate_config(model, training_config: TrainingConfig, eval_graphs: list, e
         tau=tau,
     )
     summary = summaries["rl"]
-    return {
-        "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
-        "threshold_hit_fraction": {
-            "mean": summary.threshold_hit_fraction.mean,
-            "stderr": summary.threshold_hit_fraction.stderr,
-        },
-        "solved_fraction": {
-            "mean": summary.solved_fraction.mean,
-            "stderr": summary.solved_fraction.stderr,
-        },
-    }
+    return serialize_policy_summary(summary)
 
 
 def print_comparison_table(results: list[dict]) -> None:
