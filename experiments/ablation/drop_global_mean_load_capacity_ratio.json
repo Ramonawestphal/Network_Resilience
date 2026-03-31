@@ -20,16 +20,41 @@
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_mean_load_capacity_ratio.pt",
   "results": {
     "final_anc": {
-      "mean": 0.7438300719253836,
-      "stderr": 0.08834112159160931
+      "mean": 0.6601664536274066,
+      "stderr": 0.0219800507583954
     },
     "threshold_hit_fraction": {
-      "mean": 0.7777777777777778,
-      "stderr": 0.09799078929868855
+      "mean": 0.78,
+      "stderr": 0.023916521486202793
     },
     "solved_fraction": {
-      "mean": 0.6111111111111112,
-      "stderr": 0.11490438561102646
-    }
+      "mean": 0.47333333333333333,
+      "stderr": 0.028826428203351222
+    },
+    "mean_delta_anc_per_round": -0.006048913931410634,
+    "mean_delta_anc_per_round_stderr": 0.005010521546192394,
+    "mean_anc_on_failed": 0.35474643093811364,
+    "anc_by_round": [
+      {
+        "mean": 0.7379019138554628,
+        "stderr": 0.01077300069599725
+      },
+      {
+        "mean": 0.6624449114235216,
+        "stderr": 0.01682324960370639
+      },
+      {
+        "mean": 0.5590989468081891,
+        "stderr": 0.020459026269960785
+      },
+      {
+        "mean": 0.48466100058111866,
+        "stderr": 0.02347714696317423
+      },
+      {
+        "mean": 0.39674518395397607,
+        "stderr": 0.024126649554352012
+      }
+    ]
   }
 }
