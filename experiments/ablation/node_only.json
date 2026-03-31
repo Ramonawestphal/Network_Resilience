@@ -13,20 +13,20 @@
   ],
   "active_global_features": [],
   "use_virtual_node": false,
-  "training_episodes": 20,
+  "training_episodes": 100,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_only.pt",
   "results": {
     "final_anc": {
-      "mean": 0.6112962191679393,
-      "stderr": 0.11484974530205111
+      "mean": 0.9111901549544149,
+      "stderr": 0.0531773369017166
     },
     "threshold_hit_fraction": {
-      "mean": 0.8333333333333334,
-      "stderr": 0.08784104611578833
+      "mean": 0.8888888888888888,
+      "stderr": 0.07407407407407407
     },
     "solved_fraction": {
-      "mean": 0.6111111111111112,
-      "stderr": 0.11490438561102646
+      "mean": 0.8333333333333334,
+      "stderr": 0.08784104611578833
     }
   }
 }

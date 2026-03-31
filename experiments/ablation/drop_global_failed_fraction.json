@@ -16,20 +16,20 @@
     "max_load_capacity_ratio"
   ],
   "use_virtual_node": false,
-  "training_episodes": 20,
+  "training_episodes": 100,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_failed_fraction.pt",
   "results": {
     "final_anc": {
-      "mean": 0.44754544366475696,
-      "stderr": 0.11647403394468563
+      "mean": 0.8701431069237867,
+      "stderr": 0.06462392477006915
     },
     "threshold_hit_fraction": {
-      "mean": 0.7222222222222222,
-      "stderr": 0.10557179862029056
+      "mean": 0.8333333333333334,
+      "stderr": 0.08784104611578833
     },
     "solved_fraction": {
-      "mean": 0.4444444444444444,
-      "stderr": 0.11712139482105109
+      "mean": 0.7222222222222222,
+      "stderr": 0.10557179862029056
     }
   }
 }

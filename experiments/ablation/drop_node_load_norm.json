@@ -16,20 +16,20 @@
     "max_load_capacity_ratio"
   ],
   "use_virtual_node": false,
-  "training_episodes": 20,
+  "training_episodes": 100,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_load_norm.pt",
   "results": {
     "final_anc": {
-      "mean": 0.7895821911427694,
-      "stderr": 0.08363459779662027
+      "mean": 0.9173736553794872,
+      "stderr": 0.04785216571471236
     },
     "threshold_hit_fraction": {
-      "mean": 0.7777777777777778,
-      "stderr": 0.09799078929868855
+      "mean": 0.8333333333333334,
+      "stderr": 0.08784104611578833
     },
     "solved_fraction": {
-      "mean": 0.6666666666666666,
-      "stderr": 0.11111111111111112
+      "mean": 0.8333333333333334,
+      "stderr": 0.08784104611578833
     }
   }
 }

@@ -17,20 +17,20 @@
     "max_load_capacity_ratio"
   ],
   "use_virtual_node": true,
-  "training_episodes": 20,
+  "training_episodes": 100,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_global_virtual.pt",
   "results": {
     "final_anc": {
-      "mean": 0.896055151484311,
-      "stderr": 0.05521105091755424
+      "mean": 0.965307594103082,
+      "stderr": 0.02701001257510324
     },
     "threshold_hit_fraction": {
-      "mean": 0.8333333333333334,
-      "stderr": 0.08784104611578833
+      "mean": 0.9444444444444444,
+      "stderr": 0.05399029532264168
     },
     "solved_fraction": {
-      "mean": 0.7222222222222222,
-      "stderr": 0.10557179862029056
+      "mean": 0.8888888888888888,
+      "stderr": 0.07407407407407407
     }
   }
 }
