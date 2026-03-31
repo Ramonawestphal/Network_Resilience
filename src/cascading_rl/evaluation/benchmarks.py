@@ -1,13 +1,22 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from math import sqrt
+from random import Random
 from statistics import mean, pstdev
 
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
+from cascading_rl.policies import (
+    choose_greedy_anc_node,
+    choose_highest_betweenness_failed_node,
+    choose_highest_degree_failed_node,
+    choose_highest_overload_risk_node,
+    choose_random_failed_node,
+)
 
 Policy = Callable[[RecoveryObservation], object]
+PolicyFactory = Callable[[int, int], Policy]
 
 
 @dataclass(frozen=True)
@@ -143,3 +152,56 @@ def evaluate_policies(
         summaries[policy_name] = summarize_episode_results(episode_results)
 
     return summaries
+
+
+def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
+    """Create baseline policy factories for matched-seed sweeps."""
+
+    def random_factory(graph_index: int, seed: int) -> Policy:
+        rng = Random(f"{base_seed}:{graph_index}:{seed}")
+        return lambda observation: choose_random_failed_node(observation, rng=rng)
+
+    return {
+        "random": random_factory,
+        "degree": lambda graph_index, seed: choose_highest_degree_failed_node,
+        "risk": lambda graph_index, seed: choose_highest_overload_risk_node,
+        "greedy": lambda graph_index, seed: choose_greedy_anc_node,
+        "betweenness": lambda graph_index, seed: choose_highest_betweenness_failed_node,
+    }
+
+
+def evaluate_policy_factories_on_graphs(
+    graphs,
+    policy_factories: Mapping[str, PolicyFactory],
+    *,
+    alpha: float,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None = None,
+    seeds: Iterable[int],
+    tau: float,
+) -> dict[str, PolicyEvaluationSummary]:
+    """Evaluate policy factories across fixed graphs and matched seeds."""
+    episode_results_by_policy: dict[str, list[EpisodeResult]] = {
+        name: [] for name in policy_factories
+    }
+
+    for graph_index, graph in enumerate(graphs):
+        for seed in seeds:
+            for policy_name, policy_factory in policy_factories.items():
+                env = RecoveryEnv(
+                    graph,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=budget,
+                    max_rounds=max_rounds,
+                    seed=seed,
+                )
+                policy = policy_factory(graph_index, seed)
+                result = rollout_policy(env, policy, seed=seed, tau=tau)
+                episode_results_by_policy[policy_name].append(result)
+
+    return {
+        policy_name: summarize_episode_results(episode_results)
+        for policy_name, episode_results in episode_results_by_policy.items()
+    }

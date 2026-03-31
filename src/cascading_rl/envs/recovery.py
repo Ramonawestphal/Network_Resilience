@@ -26,7 +26,7 @@ class RecoveryObservation:
     failed: frozenset[Node]
     frontier: frozenset[Node]
     remaining_budget: int
-    budget: int  
+    budget: int
     current_round: int
     max_rounds: int
 
@@ -109,6 +109,7 @@ class RecoveryEnv:
         action_index_in_round = self.budget - self.remaining_budget + 1
         previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
+        repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.remaining_budget -= 1
 
         round_complete = self.remaining_budget == 0
@@ -116,8 +117,8 @@ class RecoveryEnv:
         if round_complete and self.state.failed:
             newly_failed = advance_cascade_round(self.state)
 
-        next_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        reward = next_anc - previous_anc
+        reward = repaired_anc - previous_anc
+        post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         exhausted_rounds = action_round >= self.max_rounds
         if not self.state.failed:
             done = True
@@ -131,7 +132,7 @@ class RecoveryEnv:
             self.remaining_budget = self.budget
 
         info = {
-            "anc": next_anc,
+            "anc": post_cascade_anc,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
             "frontier_nodes": len(self.state.frontier),
@@ -160,13 +161,14 @@ class RecoveryEnv:
 
         for action in actions:
             self.state = reactivate_node(self.state, action)
+        repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
         newly_failed: list[Node] = []
         if self.state.failed:
             newly_failed = advance_cascade_round(self.state)
 
-        next_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        reward = next_anc - previous_anc
+        reward = repaired_anc - previous_anc
+        post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
         exhausted_rounds = self.current_round >= self.max_rounds
         done = not self.state.failed or exhausted_rounds
@@ -176,7 +178,7 @@ class RecoveryEnv:
             self.remaining_budget = self.budget
 
         info = {
-            "anc": next_anc,
+            "anc": post_cascade_anc,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
             "newly_failed_nodes": newly_failed,

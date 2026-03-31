@@ -55,7 +55,7 @@ def plot_interestingness_heatmaps(results: dict, output_path: Path) -> None:
         axis.set_xlabel("pfail")
         axis.set_ylabel("alpha")
 
-    for axis in axes_list[len(budgets) :]:
+    for axis in axes_list[len(budgets):]:
         axis.set_axis_off()
 
     if image is not None:

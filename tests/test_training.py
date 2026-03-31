@@ -3,7 +3,12 @@ from pathlib import Path
 import networkx as nx
 
 from cascading_rl.envs.recovery import RecoveryEnv
-from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor, observation_to_global_features
+from cascading_rl.models import (
+    QNetworkConfig,
+    RecoveryQNetwork,
+    observation_to_global_features,
+    observation_to_graph_tensor,
+)
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
@@ -21,9 +26,9 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation)
 
-    assert graph_tensor.node_features.shape == (5, 9)
-    assert graph_tensor.adjacency.shape == (5, 5)
-    assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
+    assert graph_tensor.node_features.shape == (4, 9)
+    assert graph_tensor.adjacency.shape == (4, 4)
+    assert graph_tensor.valid_mask.tolist() == [False, False, True, True]
 
 
 def test_q_network_masks_invalid_actions():
@@ -42,6 +47,48 @@ def test_q_network_masks_invalid_actions():
     graph_tensor = observation_to_graph_tensor(observation)
     global_features = observation_to_global_features(observation)
     q_values = model(graph_tensor, global_features)
+
+    assert q_values.shape[0] == 4
+    assert q_values[0].item() < -1e8
+    assert q_values[1].item() < -1e8
+
+
+def test_observation_to_graph_tensor_supports_virtual_node():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    observation = env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
+    observation = env.observe()
+
+    graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
+
+    assert graph_tensor.node_features.shape == (5, 9)
+    assert graph_tensor.adjacency.shape == (5, 5)
+    assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
+
+
+def test_q_network_supports_ablation_flags():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    observation = env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
+    observation = env.observe()
+
+    model = RecoveryQNetwork(
+        QNetworkConfig(use_global_features=False, use_virtual_node=True)
+    )
+    graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
+    q_values = model(graph_tensor)
 
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8

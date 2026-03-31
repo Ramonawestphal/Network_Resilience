@@ -9,9 +9,8 @@ from torch import nn
 from cascading_rl.envs.recovery import RecoveryObservation
 
 Node = Hashable
-
 VIRTUAL_NODE_ID = "__virtual__"
- 
+
 FEATURE_NAMES = (
     "load_norm",
     "capacity_norm",
@@ -28,28 +27,30 @@ GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
-    "current_round_norm",
 )
+
 
 def observation_to_global_features(
     observation: RecoveryObservation,
 ) -> torch.Tensor:
-    n = len(observation.graph.nodes())
+    num_nodes = observation.graph.number_of_nodes()
     active = observation.active
     failed = observation.failed
-    
+
     ratios = [
         observation.loads[v] / observation.capacities[v]
         if observation.capacities[v] > 0 else 0.0
         for v in active
     ] or [0.0]
-    
-    return torch.tensor([
-        len(failed) / max(n, 1),
-        sum(ratios) / len(ratios),
-        max(ratios),
-        observation.current_round / observation.max_rounds,
-    ], dtype=torch.float32)
+
+    return torch.tensor(
+        [
+            len(failed) / max(num_nodes, 1),
+            sum(ratios) / len(ratios),
+            max(ratios),
+        ],
+        dtype=torch.float32,
+    )
 
 
 class GlobalReadout(nn.Module):
@@ -69,6 +70,7 @@ class GlobalReadout(nn.Module):
             global_features,
         ])  # (2*embed_dim + global_feat_dim,)
         return torch.relu(self.proj(pooled))  # (out_dim,)
+
 
 @dataclass(frozen=True)
 class GraphTensor:
@@ -90,31 +92,28 @@ class GraphTensor:
 
 def observation_to_graph_tensor(
     observation: RecoveryObservation,
+    *,
+    use_virtual_node: bool = False,
     device: torch.device | str | None = None,
 ) -> GraphTensor:
-    """Convert a RecoveryObservation into tensors for the learner.
-    
-    Adds a virtual node connected to all real nodes to enable global
-    context propagation during message passing.
-    """
-    node_ids_real = tuple(observation.graph.nodes())
-    num_real = len(node_ids_real)
-    num_nodes = num_real + 1  # +1 for virtual node
-    virtual_index = num_real  # last index
+    """Convert a RecoveryObservation into tensors for the learner."""
+    node_ids = tuple(observation.graph.nodes())
+    node_to_index = {node: index for index, node in enumerate(node_ids)}
+    num_real_nodes = len(node_ids)
+    num_nodes = num_real_nodes + int(use_virtual_node)
+    if use_virtual_node:
+        node_to_index[VIRTUAL_NODE_ID] = num_real_nodes
 
-    node_to_index = {node: index for index, node in enumerate(node_ids_real)}
-    node_to_index[VIRTUAL_NODE_ID] = virtual_index
-
-    max_load = max((float(v) for v in observation.loads.values()), default=1.0)
-    max_capacity = max((float(v) for v in observation.capacities.values()), default=1.0)
-    max_degree = max((observation.graph.degree(n) for n in node_ids_real), default=1)
+    max_load = max((float(value) for value in observation.loads.values()), default=1.0)
+    max_capacity = max((float(value) for value in observation.capacities.values()), default=1.0)
+    max_degree = max((observation.graph.degree(node) for node in node_ids), default=1)
     scale = max(max_load, max_capacity, 1.0)
 
     node_features = torch.zeros((num_nodes, len(FEATURE_NAMES)), dtype=torch.float32)
     valid_mask = torch.zeros(num_nodes, dtype=torch.bool)
     adjacency = torch.eye(num_nodes, dtype=torch.float32)
 
-    for node in node_ids_real:
+    for node in node_ids:
         index = node_to_index[node]
         load = float(observation.loads[node])
         capacity = float(observation.capacities[node])
@@ -135,24 +134,20 @@ def observation_to_graph_tensor(
         )
         valid_mask[index] = node in observation.failed
 
-    # virtual node features: mean of all real node features
-    # gives it a neutral starting representation of the average graph state
-    node_features[virtual_index] = node_features[:num_real].mean(dim=0)
-    # valid_mask[virtual_index] stays False — never a valid action
+    if use_virtual_node:
+        node_features[num_real_nodes] = node_features[:num_real_nodes].mean(dim=0)
 
-    # real graph edges
     for left_node, right_node in observation.graph.edges():
         left_index = node_to_index[left_node]
         right_index = node_to_index[right_node]
         adjacency[left_index, right_index] = 1.0
         adjacency[right_index, left_index] = 1.0
 
-    # connect virtual node to all real nodes
-    for i in range(num_real):
-        adjacency[i, virtual_index] = 1.0
-        adjacency[virtual_index, i] = 1.0
+    if use_virtual_node:
+        for index in range(num_real_nodes):
+            adjacency[index, num_real_nodes] = 1.0
+            adjacency[num_real_nodes, index] = 1.0
 
-    # normalize adjacency (symmetric, degree-normalized)
     degrees = adjacency.sum(dim=1)
     inv_sqrt_degree = torch.pow(degrees, -0.5)
     inv_sqrt_degree[torch.isinf(inv_sqrt_degree)] = 0.0
@@ -160,14 +155,12 @@ def observation_to_graph_tensor(
         inv_sqrt_degree.unsqueeze(1) * adjacency * inv_sqrt_degree.unsqueeze(0)
     )
 
-    # node_ids exposed to outside: only real nodes
-    # virtual node is internal — Q-head never scores it
     graph_tensor = GraphTensor(
         node_features=node_features,
         adjacency=normalized_adjacency,
         valid_mask=valid_mask,
-        node_ids=node_ids_real,          # real nodes only
-        node_to_index=node_to_index,     # includes virtual for internal use
+        node_ids=node_ids,
+        node_to_index=node_to_index,
     )
     return graph_tensor if device is None else graph_tensor.to(device)
 

@@ -144,8 +144,8 @@ def compute_regime_diagnostics(
         interestingness_score += 0.20 * budget_sensitivity
 
     best_final_anc = max(final_anc_by_policy.values())
-    worst_final_anc = min(final_anc_by_policy.values())
     best_threshold_hit = max(threshold_hit_by_policy.values())
+    worst_final_anc = min(final_anc_by_policy.values())
     worst_threshold_hit = min(threshold_hit_by_policy.values())
 
     if best_final_anc <= hopeless_threshold and best_threshold_hit <= hopeless_threshold:
