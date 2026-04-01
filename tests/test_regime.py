@@ -92,6 +92,20 @@ def test_compute_regime_diagnostics_reports_best_heuristic_and_rl_gap():
     assert math.isclose(diagnostics.rl_vs_best_heuristic_gap or 0.0, 0.10)
 
 
+def test_compute_regime_diagnostics_respects_spread_threshold():
+    diagnostics = compute_regime_diagnostics(
+        {
+            "rl": make_summary(final_anc=0.61, threshold_hit=0.54, rounds=3.0),
+            "greedy": make_summary(final_anc=0.59, threshold_hit=0.52, rounds=3.1),
+            "random": make_summary(final_anc=0.58, threshold_hit=0.51, rounds=3.2),
+        },
+        spread_threshold=0.05,
+    )
+
+    assert diagnostics.regime_label == "recoverable"
+    assert diagnostics.interesting_for_rl is False
+
+
 def test_build_regime_cells_produces_budget_sensitivity_for_same_alpha_pfail():
     graphs = [nx.star_graph(4)]
     policy_factories = build_policy_factories()

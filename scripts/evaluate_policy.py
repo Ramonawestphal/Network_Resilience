@@ -129,6 +129,17 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
     if args.max_rounds is not None:
         max_rounds = args.max_rounds
 
+    if args.grid_source == "training":
+        primary_alpha = float(regime["alpha"])
+        primary_pfail = float(regime["pfail"])
+        primary_budget = int(regime["budget"])
+        primary_max_rounds = int(regime["max_rounds"])
+    else:
+        primary_alpha = float(alpha_values[0])
+        primary_pfail = float(pfail_values[0])
+        primary_budget = int(budgets[0])
+        primary_max_rounds = int(max_rounds)
+
     return {
         "alpha_values": alpha_values,
         "pfail_values": pfail_values,
@@ -139,10 +150,10 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         "max_rounds": max_rounds,
         "n_range": tuple(graph_cfg["n_range"]),
         "m": int(graph_cfg["m"]),
-        "primary_alpha": float(regime["alpha"]),
-        "primary_pfail": float(regime["pfail"]),
-        "primary_budget": int(regime["budget"]),
-        "primary_max_rounds": int(regime["max_rounds"]),
+        "primary_alpha": primary_alpha,
+        "primary_pfail": primary_pfail,
+        "primary_budget": primary_budget,
+        "primary_max_rounds": primary_max_rounds,
     }
 
 
@@ -186,6 +197,26 @@ def estimate_primary_budgets(
         )
         results[policy_name] = minimum_budget
     return results
+
+
+def serialize_legacy_summary(
+    primary_cell: dict[str, Any] | None,
+    representative_budgets: dict[str, int | None],
+) -> dict[str, dict[str, float | int | None]]:
+    if primary_cell is None:
+        return {}
+
+    legacy_summary: dict[str, dict[str, float | int | None]] = {}
+    for policy_name, summary in primary_cell["policy_summaries"].items():
+        legacy_summary[policy_name] = {
+            "final_anc_mean": summary["final_anc"]["mean"],
+            "final_anc_stderr": summary["final_anc"]["stderr"],
+            "threshold_hit_mean": summary["threshold_hit_fraction"]["mean"],
+            "rounds_mean": summary["rounds"]["mean"],
+            "solved_fraction_mean": summary["solved_fraction"]["mean"],
+            "b_star": representative_budgets.get(policy_name),
+        }
+    return legacy_summary
 
 
 def main() -> None:
@@ -242,7 +273,8 @@ def main() -> None:
         tau=tau,
     )
 
-    output = {
+    legacy_summary = serialize_legacy_summary(primary_cell, representative_budgets)
+    detailed_output = {
         "config_path": str(args.config),
         "checkpoint_path": str(args.checkpoint),
         "grid_source": args.grid_source,
@@ -266,10 +298,14 @@ def main() -> None:
     output_dir = args.output_dir or ROOT / training["benchmark_dir"]
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "evaluation_summary.json"
+    detailed_output_path = output_dir / "evaluation_regime_summary.json"
     with output_path.open("w", encoding="utf-8") as file:
-        json.dump(output, file, indent=2)
+        json.dump(legacy_summary, file, indent=2)
+    with detailed_output_path.open("w", encoding="utf-8") as file:
+        json.dump(detailed_output, file, indent=2)
 
     print(f"Saved evaluation summary to {output_path}")
+    print(f"Saved regime-aware evaluation summary to {detailed_output_path}")
     if primary_cell is not None:
         diagnostics = primary_cell["diagnostics"]
         print(
@@ -280,10 +316,11 @@ def main() -> None:
         gap = diagnostics["rl_vs_best_heuristic_gap"]
         if gap is not None:
             print(f"RL vs best heuristic gap: {gap:.3f}")
-    for bucket_name, summary in bucket_summary.items():
+    for policy_name, metrics in legacy_summary.items():
         print(
-            f"{bucket_name}: cells={summary['cell_count']}, "
-            f"mean_score={summary['mean_interestingness_score']:.3f}"
+            f"{policy_name}: final_anc={metrics['final_anc_mean']:.3f}, "
+            f"threshold_hit={metrics['threshold_hit_mean']:.3f}, "
+            f"rounds={metrics['rounds_mean']:.3f}, b_star={metrics['b_star']}"
         )
 
 
