@@ -32,3 +32,9 @@ The adopted step order is:
 6. repeat until there are no failed nodes left or the episode horizon is reached
 
 This means there is only one exogenous failure round, but potentially many endogenous cascade waves.
+
+## Reward Semantics
+
+- Each repair action is rewarded by the ANC improvement immediately after that repair.
+- Intermediate repairs inside a round do not trigger a cascade.
+- When a repair exhausts the round budget, the cascade wave happens after the reward is computed and affects the next observation rather than the current action reward.

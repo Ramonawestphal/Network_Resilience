@@ -8,6 +8,7 @@ import networkx as nx
 
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
+    AggregateMetric,
     PolicyEvaluationSummary,
     rollout_policy,
     summarize_episode_results,
@@ -37,6 +38,9 @@ class RegimeDiagnostics:
     budget_sensitivity: float | None
     best_policy: str
     worst_policy: str
+    best_heuristic: str | None
+    best_heuristic_final_anc: float | None
+    rl_vs_best_heuristic_gap: float | None
 
 
 @dataclass(frozen=True)
@@ -107,7 +111,7 @@ def compute_regime_diagnostics(
     spread_threshold: float = 0.05,
     budget_sensitivity: float | None = None,
 ) -> RegimeDiagnostics:
-    """Summarize whether a parameter cell is trivial, hopeless, or interesting."""
+    """Summarize whether a parameter cell is trivial, hopeless, or decision-sensitive."""
     final_anc_by_policy = {
         policy_name: summary.final_anc.mean
         for policy_name, summary in policy_summaries.items()
@@ -123,6 +127,11 @@ def compute_regime_diagnostics(
 
     best_policy = max(final_anc_by_policy, key=final_anc_by_policy.get)
     worst_policy = min(final_anc_by_policy, key=final_anc_by_policy.get)
+    heuristic_final_anc = {
+        policy_name: value
+        for policy_name, value in final_anc_by_policy.items()
+        if policy_name != "rl"
+    }
 
     final_anc_spread = max(final_anc_by_policy.values()) - min(final_anc_by_policy.values())
     threshold_hit_spread = max(threshold_hit_by_policy.values()) - min(
@@ -147,19 +156,29 @@ def compute_regime_diagnostics(
     best_threshold_hit = max(threshold_hit_by_policy.values())
     worst_final_anc = min(final_anc_by_policy.values())
     worst_threshold_hit = min(threshold_hit_by_policy.values())
+    if heuristic_final_anc:
+        best_heuristic = max(heuristic_final_anc, key=heuristic_final_anc.get)
+        best_heuristic_final_anc = heuristic_final_anc[best_heuristic]
+    else:
+        best_heuristic = None
+        best_heuristic_final_anc = None
+    rl_final_anc = final_anc_by_policy.get("rl")
+    rl_vs_best_heuristic_gap = (
+        rl_final_anc - best_heuristic_final_anc
+        if rl_final_anc is not None and best_heuristic_final_anc is not None
+        else None
+    )
 
     if best_final_anc <= hopeless_threshold and best_threshold_hit <= hopeless_threshold:
         regime_label = "hopeless"
     elif worst_final_anc >= trivial_threshold and worst_threshold_hit >= trivial_threshold:
         regime_label = "trivial"
-    elif final_anc_spread >= spread_threshold or threshold_hit_spread >= spread_threshold:
-        regime_label = "interesting"
     else:
-        regime_label = "interesting"
+        regime_label = "decision-sensitive"
 
     return RegimeDiagnostics(
         regime_label=regime_label,
-        interesting_for_rl=regime_label == "interesting",
+        interesting_for_rl=regime_label == "decision-sensitive",
         interestingness_score=interestingness_score,
         final_anc_spread=final_anc_spread,
         threshold_hit_spread=threshold_hit_spread,
@@ -169,6 +188,9 @@ def compute_regime_diagnostics(
         budget_sensitivity=budget_sensitivity,
         best_policy=best_policy,
         worst_policy=worst_policy,
+        best_heuristic=best_heuristic,
+        best_heuristic_final_anc=best_heuristic_final_anc,
+        rl_vs_best_heuristic_gap=rl_vs_best_heuristic_gap,
     )
 
 
@@ -231,3 +253,134 @@ def build_regime_cells(
             )
 
     return sorted(cells, key=lambda cell: (cell.alpha, cell.pfail, cell.budget))
+
+
+def serialize_metric(metric: AggregateMetric | None) -> dict[str, float] | None:
+    if metric is None:
+        return None
+    return {"mean": metric.mean, "stderr": metric.stderr}
+
+
+def serialize_policy_summary(
+    summary: PolicyEvaluationSummary,
+) -> dict[str, dict[str, float] | None]:
+    return {
+        "final_anc": serialize_metric(summary.final_anc),
+        "total_reward": serialize_metric(summary.total_reward),
+        "steps": serialize_metric(summary.steps),
+        "rounds": serialize_metric(summary.rounds),
+        "solved_fraction": serialize_metric(summary.solved_fraction),
+        "threshold_hit_fraction": serialize_metric(summary.threshold_hit_fraction),
+        "threshold_step": serialize_metric(summary.threshold_step),
+        "threshold_round": serialize_metric(summary.threshold_round),
+    }
+
+
+def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
+    diagnostics = cell.diagnostics
+    return {
+        "alpha": cell.alpha,
+        "pfail": cell.pfail,
+        "budget": cell.budget,
+        "diagnostics": {
+            "regime_label": diagnostics.regime_label,
+            "interesting_for_rl": diagnostics.interesting_for_rl,
+            "interestingness_score": diagnostics.interestingness_score,
+            "final_anc_spread": diagnostics.final_anc_spread,
+            "threshold_hit_spread": diagnostics.threshold_hit_spread,
+            "rounds_spread": diagnostics.rounds_spread,
+            "mean_final_anc": diagnostics.mean_final_anc,
+            "mean_threshold_hit": diagnostics.mean_threshold_hit,
+            "budget_sensitivity": diagnostics.budget_sensitivity,
+            "best_policy": diagnostics.best_policy,
+            "worst_policy": diagnostics.worst_policy,
+            "best_heuristic": diagnostics.best_heuristic,
+            "best_heuristic_final_anc": diagnostics.best_heuristic_final_anc,
+            "rl_vs_best_heuristic_gap": diagnostics.rl_vs_best_heuristic_gap,
+        },
+        "policy_summaries": {
+            policy_name: serialize_policy_summary(summary)
+            for policy_name, summary in cell.policy_summaries.items()
+        },
+    }
+
+
+def _mean(values: Sequence[float]) -> float:
+    return sum(values) / len(values)
+
+
+def summarize_regime_buckets(cells: Sequence[RegimeCellResult]) -> dict[str, dict[str, object]]:
+    bucket_names = ["overall"] + sorted({cell.diagnostics.regime_label for cell in cells})
+    summaries: dict[str, dict[str, object]] = {}
+
+    for bucket_name in bucket_names:
+        if bucket_name == "overall":
+            bucket_cells = list(cells)
+        else:
+            bucket_cells = [
+                cell for cell in cells if cell.diagnostics.regime_label == bucket_name
+            ]
+        if not bucket_cells:
+            continue
+
+        policy_names = sorted(
+            {
+                policy_name
+                for cell in bucket_cells
+                for policy_name in cell.policy_summaries
+            }
+        )
+        winner_counts: dict[str, int] = {}
+        for cell in bucket_cells:
+            winner_counts[cell.diagnostics.best_policy] = (
+                winner_counts.get(cell.diagnostics.best_policy, 0) + 1
+            )
+
+        policy_means: dict[str, dict[str, float]] = {}
+        for policy_name in policy_names:
+            matching_summaries = [
+                cell.policy_summaries[policy_name]
+                for cell in bucket_cells
+                if policy_name in cell.policy_summaries
+            ]
+            policy_means[policy_name] = {
+                "final_anc_mean": _mean(
+                    [summary.final_anc.mean for summary in matching_summaries]
+                ),
+                "threshold_hit_mean": _mean(
+                    [summary.threshold_hit_fraction.mean for summary in matching_summaries]
+                ),
+                "rounds_mean": _mean([summary.rounds.mean for summary in matching_summaries]),
+                "solved_fraction_mean": _mean(
+                    [summary.solved_fraction.mean for summary in matching_summaries]
+                ),
+            }
+
+        rl_gaps = [
+            gap
+            for gap in (cell.diagnostics.rl_vs_best_heuristic_gap for cell in bucket_cells)
+            if gap is not None
+        ]
+        summaries[bucket_name] = {
+            "cell_count": len(bucket_cells),
+            "mean_interestingness_score": _mean(
+                [cell.diagnostics.interestingness_score for cell in bucket_cells]
+            ),
+            "mean_budget_sensitivity": _mean(
+                [cell.diagnostics.budget_sensitivity or 0.0 for cell in bucket_cells]
+            ),
+            "winner_counts": winner_counts,
+            "policy_means": policy_means,
+            "rl_vs_best_heuristic_gap": (
+                {
+                    "mean": _mean(rl_gaps),
+                    "min": min(rl_gaps),
+                    "max": max(rl_gaps),
+                    "positive_fraction": sum(gap > 0.0 for gap in rl_gaps) / len(rl_gaps),
+                }
+                if rl_gaps
+                else None
+            ),
+        }
+
+    return summaries
