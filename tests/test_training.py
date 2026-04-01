@@ -26,7 +26,7 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation)
 
-    assert graph_tensor.node_features.shape == (4, 9)
+    assert graph_tensor.node_features.shape == (4, 8)
     assert graph_tensor.adjacency.shape == (4, 4)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True]
 
@@ -67,7 +67,7 @@ def test_observation_to_graph_tensor_supports_virtual_node():
 
     graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
 
-    assert graph_tensor.node_features.shape == (5, 9)
+    assert graph_tensor.node_features.shape == (5, 8)
     assert graph_tensor.adjacency.shape == (5, 5)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
 
@@ -93,6 +93,25 @@ def test_q_network_supports_ablation_flags():
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
     assert q_values[1].item() < -1e8
+
+
+def test_q_network_supports_legacy_checkpoint_feature_width():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    observation = env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
+    observation = env.observe()
+
+    model = RecoveryQNetwork(QNetworkConfig(input_dim=9))
+    graph_tensor, q_values = model.score_observation(observation)
+
+    assert graph_tensor.node_features.shape == (4, 9)
+    assert q_values.shape[0] == 4
 
 
 def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):

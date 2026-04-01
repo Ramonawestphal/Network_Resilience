@@ -1,0 +1,227 @@
+{
+  "alpha": 0.2,
+  "pfail": 0.2,
+  "budget": 4,
+  "diagnostics": {
+    "regime_label": "decision-sensitive",
+    "interesting_for_rl": true,
+    "interestingness_score": 0.45199234615221845,
+    "final_anc_spread": 0.5455142897451366,
+    "threshold_hit_spread": 0.5033333333333334,
+    "rounds_spread": 0.9633333333333334,
+    "mean_final_anc": 0.8485941381464485,
+    "mean_threshold_hit": 0.8133333333333334,
+    "budget_sensitivity": 0.0,
+    "best_policy": "degree",
+    "worst_policy": "random",
+    "best_heuristic": "degree",
+    "best_heuristic_final_anc": 0.9883535583604788,
+    "rl_vs_best_heuristic_gap": -0.031463931185484406
+  },
+  "policy_summaries": {
+    "rl": {
+      "final_anc": {
+        "mean": 0.9568896271749944,
+        "stderr": 0.00829229167212216
+      },
+      "total_reward": {
+        "mean": 0.5072324726839819,
+        "stderr": 0.013592002727435522
+      },
+      "steps": {
+        "mean": 10.963333333333333,
+        "stderr": 0.3173955937989104
+      },
+      "rounds": {
+        "mean": 3.0966666666666667,
+        "stderr": 0.07380128474240559
+      },
+      "solved_fraction": {
+        "mean": 0.88,
+        "stderr": 0.01876166303929372
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.92,
+        "stderr": 0.015663120165960973
+      },
+      "threshold_step": {
+        "mean": 6.47463768115942,
+        "stderr": 0.29874989978651845
+      },
+      "threshold_round": {
+        "mean": 1.9782608695652173,
+        "stderr": 0.07837062597000931
+      }
+    },
+    "random": {
+      "final_anc": {
+        "mean": 0.4428392686153422,
+        "stderr": 0.026792510310000454
+      },
+      "total_reward": {
+        "mean": 0.4856271599966836,
+        "stderr": 0.015231911539619437
+      },
+      "steps": {
+        "mean": 15.23,
+        "stderr": 0.3873432299366774
+      },
+      "rounds": {
+        "mean": 3.966666666666667,
+        "stderr": 0.08625972838318435
+      },
+      "solved_fraction": {
+        "mean": 0.38666666666666666,
+        "stderr": 0.028116161162550595
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.47,
+        "stderr": 0.028815505085514868
+      },
+      "threshold_step": {
+        "mean": 3.773049645390071,
+        "stderr": 0.3595917847084685
+      },
+      "threshold_round": {
+        "mean": 1.2695035460992907,
+        "stderr": 0.09508807299067837
+      }
+    },
+    "degree": {
+      "final_anc": {
+        "mean": 0.9883535583604788,
+        "stderr": 0.00323196735542088
+      },
+      "total_reward": {
+        "mean": 0.4958834897809341,
+        "stderr": 0.012787537201221555
+      },
+      "steps": {
+        "mean": 10.54,
+        "stderr": 0.2910234812977583
+      },
+      "rounds": {
+        "mean": 3.0033333333333334,
+        "stderr": 0.0688796588798711
+      },
+      "solved_fraction": {
+        "mean": 0.9433333333333334,
+        "stderr": 0.013348602368232607
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.9733333333333334,
+        "stderr": 0.009301533127313933
+      },
+      "threshold_step": {
+        "mean": 6.530821917808219,
+        "stderr": 0.27768720266543984
+      },
+      "threshold_round": {
+        "mean": 2.0,
+        "stderr": 0.07248633728944084
+      }
+    },
+    "risk": {
+      "final_anc": {
+        "mean": 0.7483689374497485,
+        "stderr": 0.01888870108465145
+      },
+      "total_reward": {
+        "mean": 0.5943845199011186,
+        "stderr": 0.016222627572697223
+      },
+      "steps": {
+        "mean": 14.096666666666666,
+        "stderr": 0.38511465344270696
+      },
+      "rounds": {
+        "mean": 3.7533333333333334,
+        "stderr": 0.08548857406868063
+      },
+      "solved_fraction": {
+        "mean": 0.5433333333333333,
+        "stderr": 0.028758895564226276
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.62,
+        "stderr": 0.0280237994093116
+      },
+      "threshold_step": {
+        "mean": 6.016129032258065,
+        "stderr": 0.4385248798045918
+      },
+      "threshold_round": {
+        "mean": 1.8387096774193548,
+        "stderr": 0.11163668639465495
+      }
+    },
+    "greedy": {
+      "final_anc": {
+        "mean": 0.9691111712207605,
+        "stderr": 0.006139775091336392
+      },
+      "total_reward": {
+        "mean": 0.52685695065076,
+        "stderr": 0.014433876465435763
+      },
+      "steps": {
+        "mean": 11.063333333333333,
+        "stderr": 0.31916203942105553
+      },
+      "rounds": {
+        "mean": 3.0966666666666667,
+        "stderr": 0.07484774669410686
+      },
+      "solved_fraction": {
+        "mean": 0.8966666666666666,
+        "stderr": 0.017574181399196143
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.9266666666666666,
+        "stderr": 0.015050532167286263
+      },
+      "threshold_step": {
+        "mean": 6.60431654676259,
+        "stderr": 0.30118193624511186
+      },
+      "threshold_round": {
+        "mean": 2.0035971223021583,
+        "stderr": 0.07740054390274254
+      }
+    },
+    "betweenness": {
+      "final_anc": {
+        "mean": 0.9860022660573661,
+        "stderr": 0.003390505246701785
+      },
+      "total_reward": {
+        "mean": 0.5078712810640212,
+        "stderr": 0.013377944818105994
+      },
+      "steps": {
+        "mean": 10.81,
+        "stderr": 0.30324485889202546
+      },
+      "rounds": {
+        "mean": 3.066666666666667,
+        "stderr": 0.07138834846315115
+      },
+      "solved_fraction": {
+        "mean": 0.92,
+        "stderr": 0.015663120165960973
+      },
+      "threshold_hit_fraction": {
+        "mean": 0.97,
+        "stderr": 0.009848857801796104
+      },
+      "threshold_step": {
+        "mean": 6.810996563573883,
+        "stderr": 0.29546480502797867
+      },
+      "threshold_round": {
+        "mean": 2.06872852233677,
+        "stderr": 0.07750077507216979
+      }
+    }
+  }
+}

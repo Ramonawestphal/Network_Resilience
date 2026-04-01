@@ -18,12 +18,30 @@ FEATURE_NAMES = (
     "failed_flag",
     "active_flag",
     "frontier_flag",
+    "budget_coverage",
+    "degree_norm",
+)
+
+GLOBAL_FEATURE_NAMES = (
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "max_load_capacity_ratio",
+    "current_round_norm",
+)
+
+LEGACY_FEATURE_NAMES = (
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
     "remaining_budget_norm",
     "current_round_norm",
     "degree_norm",
 )
 
-GLOBAL_FEATURE_NAMES = (
+LEGACY_GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
@@ -32,7 +50,10 @@ GLOBAL_FEATURE_NAMES = (
 
 def observation_to_global_features(
     observation: RecoveryObservation,
+    *,
+    global_feature_names: tuple[str, ...] | None = None,
 ) -> torch.Tensor:
+    global_feature_names = global_feature_names or GLOBAL_FEATURE_NAMES
     num_nodes = observation.graph.number_of_nodes()
     active = observation.active
     failed = observation.failed
@@ -43,14 +64,32 @@ def observation_to_global_features(
         for v in active
     ] or [0.0]
 
+    feature_values = {
+        "failed_fraction": len(failed) / max(num_nodes, 1),
+        "mean_load_capacity_ratio": sum(ratios) / len(ratios),
+        "max_load_capacity_ratio": max(ratios),
+        "current_round_norm": float(observation.current_round) / max(1.0, float(observation.max_rounds)),
+    }
     return torch.tensor(
-        [
-            len(failed) / max(num_nodes, 1),
-            sum(ratios) / len(ratios),
-            max(ratios),
-        ],
+        [feature_values[name] for name in global_feature_names],
         dtype=torch.float32,
     )
+
+
+def resolve_feature_names(input_dim: int) -> tuple[str, ...]:
+    if input_dim == len(FEATURE_NAMES):
+        return FEATURE_NAMES
+    if input_dim == len(LEGACY_FEATURE_NAMES):
+        return LEGACY_FEATURE_NAMES
+    raise ValueError(f"Unsupported node-feature width: {input_dim}")
+
+
+def resolve_global_feature_names(input_dim: int) -> tuple[str, ...]:
+    if input_dim == len(FEATURE_NAMES):
+        return GLOBAL_FEATURE_NAMES
+    if input_dim == len(LEGACY_FEATURE_NAMES):
+        return LEGACY_GLOBAL_FEATURE_NAMES
+    raise ValueError(f"Unsupported node-feature width: {input_dim}")
 
 
 class GlobalReadout(nn.Module):
@@ -94,9 +133,11 @@ def observation_to_graph_tensor(
     observation: RecoveryObservation,
     *,
     use_virtual_node: bool = False,
+    feature_names: tuple[str, ...] | None = None,
     device: torch.device | str | None = None,
 ) -> GraphTensor:
     """Convert a RecoveryObservation into tensors for the learner."""
+    feature_names = feature_names or FEATURE_NAMES
     node_ids = tuple(observation.graph.nodes())
     node_to_index = {node: index for index, node in enumerate(node_ids)}
     num_real_nodes = len(node_ids)
@@ -109,7 +150,7 @@ def observation_to_graph_tensor(
     max_degree = max((observation.graph.degree(node) for node in node_ids), default=1)
     scale = max(max_load, max_capacity, 1.0)
 
-    node_features = torch.zeros((num_nodes, len(FEATURE_NAMES)), dtype=torch.float32)
+    node_features = torch.zeros((num_nodes, len(feature_names)), dtype=torch.float32)
     valid_mask = torch.zeros(num_nodes, dtype=torch.bool)
     adjacency = torch.eye(num_nodes, dtype=torch.float32)
 
@@ -118,18 +159,23 @@ def observation_to_graph_tensor(
         load = float(observation.loads[node])
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
+        canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
+        legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
+        legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
+        feature_values = {
+            "load_norm": load / scale,
+            "capacity_norm": capacity / scale,
+            "load_capacity_ratio": (load / capacity) if capacity > 0.0 else 0.0,
+            "failed_flag": 1.0 if node in observation.failed else 0.0,
+            "active_flag": 1.0 if node in observation.active else 0.0,
+            "frontier_flag": 1.0 if node in observation.frontier else 0.0,
+            "budget_coverage": canonical_budget,
+            "remaining_budget_norm": legacy_budget,
+            "current_round_norm": legacy_round,
+            "degree_norm": degree / max(1.0, float(max_degree)),
+        }
         node_features[index] = torch.tensor(
-            [
-                load / scale,
-                capacity / scale,
-                (load / capacity) if capacity > 0.0 else 0.0,
-                1.0 if node in observation.failed else 0.0,
-                1.0 if node in observation.active else 0.0,
-                1.0 if node in observation.frontier else 0.0,
-                float(observation.remaining_budget) / max(1.0, float(num_nodes)),
-                float(observation.current_round) / max(1.0, float(num_nodes)),
-                degree / max(1.0, float(max_degree)),
-            ],
+            [feature_values[name] for name in feature_names],
             dtype=torch.float32,
         )
         valid_mask[index] = node in observation.failed

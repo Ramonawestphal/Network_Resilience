@@ -5,12 +5,14 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from random import Random
+from typing import Any
 import sys
 
 import torch
 from torch.nn import functional as F
 from torch.optim import Adam
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
@@ -18,8 +20,8 @@ from cascading_rl.models import (
     QNetworkConfig,
     RecoveryQNetwork,
     build_greedy_policy,
-    observation_to_graph_tensor,
     observation_to_global_features,
+    observation_to_graph_tensor,
     select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
@@ -31,8 +33,16 @@ class TrainingConfig:
     device: str = "cpu"
     alpha: float = 0.2
     pfail: float = 0.1
+    alpha_values: tuple[float, ...] | None = None
+    pfail_values: tuple[float, ...] | None = None
     budget: int = 2
+    scale_budget: bool = False
+    budget_reference_n: int = 40
     max_rounds: int = 5
+    capacity_noise: float = 0.0
+    failure_bias: str = "uniform"
+    action_space: str = "failed"
+    obs_hops: int | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
     num_episodes: int = 120
@@ -52,6 +62,7 @@ class TrainingConfig:
     use_virtual_node: bool = False
     validation_graphs: int = 2
     validation_seeds: tuple[int, ...] = (0, 1, 2)
+    validation_seed: int = 42
     validation_every: int = 20
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
@@ -62,8 +73,10 @@ class TrainingConfig:
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
     episode_final_anc: list[float] = field(default_factory=list)
+    episode_alpha: list[float] = field(default_factory=list)
+    episode_pfail: list[float] = field(default_factory=list)
     losses: list[float] = field(default_factory=list)
-    validation_history: list[dict] = field(default_factory=list)
+    validation_history: list[dict[str, Any]] = field(default_factory=list)
     total_steps: int = 0
 
 
@@ -121,7 +134,7 @@ def _render_progress_line(
     )
 
 
-def _print_validation_update(validation: dict) -> None:
+def _print_validation_update(validation: dict[str, Any]) -> None:
     print(
         "\n"
         f"[validation] ep={validation['episode']} "
@@ -132,6 +145,43 @@ def _print_validation_update(validation: dict) -> None:
     )
 
 
+def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
+    return {
+        "capacity_noise": config.capacity_noise,
+        "failure_bias": config.failure_bias,
+        "action_space": config.action_space,
+        "obs_hops": config.obs_hops,
+    }
+
+
+def _resolve_budget_for_graph(config: TrainingConfig, num_nodes: int) -> int:
+    return compute_scaled_budget(
+        config.budget,
+        num_nodes=num_nodes,
+        reference_n=config.budget_reference_n,
+        enabled=config.scale_budget,
+    )
+
+
+def _reset_with_non_empty_failures(
+    env: RecoveryEnv,
+    base_seed: int,
+    rng: Random,
+    *,
+    max_attempts: int = 1024,
+):
+    seed = base_seed
+    for _ in range(max_attempts):
+        observation = env.reset(seed=seed)
+        if observation.failed:
+            return observation
+        seed = rng.randint(0, 10**9)
+    raise RuntimeError(
+        "Could not sample an episode with at least one failed node. "
+        "Training requires stochastic failures or a positive pfail."
+    )
+
+
 def compute_dqn_loss(
     model: RecoveryQNetwork,
     target_model: RecoveryQNetwork,
@@ -139,7 +189,6 @@ def compute_dqn_loss(
     *,
     gamma: float,
     device: torch.device,
-    budget: int,
 ) -> torch.Tensor:
     losses = []
     for transition in transitions:
@@ -153,12 +202,8 @@ def compute_dqn_loss(
             global_features = observation_to_global_features(transition.observation).to(device)
         q_values = model(graph_tensor, global_features)
 
-        # mean Q over selected actions — each node in the batch contributed equally
-        action_indices = [
-            graph_tensor.node_to_index[a] for a in transition.action
-        ]
-        q_selected = torch.stack([q_values[i] for i in action_indices]).mean()
-
+        action_indices = [graph_tensor.node_to_index[action] for action in transition.action]
+        q_selected = torch.stack([q_values[index] for index in action_indices]).mean()
 
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device)
@@ -170,18 +215,19 @@ def compute_dqn_loss(
                 )
                 next_global = None
                 if target_model.config.use_global_features:
-                    next_global = observation_to_global_features(
-                        transition.next_observation
-                    ).to(device)
+                    next_global = observation_to_global_features(transition.next_observation).to(
+                        device
+                    )
                 next_q = target_model(next_tensor, next_global)
-                # target: mean of top-B Q-values in next state
+                next_budget = int(transition.next_observation.budget)
                 valid_next = [
-                    next_q[next_tensor.node_to_index[n]].item()
-                    for n in transition.next_observation.failed
+                    next_q[next_tensor.node_to_index[node]].item()
+                    for node in transition.next_observation.valid_actions
                 ]
-                top_b_next = sorted(valid_next, reverse=True)[:budget]
+                top_b_next = sorted(valid_next, reverse=True)[:next_budget]
                 target_value = target_value + gamma * torch.tensor(
-                    sum(top_b_next) / len(top_b_next), device=device
+                    sum(top_b_next) / len(top_b_next),
+                    device=device,
                 )
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
@@ -194,24 +240,29 @@ def validate_policy(
     config: TrainingConfig,
     *,
     device: torch.device,
-    graph_seed_offset: int,
-) -> dict:
-    validation_graphs = make_graph_batch(
-        num_graphs=config.validation_graphs,
-        n_range=config.n_range,
-        m=config.m,
-        seed=config.seed + graph_seed_offset,
-    )
+    validation_graphs=None,
+) -> dict[str, Any]:
+    if validation_graphs is None:
+        validation_graphs = make_graph_batch(
+            num_graphs=config.validation_graphs,
+            n_range=config.n_range,
+            m=config.m,
+            seed=config.validation_seed,
+        )
+
     policy = build_greedy_policy(model, device=device)
     summaries = evaluate_policy_factories_on_graphs(
         validation_graphs,
-        {"rl": lambda graph_index, seed: policy},
+        {"rl": lambda _graph_index, _seed: policy},
         alpha=config.alpha,
         pfail=config.pfail,
         budget=config.budget,
         max_rounds=config.max_rounds,
         seeds=config.validation_seeds,
         tau=0.8,
+        env_kwargs=_env_kwargs_from_config(config),
+        scale_budget=config.scale_budget,
+        reference_n=config.budget_reference_n,
     )
     summary = summaries["rl"]
     return {
@@ -219,6 +270,9 @@ def validate_policy(
         "final_anc_stderr": summary.final_anc.stderr,
         "threshold_hit_mean": summary.threshold_hit_fraction.mean,
         "rounds_mean": summary.rounds.mean,
+        "env": _env_kwargs_from_config(config),
+        "scale_budget": config.scale_budget,
+        "budget_reference_n": config.budget_reference_n,
     }
 
 
@@ -241,6 +295,8 @@ def save_checkpoint(
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
                 "episode_final_anc": training_state.episode_final_anc,
+                "episode_alpha": training_state.episode_alpha,
+                "episode_pfail": training_state.episode_pfail,
                 "losses": training_state.losses,
                 "validation_history": training_state.validation_history,
                 "total_steps": training_state.total_steps,
@@ -263,46 +319,67 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     optimizer = Adam(model.parameters(), lr=config.learning_rate)
     replay_buffer = ReplayBuffer(config.replay_capacity)
     training_state = TrainingState()
+    validation_graphs = make_graph_batch(
+        num_graphs=config.validation_graphs,
+        n_range=config.n_range,
+        m=config.m,
+        seed=config.validation_seed,
+    )
+
+    alpha_values = tuple(config.alpha_values) if config.alpha_values else (config.alpha,)
+    pfail_values = tuple(config.pfail_values) if config.pfail_values else (config.pfail,)
+    regime_combinations = [(float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values]
+    if not regime_combinations:
+        raise ValueError("At least one (alpha, pfail) regime combination is required.")
+
+    checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
+    env_kwargs = _env_kwargs_from_config(config)
 
     for episode in range(config.num_episodes):
         epsilon = epsilon_for_episode(config, episode)
+        cycle_index = episode % len(regime_combinations)
+        if cycle_index == 0 and episode > 0:
+            rng.shuffle(regime_combinations)
+        alpha, pfail = regime_combinations[cycle_index]
+
         if config.episode_graph_specs is not None:
             graph_size, graph_seed = config.episode_graph_specs[episode]
         else:
             graph_size = rng.randint(config.n_range[0], config.n_range[1])
             graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
+        resolved_budget = _resolve_budget_for_graph(config, graph.number_of_nodes())
         env = RecoveryEnv(
             graph,
-            alpha=config.alpha,
-            pfail=config.pfail,
-            budget=config.budget,
+            alpha=alpha,
+            pfail=pfail,
+            budget=resolved_budget,
             max_rounds=config.max_rounds,
             seed=graph_seed,
+            **env_kwargs,
         )
 
-        observation = env.reset(seed=graph_seed)
+        observation = _reset_with_non_empty_failures(env, graph_seed, rng)
         done = False
         total_reward = 0.0
 
         while not done and observation.failed:
-            epsilon = epsilon_for_episode(config, episode)
-
-            actions = select_top_b(
-                model,
-                observation,
-                budget=config.budget,
-                epsilon=epsilon,
-                rng=rng,
-                device=device,
+            actions = tuple(
+                select_top_b(
+                    model,
+                    observation,
+                    budget=observation.remaining_budget,
+                    epsilon=epsilon,
+                    rng=rng,
+                    device=device,
+                )
             )
-            next_observation, reward, done, info = env.step_batch(actions)
-            
-            # store as single transition (one per round, not per reactivation)
+            next_observation, reward, done, _info = env.step_batch(list(actions))
+
             replay_buffer.push(
                 Transition(
                     observation=observation,
-                    action=actions,          # list of nodes now
+                    action=actions,
                     reward=reward,
                     next_observation=next_observation,
                     done=done,
@@ -313,10 +390,15 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             total_reward += reward
             training_state.total_steps += 1
 
-            # learning step unchanged
             if len(replay_buffer) >= max(config.batch_size, config.warmup_transitions):
                 batch = replay_buffer.sample(config.batch_size, rng=rng)
-                loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device, budget=config.budget,)
+                loss = compute_dqn_loss(
+                    model,
+                    target_model,
+                    batch,
+                    gamma=config.gamma,
+                    device=device,
+                )
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -328,6 +410,8 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
 
         training_state.episode_rewards.append(total_reward)
         training_state.episode_final_anc.append(env.current_anc())
+        training_state.episode_alpha.append(alpha)
+        training_state.episode_pfail.append(pfail)
         progress_line = _render_progress_line(
             episode,
             config.num_episodes,
@@ -341,11 +425,18 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 model,
                 config,
                 device=device,
-                graph_seed_offset=episode + 1,
+                validation_graphs=validation_graphs,
             )
             validation["episode"] = episode + 1
             training_state.validation_history.append(validation)
             _print_validation_update(validation)
+            save_checkpoint(
+                model,
+                config,
+                training_state,
+                checkpoint_path,
+                episode=episode + 1,
+            )
             print(
                 _render_progress_line(
                     episode,
@@ -357,7 +448,6 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 flush=True,
             )
 
-    checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
     print("", file=sys.stdout, flush=True)
     saved_path = save_checkpoint(
         model,

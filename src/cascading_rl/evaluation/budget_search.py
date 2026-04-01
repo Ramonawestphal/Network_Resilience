@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from math import sqrt
 from statistics import mean, pstdev
 
 import networkx as nx
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import rollout_policy
 
@@ -21,6 +22,9 @@ def estimate_minimum_budget(
     alpha: float = 0.2,
     pfail: float = 0.1,
     max_rounds: int | None = None,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> tuple[int | None, dict[int, tuple[float, float]]]:
     """Estimate the smallest budget whose expected final ANC exceeds tau."""
     if trials < 1:
@@ -30,17 +34,25 @@ def estimate_minimum_budget(
 
     results: dict[int, tuple[float, float]] = {}
     minimum_budget: int | None = None
+    env_kwargs = dict(env_kwargs or {})
 
     for budget in budgets:
         anc_values = []
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
         for seed in range(trials):
             env = RecoveryEnv(
                 graph,
                 alpha=alpha,
                 pfail=pfail,
-                budget=budget,
+                budget=resolved_budget,
                 max_rounds=max_rounds,
                 seed=seed,
+                **env_kwargs,
             )
             episode = rollout_policy(env, policy, seed=seed, tau=tau)
             anc_values.append(episode.final_anc)

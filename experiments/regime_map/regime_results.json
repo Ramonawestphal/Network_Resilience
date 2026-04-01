@@ -1,5 +1,5 @@
 {
-  "config_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\config\\default.yaml",
+  "config_path": "config\\default.yaml",
   "policies": [
     "random",
     "degree",
@@ -17,6 +17,16 @@
     5
   ],
   "num_graphs": 3,
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "scaling": {
+    "scale_budget": false,
+    "reference_n": 40
+  },
   "cells": [
     {
       "alpha": 0.2,
@@ -33,7 +43,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -223,7 +236,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -413,7 +429,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -603,7 +622,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -783,17 +805,20 @@
       "pfail": 0.05,
       "budget": 1,
       "diagnostics": {
-        "regime_label": "interesting",
+        "regime_label": "decision-sensitive",
         "interesting_for_rl": true,
-        "interestingness_score": 0.256182036389569,
+        "interestingness_score": 0.25620126600317394,
         "final_anc_spread": 0.11656660551563602,
         "threshold_hit_spread": 0.05555555555555547,
         "rounds_spread": 0.16666666666666696,
-        "mean_final_anc": 0.737533690714101,
-        "mean_threshold_hit": 0.8666666666666666,
+        "mean_final_anc": 0.7374856166800885,
+        "mean_threshold_hit": 0.8666666666666668,
         "budget_sensitivity": 0.21587489261257276,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 0.7841251073874272,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -802,7 +827,7 @@
             "stderr": 0.1108141493801776
           },
           "total_reward": {
-            "mean": 0.10380614218867922,
+            "mean": 0.10380614218867923,
             "stderr": 0.019421934546636172
           },
           "steps": {
@@ -866,12 +891,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.6754280620145073,
-            "stderr": 0.10845631812446191
+            "mean": 0.6751876918444454,
+            "stderr": 0.10853910219045595
           },
           "total_reward": {
-            "mean": 0.12853106969648062,
-            "stderr": 0.024753352827689656
+            "mean": 0.12901181003660442,
+            "stderr": 0.02480634040954661
           },
           "steps": {
             "mean": 2.6666666666666665,
@@ -983,7 +1008,10 @@
         "mean_threshold_hit": 0.9444444444444444,
         "budget_sensitivity": 0.21587489261257276,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -1173,7 +1201,10 @@
         "mean_threshold_hit": 0.9888888888888889,
         "budget_sensitivity": 0.21587489261257276,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -1182,8 +1213,8 @@
             "stderr": 0.07347986346039588
           },
           "total_reward": {
-            "mean": 0.1546668826430496,
-            "stderr": 0.036976418068747116
+            "mean": 0.15466688264304956,
+            "stderr": 0.03697641806874711
           },
           "steps": {
             "mean": 3.388888888888889,
@@ -1363,7 +1394,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.21587489261257276,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -1543,17 +1577,20 @@
       "pfail": 0.08,
       "budget": 1,
       "diagnostics": {
-        "regime_label": "interesting",
+        "regime_label": "decision-sensitive",
         "interesting_for_rl": true,
-        "interestingness_score": 0.46313611755881706,
+        "interestingness_score": 0.46312890645371513,
         "final_anc_spread": 0.2829547340964399,
         "threshold_hit_spread": 0.2222222222222222,
         "rounds_spread": 0.22222222222222232,
-        "mean_final_anc": 0.6478824103805083,
+        "mean_final_anc": 0.6479004381432631,
         "mean_threshold_hit": 0.6888888888888889,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "greedy",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "greedy",
+        "best_heuristic_final_anc": 0.7837253761136681,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -1562,8 +1599,8 @@
             "stderr": 0.11766965174272577
           },
           "total_reward": {
-            "mean": 0.1052237162740864,
-            "stderr": 0.016434497472082338
+            "mean": 0.10522371627408639,
+            "stderr": 0.016434497472082334
           },
           "steps": {
             "mean": 3.3333333333333335,
@@ -1626,12 +1663,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.5075611855156915,
-            "stderr": 0.1162561470822093
+            "mean": 0.5076513243294648,
+            "stderr": 0.11623433823244325
           },
           "total_reward": {
-            "mean": 0.14004882263458424,
-            "stderr": 0.02278155656365455
+            "mean": 0.1398685450070378,
+            "stderr": 0.02280883182918249
           },
           "steps": {
             "mean": 3.2777777777777777,
@@ -1733,17 +1770,20 @@
       "pfail": 0.08,
       "budget": 2,
       "diagnostics": {
-        "regime_label": "interesting",
+        "regime_label": "decision-sensitive",
         "interesting_for_rl": true,
-        "interestingness_score": 0.2616610234172331,
+        "interestingness_score": 0.2616970789427424,
         "final_anc_spread": 0.33178902499028073,
         "threshold_hit_spread": 0.11111111111111116,
         "rounds_spread": 0.6111111111111112,
-        "mean_final_anc": 0.8693001502665789,
+        "mean_final_anc": 0.8692100114528056,
         "mean_threshold_hit": 0.9444444444444444,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -1816,12 +1856,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.731111121194277,
-            "stderr": 0.10222725833891891
+            "mean": 0.730660427125411,
+            "stderr": 0.10240380384799248
           },
           "total_reward": {
-            "mean": 0.222671292707181,
-            "stderr": 0.04067708695838685
+            "mean": 0.2199671282939847,
+            "stderr": 0.04040898428969203
           },
           "steps": {
             "mean": 4.722222222222222,
@@ -1933,7 +1973,10 @@
         "mean_threshold_hit": 0.9888888888888889,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -2123,7 +2166,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.2162746238863319,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -2303,17 +2349,20 @@
       "pfail": 0.1,
       "budget": 1,
       "diagnostics": {
-        "regime_label": "interesting",
+        "regime_label": "decision-sensitive",
         "interesting_for_rl": true,
-        "interestingness_score": 0.5512231026388159,
+        "interestingness_score": 0.5512423322524209,
         "final_anc_spread": 0.22294214250113614,
         "threshold_hit_spread": 0.11111111111111116,
         "rounds_spread": 0.0555555555555558,
-        "mean_final_anc": 0.5133254637300783,
+        "mean_final_anc": 0.5132773896960658,
         "mean_threshold_hit": 0.5666666666666667,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "greedy",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "greedy",
+        "best_heuristic_final_anc": 0.6129378642783078,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -2322,7 +2371,7 @@
             "stderr": 0.11469660930555979
           },
           "total_reward": {
-            "mean": 0.10161882353788738,
+            "mean": 0.10161882353788737,
             "stderr": 0.013991941408856888
           },
           "steps": {
@@ -2356,7 +2405,7 @@
             "stderr": 0.10375057569449853
           },
           "total_reward": {
-            "mean": 0.19337999679031917,
+            "mean": 0.1933799967903192,
             "stderr": 0.023542932524724006
           },
           "steps": {
@@ -2386,12 +2435,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.4067814734061227,
-            "stderr": 0.11265628874896767
+            "mean": 0.4065411032360608,
+            "stderr": 0.1127041622985635
           },
           "total_reward": {
-            "mean": 0.1452487996784787,
-            "stderr": 0.01891641565558383
+            "mean": 0.14633046544375722,
+            "stderr": 0.01863502204961117
           },
           "steps": {
             "mean": 3.7777777777777777,
@@ -2493,17 +2542,20 @@
       "pfail": 0.1,
       "budget": 2,
       "diagnostics": {
-        "regime_label": "interesting",
+        "regime_label": "decision-sensitive",
         "interesting_for_rl": true,
-        "interestingness_score": 0.38101726351996323,
+        "interestingness_score": 0.3809956302046576,
         "final_anc_spread": 0.31089501004429887,
         "threshold_hit_spread": 0.2777777777777778,
         "rounds_spread": 0.44444444444444464,
-        "mean_final_anc": 0.8088543761830328,
+        "mean_final_anc": 0.8089084594712969,
         "mean_threshold_hit": 0.8777777777777779,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "greedy",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "greedy",
+        "best_heuristic_final_anc": 0.9235813266895119,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -2513,7 +2565,7 @@
           },
           "total_reward": {
             "mean": 0.2019074581386618,
-            "stderr": 0.025353410008942884
+            "stderr": 0.02535341000894288
           },
           "steps": {
             "mean": 5.666666666666667,
@@ -2576,12 +2628,12 @@
         },
         "risk": {
           "final_anc": {
-            "mean": 0.6912186770992964,
-            "stderr": 0.09880787785362162
+            "mean": 0.691489093540616,
+            "stderr": 0.09870529871757114
           },
           "total_reward": {
-            "mean": 0.2706356284751944,
-            "stderr": 0.046311026556626486
+            "mean": 0.2679314640619981,
+            "stderr": 0.04645974922457882
           },
           "steps": {
             "mean": 5.722222222222222,
@@ -2685,15 +2737,18 @@
       "diagnostics": {
         "regime_label": "trivial",
         "interesting_for_rl": false,
-        "interestingness_score": 0.1728650026549064,
+        "interestingness_score": 0.17286500265490634,
         "final_anc_spread": 0.14625984142156057,
         "threshold_hit_spread": 0.05555555555555558,
         "rounds_spread": 0.5555555555555554,
-        "mean_final_anc": 0.94629036691189,
+        "mean_final_anc": 0.9462903669118902,
         "mean_threshold_hit": 0.9777777777777779,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "degree",
-        "worst_policy": "risk"
+        "worst_policy": "risk",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -2703,7 +2758,7 @@
           },
           "total_reward": {
             "mean": 0.2852954142084162,
-            "stderr": 0.04961009480088877
+            "stderr": 0.04961009480088878
           },
           "steps": {
             "mean": 5.666666666666667,
@@ -2770,8 +2825,8 @@
             "stderr": 0.07323473474881022
           },
           "total_reward": {
-            "mean": 0.3073051951891156,
-            "stderr": 0.061925850943059656
+            "mean": 0.30730519518911553,
+            "stderr": 0.06192585094305964
           },
           "steps": {
             "mean": 6.055555555555555,
@@ -2875,15 +2930,18 @@
       "diagnostics": {
         "regime_label": "trivial",
         "interesting_for_rl": false,
-        "interestingness_score": 0.10328510700882979,
+        "interestingness_score": 0.10328510700882974,
         "final_anc_spread": 0.05126973664443246,
         "threshold_hit_spread": 0.0,
         "rounds_spread": 0.5555555555555556,
-        "mean_final_anc": 0.9801793199026501,
+        "mean_final_anc": 0.9801793199026502,
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.38706213572169224,
         "best_policy": "degree",
-        "worst_policy": "risk"
+        "worst_policy": "risk",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -3073,7 +3131,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -3263,7 +3324,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -3453,7 +3517,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -3643,7 +3710,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -3833,7 +3903,10 @@
         "mean_threshold_hit": 0.9777777777777779,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 0.9949522264287002,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4023,7 +4096,10 @@
         "mean_threshold_hit": 0.9888888888888889,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4100,8 +4176,8 @@
             "stderr": 0.038543639711134135
           },
           "total_reward": {
-            "mean": 0.1465654887024164,
-            "stderr": 0.03367828769737858
+            "mean": 0.14656548870241637,
+            "stderr": 0.03367828769737857
           },
           "steps": {
             "mean": 2.5555555555555554,
@@ -4213,7 +4289,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4403,7 +4482,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4593,7 +4675,10 @@
         "mean_threshold_hit": 0.9444444444444444,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 0.9949522264287002,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4783,7 +4868,10 @@
         "mean_threshold_hit": 0.9888888888888889,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -4861,7 +4949,7 @@
           },
           "total_reward": {
             "mean": 0.18776948604453877,
-            "stderr": 0.03253227060352037
+            "stderr": 0.03253227060352036
           },
           "steps": {
             "mean": 3.2777777777777777,
@@ -4973,7 +5061,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -5163,7 +5254,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.005047773571299818,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -5353,7 +5447,10 @@
         "mean_threshold_hit": 0.8555555555555555,
         "budget_sensitivity": 0.07037206661430107,
         "best_policy": "greedy",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "greedy",
+        "best_heuristic_final_anc": 0.9296279333856989,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -5397,7 +5494,7 @@
           },
           "total_reward": {
             "mean": 0.195305215169075,
-            "stderr": 0.024651682440150226
+            "stderr": 0.024651682440150223
           },
           "steps": {
             "mean": 3.4444444444444446,
@@ -5430,7 +5527,7 @@
             "stderr": 0.07712172445273839
           },
           "total_reward": {
-            "mean": 0.1873834453310244,
+            "mean": 0.18738344533102444,
             "stderr": 0.02313944642652978
           },
           "steps": {
@@ -5499,7 +5596,7 @@
           },
           "total_reward": {
             "mean": 0.19836993483736418,
-            "stderr": 0.024748787835513614
+            "stderr": 0.02474878783551361
           },
           "steps": {
             "mean": 3.4444444444444446,
@@ -5543,7 +5640,10 @@
         "mean_threshold_hit": 0.9777777777777779,
         "budget_sensitivity": 0.07037206661430107,
         "best_policy": "degree",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -5733,7 +5833,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.07037206661430107,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -5923,7 +6026,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.07037206661430107,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -6113,7 +6219,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -6303,7 +6412,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -6493,7 +6605,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -6683,7 +6798,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -6873,7 +6991,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "risk"
+        "worst_policy": "risk",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 0.9974460669430923,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -7063,7 +7184,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -7253,7 +7377,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -7443,7 +7570,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -7633,7 +7763,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "risk"
+        "worst_policy": "risk",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 0.9974460669430923,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -7823,7 +7956,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8013,7 +8149,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8203,7 +8342,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8393,7 +8535,10 @@
         "mean_threshold_hit": 0.9777777777777779,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "greedy",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "greedy",
+        "best_heuristic_final_anc": 0.9880078384394818,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8583,7 +8728,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8773,7 +8921,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -8963,7 +9114,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -9153,7 +9307,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -9343,7 +9500,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -9533,7 +9693,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -9723,7 +9886,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -9913,7 +10079,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 0.9974460669430923,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -10103,7 +10272,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -10293,7 +10465,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -10483,7 +10658,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -10673,7 +10851,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 0.9974460669430923,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -10863,7 +11044,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -11053,7 +11237,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -11243,7 +11430,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.0025539330569076535,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -11433,7 +11623,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 0.9880078384394818,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -11623,7 +11816,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -11813,7 +12009,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -12003,7 +12202,10 @@
         "mean_threshold_hit": 1.0,
         "budget_sensitivity": 0.011992161560518189,
         "best_policy": "random",
-        "worst_policy": "random"
+        "worst_policy": "random",
+        "best_heuristic": "random",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": null
       },
       "policy_summaries": {
         "random": {
@@ -12179,17 +12381,150 @@
       }
     }
   ],
+  "bucket_summary": {
+    "overall": {
+      "cell_count": 64,
+      "mean_interestingness_score": 0.05326435493401712,
+      "mean_budget_sensitivity": 0.05836745758288523,
+      "winner_counts": {
+        "random": 45,
+        "degree": 14,
+        "greedy": 5
+      },
+      "policy_means": {
+        "betweenness": {
+          "final_anc_mean": 0.9811969012525023,
+          "threshold_hit_mean": 0.9835069444444444,
+          "rounds_mean": 1.4991319444444438,
+          "solved_fraction_mean": 0.9635416666666666
+        },
+        "degree": {
+          "final_anc_mean": 0.981780691157843,
+          "threshold_hit_mean": 0.9861111111111112,
+          "rounds_mean": 1.4887152777777775,
+          "solved_fraction_mean": 0.9652777777777777
+        },
+        "greedy": {
+          "final_anc_mean": 0.9837134911419834,
+          "threshold_hit_mean": 0.9869791666666667,
+          "rounds_mean": 1.4869791666666663,
+          "solved_fraction_mean": 0.9644097222222222
+        },
+        "random": {
+          "final_anc_mean": 0.94502879043109,
+          "threshold_hit_mean": 0.9635416666666665,
+          "rounds_mean": 1.5520833333333328,
+          "solved_fraction_mean": 0.9314236111111109
+        },
+        "risk": {
+          "final_anc_mean": 0.9538920521048969,
+          "threshold_hit_mean": 0.9670138888888888,
+          "rounds_mean": 1.5520833333333328,
+          "solved_fraction_mean": 0.9374999999999998
+        }
+      },
+      "rl_vs_best_heuristic_gap": null
+    },
+    "decision-sensitive": {
+      "cell_count": 5,
+      "mean_interestingness_score": 0.382653042771342,
+      "mean_budget_sensitivity": 0.28450968236572416,
+      "winner_counts": {
+        "degree": 2,
+        "greedy": 3
+      },
+      "policy_means": {
+        "betweenness": {
+          "final_anc_mean": 0.7936534251683272,
+          "threshold_hit_mean": 0.8222222222222222,
+          "rounds_mean": 2.855555555555555,
+          "solved_fraction_mean": 0.7222222222222222
+        },
+        "degree": {
+          "final_anc_mean": 0.7985119103572662,
+          "threshold_hit_mean": 0.8444444444444444,
+          "rounds_mean": 2.833333333333333,
+          "solved_fraction_mean": 0.7333333333333333
+        },
+        "greedy": {
+          "final_anc_mean": 0.8144662204385023,
+          "threshold_hit_mean": 0.8555555555555555,
+          "rounds_mean": 2.822222222222222,
+          "solved_fraction_mean": 0.7222222222222221
+        },
+        "random": {
+          "final_anc_mean": 0.5678444314642247,
+          "threshold_hit_mean": 0.7222222222222222,
+          "rounds_mean": 3.1,
+          "solved_fraction_mean": 0.5666666666666667
+        },
+        "risk": {
+          "final_anc_mean": 0.6023059280151996,
+          "threshold_hit_mean": 0.7,
+          "rounds_mean": 3.055555555555556,
+          "solved_fraction_mean": 0.5777777777777777
+        }
+      },
+      "rl_vs_best_heuristic_gap": null
+    },
+    "trivial": {
+      "cell_count": 59,
+      "mean_interestingness_score": 0.02535005935458276,
+      "mean_budget_sensitivity": 0.03920286226230566,
+      "winner_counts": {
+        "random": 45,
+        "degree": 12,
+        "greedy": 2
+      },
+      "policy_means": {
+        "betweenness": {
+          "final_anc_mean": 0.9970904161748899,
+          "threshold_hit_mean": 0.9971751412429378,
+          "rounds_mean": 1.3841807909604518,
+          "solved_fraction_mean": 0.9839924670433146
+        },
+        "degree": {
+          "final_anc_mean": 0.9973119437680614,
+          "threshold_hit_mean": 0.9981167608286252,
+          "rounds_mean": 1.374764595103578,
+          "solved_fraction_mean": 0.9849340866290018
+        },
+        "greedy": {
+          "final_anc_mean": 0.9980564801846512,
+          "threshold_hit_mean": 0.9981167608286252,
+          "rounds_mean": 1.3738229755178908,
+          "solved_fraction_mean": 0.9849340866290018
+        },
+        "random": {
+          "final_anc_mean": 0.9769935666147226,
+          "threshold_hit_mean": 0.9839924670433144,
+          "rounds_mean": 1.4209039548022595,
+          "solved_fraction_mean": 0.9623352165725046
+        },
+        "risk": {
+          "final_anc_mean": 0.9836874863497865,
+          "threshold_hit_mean": 0.9896421845574387,
+          "rounds_mean": 1.4246704331450093,
+          "solved_fraction_mean": 0.9679849340866289
+        }
+      },
+      "rl_vs_best_heuristic_gap": null
+    }
+  },
   "recommendation": {
     "alpha": 0.2,
-    "pfail": 0.08,
-    "budget": 2,
-    "regime_label": "interesting",
-    "interestingness_score": 0.2616610234172331,
-    "best_policy": "degree",
+    "pfail": 0.1,
+    "budget": 1,
+    "regime_label": "decision-sensitive",
+    "interestingness_score": 0.5512423322524209,
+    "best_policy": "greedy",
     "worst_policy": "random",
-    "final_anc_spread": 0.33178902499028073,
+    "best_heuristic": "greedy",
+    "best_heuristic_final_anc": 0.6129378642783078,
+    "rl_vs_best_heuristic_gap": null,
+    "final_anc_spread": 0.22294214250113614,
     "threshold_hit_spread": 0.11111111111111116,
-    "budget_sensitivity": 0.2162746238863319,
+    "budget_sensitivity": 0.38706213572169224,
     "limited_spread": false
   }
 }

@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import json
 from argparse import Namespace
+from pathlib import Path
+import sys
 
+import yaml
+
+from scripts import evaluate_policy
 from scripts.evaluate_policy import resolve_grid_spec, serialize_legacy_summary
+from cascading_rl.models import RecoveryQNetwork
+from cascading_rl.training import TrainingConfig, TrainingState, save_checkpoint
 
 
 def make_config() -> dict:
@@ -96,3 +104,81 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
             "b_star": 2,
         },
     }
+
+
+def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypatch):
+    config = make_config()
+    config["training"].update(
+        {
+            "benchmark_dir": "unused",
+            "benchmark_graphs": 1,
+            "benchmark_seeds": [0],
+        }
+    )
+    config["training"]["regime"].update(
+        {
+            "capacity_noise": 0.0,
+            "failure_bias": "uniform",
+            "action_space": "failed",
+            "obs_hops": None,
+        }
+    )
+    config["regime_mapping"].update(
+        {
+            "alpha_values": [0.2],
+            "pfail_values": [0.1],
+            "budgets": [2],
+            "num_graphs": 1,
+            "seeds": [0],
+            "max_rounds": 5,
+        }
+    )
+
+    config_path = tmp_path / "config.yaml"
+    with config_path.open("w", encoding="utf-8") as file:
+        yaml.safe_dump(config, file)
+
+    checkpoint_path = save_checkpoint(
+        RecoveryQNetwork(),
+        TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub.pt"),
+        TrainingState(),
+        tmp_path / "stub.pt",
+        episode=0,
+    )
+
+    output_dir = tmp_path / "eval_outputs"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_policy.py",
+            "--config",
+            str(config_path),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--output-dir",
+            str(output_dir),
+            "--policies",
+            "rl",
+            "degree",
+        ],
+    )
+    evaluate_policy.main()
+
+    summary_path = output_dir / "evaluation_summary.json"
+    grid_path = output_dir / "evaluation_grid_summary.json"
+    regime_path = output_dir / "evaluation_regime_summary.json"
+    metadata_path = output_dir / "run_metadata.json"
+
+    assert summary_path.exists()
+    assert grid_path.exists()
+    assert regime_path.exists()
+    assert metadata_path.exists()
+
+    with grid_path.open("r", encoding="utf-8") as file:
+        grid_payload = json.load(file)
+    with regime_path.open("r", encoding="utf-8") as file:
+        regime_payload = json.load(file)
+
+    assert grid_payload == regime_payload
+    assert grid_payload["policies"] == ["rl", "degree"]

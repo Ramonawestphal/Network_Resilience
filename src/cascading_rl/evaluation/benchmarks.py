@@ -6,6 +6,7 @@ from math import sqrt
 from random import Random
 from statistics import mean, pstdev
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.policies import (
     choose_greedy_anc_node,
@@ -180,22 +181,33 @@ def evaluate_policy_factories_on_graphs(
     max_rounds: int | None = None,
     seeds: Iterable[int],
     tau: float,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policy factories across fixed graphs and matched seeds."""
     episode_results_by_policy: dict[str, list[EpisodeResult]] = {
         name: [] for name in policy_factories
     }
+    env_kwargs = dict(env_kwargs or {})
 
     for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
         for seed in seeds:
             for policy_name, policy_factory in policy_factories.items():
                 env = RecoveryEnv(
                     graph,
                     alpha=alpha,
                     pfail=pfail,
-                    budget=budget,
+                    budget=resolved_budget,
                     max_rounds=max_rounds,
                     seed=seed,
+                    **env_kwargs,
                 )
                 policy = policy_factory(graph_index, seed)
                 result = rollout_policy(env, policy, seed=seed, tau=tau)

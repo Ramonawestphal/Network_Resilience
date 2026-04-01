@@ -41,12 +41,18 @@ def initialize_loads_and_capacities(
     graph: nx.Graph,
     alpha: float = 0.2,
     load_fn: LoadFunction | None = None,
+    *,
+    capacity_noise: float = 0.0,
+    rng: Random | None = None,
 ) -> tuple[dict[Node, float], dict[Node, float]]:
     """Set initial loads and capacities using the proposal's baseline rule."""
     if alpha < 0:
         raise ValueError("alpha must be non-negative.")
+    if capacity_noise < 0:
+        raise ValueError("capacity_noise must be non-negative.")
 
     load_fn = load_fn or degree_load
+    rng = rng or Random()
     loads: dict[Node, float] = {}
     capacities: dict[Node, float] = {}
     for node in graph.nodes():
@@ -54,7 +60,12 @@ def initialize_loads_and_capacities(
         if load < 0:
             raise ValueError("load_fn must return non-negative values.")
         loads[node] = load
-        capacities[node] = (1.0 + alpha) * load
+        baseline_capacity = (1.0 + alpha) * load
+        if capacity_noise > 0.0 and baseline_capacity > 0.0:
+            multiplier = max(0.0, 1.0 + rng.gauss(0.0, capacity_noise))
+            capacities[node] = baseline_capacity * multiplier
+        else:
+            capacities[node] = baseline_capacity
     return loads, capacities
 
 
@@ -63,14 +74,32 @@ def sample_initial_failures(
     pfail: float = 0.1,
     rng: Random | None = None,
     active: Iterable[Node] | None = None,
+    *,
+    weights: dict[Node, float] | None = None,
 ) -> set[Node]:
-    """Sample initial failures uniformly across active nodes."""
+    """Sample initial failures across active nodes."""
     if not 0.0 <= pfail <= 1.0:
         raise ValueError("pfail must lie in [0, 1].")
 
     rng = rng or Random()
     candidate_nodes = list(active if active is not None else graph.nodes())
-    return {node for node in candidate_nodes if rng.random() < pfail}
+    if not candidate_nodes or pfail == 0.0:
+        return set()
+
+    if weights is None:
+        return {node for node in candidate_nodes if rng.random() < pfail}
+
+    positive_weights = [max(0.0, float(weights.get(node, 0.0))) for node in candidate_nodes]
+    mean_weight = sum(positive_weights) / max(1, len(positive_weights))
+    if mean_weight <= 0.0:
+        return {node for node in candidate_nodes if rng.random() < pfail}
+
+    failures: set[Node] = set()
+    for node, weight in zip(candidate_nodes, positive_weights, strict=False):
+        tilted_p = pfail * (weight / mean_weight)
+        if rng.random() < min(1.0, max(0.0, tilted_p)):
+            failures.add(node)
+    return failures
 
 
 def redistribute_load(
@@ -192,14 +221,41 @@ def build_initial_state(
     pfail: float = 0.1,
     rng: Random | None = None,
     load_fn: LoadFunction | None = None,
+    *,
+    capacity_noise: float = 0.0,
+    failure_bias: str = "uniform",
 ) -> CascadeState:
     """Create a fresh state after the single exogenous failure event at t=0."""
     working_graph = graph.copy()
-    loads, capacities = initialize_loads_and_capacities(working_graph, alpha=alpha, load_fn=load_fn)
+    rng = rng or Random()
+    loads, capacities = initialize_loads_and_capacities(
+        working_graph,
+        alpha=alpha,
+        load_fn=load_fn,
+        capacity_noise=capacity_noise,
+        rng=rng,
+    )
     active = set(working_graph.nodes())
     failed: set[Node] = set()
 
-    initial_failures = sample_initial_failures(working_graph, pfail=pfail, rng=rng, active=active)
+    failure_bias = str(failure_bias or "uniform").lower()
+    weights: dict[Node, float] | None
+    if failure_bias == "uniform":
+        weights = None
+    elif failure_bias == "degree":
+        weights = {node: float(working_graph.degree(node)) for node in working_graph.nodes()}
+    elif failure_bias == "load":
+        weights = {node: float(loads[node]) for node in working_graph.nodes()}
+    else:
+        raise ValueError("failure_bias must be one of: 'uniform', 'degree', 'load'.")
+
+    initial_failures = sample_initial_failures(
+        working_graph,
+        pfail=pfail,
+        rng=rng,
+        active=active,
+        weights=weights,
+    )
     frontier = set(mark_failed_nodes(initial_failures, active, failed))
     return CascadeState(
         graph=working_graph,

@@ -1,44 +1,8 @@
 {
   "checkpoint_path": "experiments\\learner\\recovery_q.pt",
-  "num_episodes": 100,
-  "final_reward_mean_last_10": 0.037389182855743816,
-  "final_anc_mean_last_10": 0.9001249479383591,
-  "num_updates": 74,
-  "validation_history": [
-    {
-      "final_anc_mean": 0.501469621421976,
-      "final_anc_stderr": 0.20352489353968212,
-      "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.3333333333333335,
-      "episode": 20
-    },
-    {
-      "final_anc_mean": 0.5013791077640888,
-      "final_anc_stderr": 0.20356138350667163,
-      "threshold_hit_mean": 0.6666666666666666,
-      "rounds_mean": 3.3333333333333335,
-      "episode": 40
-    },
-    {
-      "final_anc_mean": 0.33582473845659816,
-      "final_anc_stderr": 0.1917318714244557,
-      "threshold_hit_mean": 0.3333333333333333,
-      "rounds_mean": 3.5,
-      "episode": 60
-    },
-    {
-      "final_anc_mean": 0.5052801984991527,
-      "final_anc_stderr": 0.20197429816035037,
-      "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.1666666666666665,
-      "episode": 80
-    },
-    {
-      "final_anc_mean": 0.4042407589177015,
-      "final_anc_stderr": 0.17476637826658134,
-      "threshold_hit_mean": 0.5,
-      "rounds_mean": 3.6666666666666665,
-      "episode": 100
-    }
-  ]
+  "num_episodes": 1,
+  "final_reward_mean_last_10": 0.09750000000000003,
+  "final_anc_mean_last_10": 1.0,
+  "num_updates": 0,
+  "validation_history": []
 }

@@ -21,6 +21,7 @@ from cascading_rl.evaluation import build_policy_factories, build_regime_cells, 
 from cascading_rl.graph.generation import make_graph_batch
 from scripts.map_regime import build_recommendation, write_csv
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
+from scripts.reproducibility import build_run_metadata
 
 POLICY_NAMES = ("random", "degree", "risk", "greedy", "betweenness")
 
@@ -40,6 +41,9 @@ class MappingConfig:
     hopeless_threshold: float
     trivial_threshold: float
     spread_threshold: float
+    scale_budget: bool = False
+    reference_n: int = 40
+    env_kwargs: dict[str, object] | None = None
     output_dir: str = "experiments/regime_comprehensive"
 
     @property
@@ -56,6 +60,9 @@ def load_config(path: Path) -> MappingConfig:
     regime_mapping = data["regime_mapping"]
     graph_cfg = data["graph"]
     evaluation = data["evaluation"]
+    training_regime = data["training"]["regime"]
+    budget_scaling = data.get("budget_scaling", {})
+    obs_hops = training_regime.get("obs_hops")
     return MappingConfig(
         alpha_values=tuple(float(value) for value in regime_mapping["alpha_values"]),
         pfail_values=tuple(float(value) for value in regime_mapping["pfail_values"]),
@@ -70,6 +77,20 @@ def load_config(path: Path) -> MappingConfig:
         hopeless_threshold=float(regime_mapping["hopeless_threshold"]),
         trivial_threshold=float(regime_mapping["trivial_threshold"]),
         spread_threshold=float(regime_mapping["spread_threshold"]),
+        scale_budget=bool(budget_scaling.get("enabled", False)),
+        reference_n=int(budget_scaling.get("reference_n", 40)),
+        env_kwargs={
+            "capacity_noise": float(training_regime.get("capacity_noise", 0.0)),
+            "failure_bias": str(training_regime.get("failure_bias", "uniform")),
+            "action_space": str(training_regime.get("action_space", "failed")),
+            "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        },
+        output_dir=str(
+            regime_mapping.get(
+                "comprehensive_output_dir",
+                regime_mapping.get("output_dir", "experiments/regime_comprehensive"),
+            )
+        ),
     )
 
 
@@ -194,6 +215,9 @@ def evaluate_all_cells(
                 hopeless_threshold=config.hopeless_threshold,
                 trivial_threshold=config.trivial_threshold,
                 spread_threshold=config.spread_threshold,
+                env_kwargs=config.env_kwargs,
+                scale_budget=config.scale_budget,
+                reference_n=config.reference_n,
             )
             for cell in cells_for_pair:
                 key = cell_key(cell.alpha, cell.pfail, cell.budget)
@@ -235,12 +259,20 @@ def run_analysis(
         "cells": cells,
         "recommendation": recommendation,
     }
-    run_metadata = {
-        "generated_at": timestamp_utc(),
-        "output_dir": str(resolved_output_dir),
-        "cell_count": len(cells),
-        "policy_names": list(POLICY_NAMES),
-    }
+    run_metadata = build_run_metadata(
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        extra={
+            "output_dir": str(resolved_output_dir),
+            "cell_count": len(cells),
+            "policy_names": list(POLICY_NAMES),
+            "env": config.env_kwargs,
+            "scaling": {
+                "scale_budget": config.scale_budget,
+                "reference_n": config.reference_n,
+            },
+        },
+    )
 
     with (resolved_output_dir / "regime_cells.json").open("w", encoding="utf-8") as file:
         json.dump(results, file, indent=2)

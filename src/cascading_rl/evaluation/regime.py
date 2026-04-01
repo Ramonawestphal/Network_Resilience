@@ -6,12 +6,11 @@ from random import Random
 
 import networkx as nx
 
-from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
+from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     AggregateMetric,
     PolicyEvaluationSummary,
-    rollout_policy,
-    summarize_episode_results,
+    evaluate_policy_factories_on_graphs as evaluate_policy_factories_on_graphs_base,
 )
 from cascading_rl.policies import (
     choose_greedy_anc_node,
@@ -78,29 +77,24 @@ def evaluate_policy_factories_on_graphs(
     max_rounds: int | None = None,
     seeds: Iterable[int],
     tau: float,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policies across fixed graph instances and matched seeds."""
-    episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
-
-    for graph_index, graph in enumerate(graphs):
-        for seed in seeds:
-            for policy_name, policy_factory in policy_factories.items():
-                env = RecoveryEnv(
-                    graph,
-                    alpha=alpha,
-                    pfail=pfail,
-                    budget=budget,
-                    max_rounds=max_rounds,
-                    seed=seed,
-                )
-                policy = policy_factory(graph_index, seed)
-                result = rollout_policy(env, policy, seed=seed, tau=tau)
-                episode_results_by_policy[policy_name].append(result)
-
-    return {
-        policy_name: summarize_episode_results(episode_results)
-        for policy_name, episode_results in episode_results_by_policy.items()
-    }
+    return evaluate_policy_factories_on_graphs_base(
+        graphs,
+        policy_factories,
+        alpha=alpha,
+        pfail=pfail,
+        budget=budget,
+        max_rounds=max_rounds,
+        seeds=seeds,
+        tau=tau,
+        env_kwargs=env_kwargs,
+        scale_budget=scale_budget,
+        reference_n=reference_n,
+    )
 
 
 def compute_regime_diagnostics(
@@ -213,6 +207,9 @@ def build_regime_cells(
     hopeless_threshold: float = 0.25,
     trivial_threshold: float = 0.75,
     spread_threshold: float = 0.05,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = 40,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
     cells: list[RegimeCellResult] = []
@@ -231,6 +228,9 @@ def build_regime_cells(
                     max_rounds=max_rounds,
                     seeds=seeds,
                     tau=tau,
+                    env_kwargs=env_kwargs,
+                    scale_budget=scale_budget,
+                    reference_n=reference_n,
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
                 grouped_best_anc.setdefault((alpha, pfail), []).append(

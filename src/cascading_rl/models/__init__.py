@@ -27,4 +27,5 @@ __all__ = [
     "observation_to_graph_tensor",
     "observation_to_global_features",
     "select_action",
+    "select_top_b",
 ]

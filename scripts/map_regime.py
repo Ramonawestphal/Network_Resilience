@@ -25,6 +25,18 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
+from scripts.reproducibility import write_run_metadata
+
+
+def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
+    regime = config["training"]["regime"]
+    obs_hops = regime.get("obs_hops")
+    return {
+        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
+        "failure_bias": str(regime.get("failure_bias", "uniform")),
+        "action_space": str(regime.get("action_space", "failed")),
+        "obs_hops": int(obs_hops) if obs_hops is not None else None,
+    }
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -222,6 +234,10 @@ def main() -> None:
     regime_config = config["regime_mapping"]
     graph_config = config["graph"]
     evaluation_config = config["evaluation"]
+    budget_scaling = config.get("budget_scaling", {})
+    env_kwargs = resolve_env_kwargs(config)
+    scale_budget = bool(budget_scaling.get("enabled", False))
+    reference_n = int(budget_scaling.get("reference_n", 40))
 
     output_dir = ROOT / regime_config["output_dir"]
     tau = float(evaluation_config["tau"])
@@ -251,6 +267,9 @@ def main() -> None:
         hopeless_threshold=float(regime_config["hopeless_threshold"]),
         trivial_threshold=float(regime_config["trivial_threshold"]),
         spread_threshold=float(regime_config["spread_threshold"]),
+        env_kwargs=env_kwargs,
+        scale_budget=scale_budget,
+        reference_n=reference_n,
     )
 
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
@@ -262,6 +281,11 @@ def main() -> None:
         "tau": tau,
         "seeds": seeds,
         "num_graphs": len(graphs),
+        "env": env_kwargs,
+        "scaling": {
+            "scale_budget": scale_budget,
+            "reference_n": reference_n,
+        },
         "cells": serialized_cells,
         "bucket_summary": bucket_summary,
         "recommendation": recommendation,
@@ -271,6 +295,7 @@ def main() -> None:
     json_path = output_dir / "regime_results.json"
     csv_path = output_dir / "regime_results.csv"
     note_path = output_dir / "recommended_regime.md"
+    metadata_path = output_dir / "run_metadata.json"
 
     with json_path.open("w", encoding="utf-8") as file:
         json.dump(results, file, indent=2)
@@ -278,6 +303,21 @@ def main() -> None:
     write_note(recommendation, note_path, tau=tau, num_graphs=len(graphs), seeds=seeds)
     plot_interestingness_heatmaps(results, output_dir / "interestingness_heatmap.png")
     plot_budget_curves(results, output_dir / "budget_curves.png")
+    write_run_metadata(
+        metadata_path,
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        config_path=args.config,
+        extra={
+            "output_dir": str(output_dir),
+            "policy_names": selected_policies,
+            "env": env_kwargs,
+            "scaling": {
+                "scale_budget": scale_budget,
+                "reference_n": reference_n,
+            },
+        },
+    )
 
     print(f"Saved regime map to {json_path}")
     print(f"Saved summary table to {csv_path}")

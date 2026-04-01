@@ -1,0 +1,179 @@
+{
+  "config_path": "config\\default.yaml",
+  "checkpoint_path": "experiments\\learner\\recovery_q.pt",
+  "alpha": 0.2,
+  "pfail": 0.1,
+  "max_rounds": 5,
+  "tau": 0.8,
+  "budgets": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "graph_seed": 1507,
+  "num_graphs": 1,
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "scaling": {
+    "scale_budget": false,
+    "reference_n": 40
+  },
+  "results": {
+    "rl": {
+      "minimum_budget": 3,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5019077349982657,
+          "final_anc_stderr": 0.20334847120723593
+        },
+        "2": {
+          "final_anc_mean": 0.5617412417620534,
+          "final_anc_stderr": 0.18035523461388164
+        },
+        "3": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    },
+    "random": {
+      "minimum_budget": 4,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5010405827263268,
+          "final_anc_stderr": 0.2036993291128224
+        },
+        "2": {
+          "final_anc_mean": 0.5038154699965314,
+          "final_anc_stderr": 0.2025672780479791
+        },
+        "3": {
+          "final_anc_mean": 0.6694415539368713,
+          "final_anc_stderr": 0.1908481654198833
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    },
+    "degree": {
+      "minimum_budget": 2,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5643426985778702,
+          "final_anc_stderr": 0.18155553953808948
+        },
+        "2": {
+          "final_anc_mean": 0.9791883454734651,
+          "final_anc_stderr": 0.018998354405312758
+        },
+        "3": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    },
+    "risk": {
+      "minimum_budget": 3,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5038154699965314,
+          "final_anc_stderr": 0.20256772350130792
+        },
+        "2": {
+          "final_anc_mean": 0.6847034339229969,
+          "final_anc_stderr": 0.1731767134430571
+        },
+        "3": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    },
+    "greedy": {
+      "minimum_budget": 2,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5815123135622615,
+          "final_anc_stderr": 0.1749015679441541
+        },
+        "2": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "3": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    },
+    "betweenness": {
+      "minimum_budget": 2,
+      "search_curve": {
+        "1": {
+          "final_anc_mean": 0.5253208463406174,
+          "final_anc_stderr": 0.19406246596486784
+        },
+        "2": {
+          "final_anc_mean": 0.9791883454734651,
+          "final_anc_stderr": 0.018998354405312758
+        },
+        "3": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "4": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        },
+        "5": {
+          "final_anc_mean": 1.0,
+          "final_anc_stderr": 0.0
+        }
+      }
+    }
+  }
+}

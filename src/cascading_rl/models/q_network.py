@@ -12,11 +12,14 @@ from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
+    LEGACY_FEATURE_NAMES,
     GlobalReadout,
     GraphStateEncoder,
     GraphTensor,
     observation_to_global_features,
     observation_to_graph_tensor,
+    resolve_feature_names,
+    resolve_global_feature_names,
 )
 
 Node = Hashable
@@ -38,6 +41,8 @@ class RecoveryQNetwork(nn.Module):
     def __init__(self, config: QNetworkConfig | None = None) -> None:
         super().__init__()
         self.config = config or QNetworkConfig()
+        self.feature_names = resolve_feature_names(self.config.input_dim)
+        self.global_feature_names = resolve_global_feature_names(self.config.input_dim)
         self.encoder = GraphStateEncoder(
             input_dim=self.config.input_dim,
             hidden_dim=self.config.hidden_dim,
@@ -48,7 +53,7 @@ class RecoveryQNetwork(nn.Module):
         global_out_dim = self.config.embed_dim // 2 if self.config.use_global_features else 0
         self.global_readout = None
         if self.config.use_global_features:
-            global_feat_dim = len(GLOBAL_FEATURE_NAMES)
+            global_feat_dim = len(self.global_feature_names)
             self.global_readout = GlobalReadout(
                 embed_dim=self.config.embed_dim,
                 global_feat_dim=global_feat_dim,
@@ -91,11 +96,15 @@ class RecoveryQNetwork(nn.Module):
         graph_tensor = observation_to_graph_tensor(
             observation,
             use_virtual_node=self.config.use_virtual_node,
+            feature_names=self.feature_names,
             device=device,
         )
         global_features = None
         if self.config.use_global_features:
-            global_features = observation_to_global_features(observation)
+            global_features = observation_to_global_features(
+                observation,
+                global_feature_names=self.global_feature_names,
+            )
             if device is not None:
                 global_features = global_features.to(device)
         return graph_tensor, self(graph_tensor, global_features)
@@ -177,11 +186,15 @@ def select_top_b(
         graph_tensor = observation_to_graph_tensor(
             observation,
             use_virtual_node=model.config.use_virtual_node,
+            feature_names=model.feature_names,
             device=device,
         )
         global_features = None
         if model.config.use_global_features:
-            global_features = observation_to_global_features(observation)
+            global_features = observation_to_global_features(
+                observation,
+                global_feature_names=model.global_feature_names,
+            )
             if device is not None:
                 global_features = global_features.to(device)
         q_values = model(graph_tensor, global_features)

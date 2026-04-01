@@ -11,9 +11,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N
 from cascading_rl.evaluation import (
     build_policy_factories,
     build_regime_cells,
@@ -23,6 +26,7 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
+from scripts.reproducibility import write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
 
@@ -51,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--grid-source",
-        choices=("training", "regime_mapping"),
+        choices=("training", "regime_mapping", "hard_regime"),
         default="training",
         help="Which config section should define the evaluation grid.",
     )
@@ -63,6 +67,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-rounds", type=int, default=None)
     parser.add_argument("--policies", type=str, nargs="+", default=None)
     parser.add_argument("--graph-seed", type=int, default=None)
+    parser.add_argument("--n-range", type=int, nargs=2, default=None)
+    parser.add_argument("--tau", type=float, default=None)
+    parser.add_argument("--scale-budget", action="store_true")
+    parser.add_argument("--reference-n", type=int, default=None)
     parser.add_argument("--output-dir", type=Path, default=None)
     return parser.parse_args()
 
@@ -91,11 +99,23 @@ def build_eval_policy_factories(
     return policy_factories
 
 
+def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
+    regime = config["training"]["regime"]
+    obs_hops = regime.get("obs_hops")
+    return {
+        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
+        "failure_bias": str(regime.get("failure_bias", "uniform")),
+        "action_space": str(regime.get("action_space", "failed")),
+        "obs_hops": int(obs_hops) if obs_hops is not None else None,
+    }
+
+
 def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     training = config["training"]
     regime = training["regime"]
     graph_cfg = training["graph"]
     regime_mapping = config["regime_mapping"]
+    hard_regime = config.get("hard_regime", {})
 
     if args.grid_source == "training":
         alpha_values = [float(regime["alpha"])]
@@ -105,7 +125,9 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         seeds = list(training["benchmark_seeds"])
         graph_seed = int(training["seed"]) + 1000
         max_rounds = int(regime["max_rounds"])
-    else:
+        n_range = tuple(graph_cfg["n_range"])
+        m = int(graph_cfg["m"])
+    elif args.grid_source == "regime_mapping":
         alpha_values = [float(value) for value in regime_mapping["alpha_values"]]
         pfail_values = [float(value) for value in regime_mapping["pfail_values"]]
         budgets = [int(value) for value in regime_mapping["budgets"]]
@@ -113,21 +135,35 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         seeds = list(regime_mapping["seeds"])
         graph_seed = int(regime_mapping["graph_seed"])
         max_rounds = int(regime_mapping.get("max_rounds", regime["max_rounds"]))
+        n_range = tuple(config["graph"]["n_range"])
+        m = int(config["graph"]["m"])
+    else:
+        alpha_values = [float(value) for value in hard_regime.get("alpha_values", [hard_regime["alpha"]])]
+        pfail_values = [float(value) for value in hard_regime.get("pfail_values", [hard_regime["pfail"]])]
+        budgets = [int(hard_regime["budget"])]
+        num_graphs = int(hard_regime.get("num_graphs", training["benchmark_graphs"]))
+        seeds = list(hard_regime.get("seeds", training["benchmark_seeds"]))
+        graph_seed = int(hard_regime.get("graph_seed", training["seed"] + 2000))
+        max_rounds = int(hard_regime["max_rounds"])
+        n_range = tuple(hard_regime["n_range"])
+        m = int(hard_regime["m"])
 
-    if args.alpha_values:
+    if getattr(args, "alpha_values", None):
         alpha_values = list(args.alpha_values)
-    if args.pfail_values:
+    if getattr(args, "pfail_values", None):
         pfail_values = list(args.pfail_values)
-    if args.budgets:
+    if getattr(args, "budgets", None):
         budgets = list(args.budgets)
-    if args.num_graphs is not None:
+    if getattr(args, "num_graphs", None) is not None:
         num_graphs = args.num_graphs
-    if args.seeds:
+    if getattr(args, "seeds", None):
         seeds = list(args.seeds)
-    if args.graph_seed is not None:
+    if getattr(args, "graph_seed", None) is not None:
         graph_seed = args.graph_seed
-    if args.max_rounds is not None:
+    if getattr(args, "max_rounds", None) is not None:
         max_rounds = args.max_rounds
+    if getattr(args, "n_range", None) is not None:
+        n_range = tuple(args.n_range)
 
     if args.grid_source == "training":
         primary_alpha = float(regime["alpha"])
@@ -148,8 +184,8 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         "seeds": seeds,
         "graph_seed": graph_seed,
         "max_rounds": max_rounds,
-        "n_range": tuple(graph_cfg["n_range"]),
-        "m": int(graph_cfg["m"]),
+        "n_range": tuple(n_range),
+        "m": int(m),
         "primary_alpha": primary_alpha,
         "primary_pfail": primary_pfail,
         "primary_budget": primary_budget,
@@ -180,6 +216,9 @@ def estimate_primary_budgets(
     pfail: float,
     max_rounds: int,
     tau: float,
+    env_kwargs: dict[str, object],
+    scale_budget: bool,
+    reference_n: int,
 ) -> dict[str, int | None]:
     representative_graph = graphs[0]
     results: dict[str, int | None] = {}
@@ -194,6 +233,9 @@ def estimate_primary_budgets(
             alpha=alpha,
             pfail=pfail,
             max_rounds=max_rounds,
+            env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            reference_n=reference_n,
         )
         results[policy_name] = minimum_budget
     return results
@@ -224,8 +266,17 @@ def main() -> None:
     config = load_config(args.config)
     training = config["training"]
     evaluation = config["evaluation"]
+    budget_scaling = config.get("budget_scaling", {})
+    env_kwargs = resolve_env_kwargs(config)
     grid_spec = resolve_grid_spec(config, args)
     selected_policies = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
+    tau = float(args.tau if args.tau is not None else evaluation["tau"])
+    scale_budget = bool(args.scale_budget or budget_scaling.get("enabled", False))
+    reference_n = int(
+        args.reference_n
+        if args.reference_n is not None
+        else budget_scaling.get("reference_n", DEFAULT_REFERENCE_N)
+    )
 
     policy_factories = build_eval_policy_factories(
         args.checkpoint,
@@ -238,7 +289,6 @@ def main() -> None:
         m=grid_spec["m"],
         seed=grid_spec["graph_seed"],
     )
-    tau = float(evaluation["tau"])
 
     cells = build_regime_cells(
         graphs,
@@ -252,6 +302,9 @@ def main() -> None:
         hopeless_threshold=float(config["regime_mapping"]["hopeless_threshold"]),
         trivial_threshold=float(config["regime_mapping"]["trivial_threshold"]),
         spread_threshold=float(config["regime_mapping"]["spread_threshold"]),
+        env_kwargs=env_kwargs,
+        scale_budget=scale_budget,
+        reference_n=reference_n,
     )
 
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
@@ -271,6 +324,9 @@ def main() -> None:
         pfail=grid_spec["primary_pfail"],
         max_rounds=grid_spec["primary_max_rounds"],
         tau=tau,
+        env_kwargs=env_kwargs,
+        scale_budget=scale_budget,
+        reference_n=reference_n,
     )
 
     legacy_summary = serialize_legacy_summary(primary_cell, representative_budgets)
@@ -283,11 +339,17 @@ def main() -> None:
         "graph_seed": grid_spec["graph_seed"],
         "num_graphs": len(graphs),
         "seeds": grid_spec["seeds"],
+        "env": env_kwargs,
+        "scaling": {
+            "scale_budget": scale_budget,
+            "reference_n": reference_n,
+        },
         "grid": {
             "alpha_values": grid_spec["alpha_values"],
             "pfail_values": grid_spec["pfail_values"],
             "budgets": grid_spec["budgets"],
             "max_rounds": grid_spec["max_rounds"],
+            "n_range": list(grid_spec["n_range"]),
         },
         "cells": serialized_cells,
         "bucket_summary": bucket_summary,
@@ -298,14 +360,34 @@ def main() -> None:
     output_dir = args.output_dir or ROOT / training["benchmark_dir"]
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "evaluation_summary.json"
-    detailed_output_path = output_dir / "evaluation_regime_summary.json"
+    grid_output_path = output_dir / "evaluation_grid_summary.json"
+    regime_output_path = output_dir / "evaluation_regime_summary.json"
+    metadata_path = output_dir / "run_metadata.json"
     with output_path.open("w", encoding="utf-8") as file:
         json.dump(legacy_summary, file, indent=2)
-    with detailed_output_path.open("w", encoding="utf-8") as file:
+    with grid_output_path.open("w", encoding="utf-8") as file:
         json.dump(detailed_output, file, indent=2)
+    with regime_output_path.open("w", encoding="utf-8") as file:
+        json.dump(detailed_output, file, indent=2)
+    write_run_metadata(
+        metadata_path,
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        config_path=args.config,
+        extra={
+            "output_dir": str(output_dir),
+            "policy_names": selected_policies,
+            "env": env_kwargs,
+            "scaling": {
+                "scale_budget": scale_budget,
+                "reference_n": reference_n,
+            },
+        },
+    )
 
     print(f"Saved evaluation summary to {output_path}")
-    print(f"Saved regime-aware evaluation summary to {detailed_output_path}")
+    print(f"Saved grid evaluation summary to {grid_output_path}")
+    print(f"Saved regime-aware evaluation summary to {regime_output_path}")
     if primary_cell is not None:
         diagnostics = primary_cell["diagnostics"]
         print(

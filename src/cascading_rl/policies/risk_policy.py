@@ -9,8 +9,9 @@ Node = Hashable
 
 def choose_highest_overload_risk_node(observation: RecoveryObservation) -> Node:
     """Choose the failed node whose active neighbors are closest to capacity."""
-    if not observation.failed:
-        raise ValueError("No failed nodes remain to reactivate.")
+    valid_actions = observation.valid_actions
+    if not valid_actions:
+        raise ValueError("No valid nodes remain to reactivate.")
 
     def overload_risk(node: Node) -> float:
         active_neighbors = [
@@ -27,4 +28,4 @@ def choose_highest_overload_risk_node(observation: RecoveryObservation) -> Node:
             for neighbor in active_neighbors
         )
 
-    return max(observation.failed, key=lambda node: (overload_risk(node), str(node)))
+    return max(valid_actions, key=lambda node: (overload_risk(node), str(node)))

@@ -11,14 +11,15 @@ Node = Hashable
 
 def choose_greedy_anc_node(observation: RecoveryObservation) -> Node:
     """Choose the failed node with the highest one-step ANC gain."""
-    if not observation.failed:
-        raise ValueError("No failed nodes remain to reactivate.")
+    valid_actions = observation.valid_actions
+    if not valid_actions:
+        raise ValueError("No valid nodes remain to reactivate.")
 
     current_anc = accumulated_normalized_connectivity(observation.graph, observation.active)
     best_node: Node | None = None
     best_gain = float("-inf")
 
-    for node in observation.failed:
+    for node in valid_actions:
         trial_state = CascadeState(
             graph=observation.graph,
             loads=dict(observation.loads),

@@ -121,6 +121,11 @@ FEATURE_NAMES = (
  
 **`QNetworkConfig`** — `input_dim` updated from 9 to 8 to reflect the reduced
 per-node feature set.
+
+Compatibility note: the merged branch keeps a legacy 9-feature checkpoint path
+for previously saved models. New training runs use the canonical 8-node / 4-global
+feature contract, while old checkpoints are evaluated through a compatibility
+encoder so they can still be benchmarked before artifacts are regenerated.
  
 **`RecoveryQNetwork.__init__`** now creates the global readout layer and
 adjusts the Q-head input size accordingly.
