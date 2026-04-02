@@ -71,10 +71,24 @@ def plot_interestingness_heatmaps(results: dict, output_path: Path) -> None:
     )
     axes_list = axes.flatten().tolist() if hasattr(axes, "flatten") else [axes]
 
+    prepared = [
+        _prepare_grid(cells, budget, "interestingness_score") for budget in budgets
+    ]
+    stacked = np.concatenate([grid.ravel() for _, _, grid in prepared])
+    finite = stacked[np.isfinite(stacked)]
+    if finite.size:
+        vmin = float(finite.min())
+        vmax = float(finite.max())
+    else:
+        vmin, vmax = 0.0, 1.0
+    if vmin == vmax:
+        vmax = vmin + 1e-9
+
     image = None
-    for axis, budget in zip(axes_list, budgets):
-        alphas, pfails, grid = _prepare_grid(cells, budget, "interestingness_score")
-        image = axis.imshow(grid, aspect="auto", origin="lower")
+    for axis, budget, (alphas, pfails, grid) in zip(axes_list, budgets, prepared):
+        im = axis.imshow(grid, aspect="auto", origin="lower", vmin=vmin, vmax=vmax)
+        if image is None:
+            image = im
         axis.set_title(f"Interestingness score (budget={budget})")
         axis.set_xticks(range(len(pfails)), labels=[f"{pfail:.2f}" for pfail in pfails])
         axis.set_yticks(range(len(alphas)), labels=[f"{alpha:.2f}" for alpha in alphas])
