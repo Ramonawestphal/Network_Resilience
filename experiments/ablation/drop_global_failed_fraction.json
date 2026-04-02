@@ -16,44 +16,44 @@
     "max_load_capacity_ratio"
   ],
   "use_virtual_node": false,
-  "training_episodes": 100,
+  "training_episodes": 1,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_failed_fraction.pt",
   "results": {
     "final_anc": {
-      "mean": 0.7880418300981509,
-      "stderr": 0.01745325059909261
+      "mean": 0.24036933736521007,
+      "stderr": 0.024421355132257
     },
     "threshold_hit_fraction": {
-      "mean": 0.7966666666666666,
-      "stderr": 0.02323710315342605
+      "mean": 0.6533333333333333,
+      "stderr": 0.027476589361908853
     },
     "solved_fraction": {
-      "mean": 0.5733333333333334,
-      "stderr": 0.028555339385260458
+      "mean": 0.23666666666666666,
+      "stderr": 0.024539461794937253
     },
-    "mean_delta_anc_per_round": 0.021355770522061703,
-    "mean_delta_anc_per_round_stderr": 0.003996872558664764,
-    "mean_anc_on_failed": 0.503223039292541,
+    "mean_delta_anc_per_round": -0.09613924112558013,
+    "mean_delta_anc_per_round_stderr": 0.005571938294547906,
+    "mean_anc_on_failed": 0.004850660303768657,
     "anc_by_round": [
       {
-        "mean": 0.765409861798095,
-        "stderr": 0.009367322553511703
+        "mean": 0.5422211417089262,
+        "stderr": 0.018162875587252773
       },
       {
-        "mean": 0.7231429862115684,
-        "stderr": 0.014856331066399428
+        "mean": 0.22499325893045843,
+        "stderr": 0.021291936511647524
       },
       {
-        "mean": 0.6752654481648606,
-        "stderr": 0.018812351048964754
+        "mean": 0.04815899468518724,
+        "stderr": 0.012003770788942944
       },
       {
-        "mean": 0.6219692719648622,
-        "stderr": 0.022676949871584782
+        "mean": 0.003021150976569385,
+        "stderr": 0.00017742191892962912
       },
       {
-        "mean": 0.5553325106954213,
-        "stderr": 0.024840479518339016
+        "mean": 0.004850660303768657,
+        "stderr": 0.0002785933424360654
       }
     ]
   }

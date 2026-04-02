@@ -16,44 +16,44 @@
     "max_load_capacity_ratio"
   ],
   "use_virtual_node": false,
-  "training_episodes": 100,
+  "training_episodes": 1,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_mean_load_capacity_ratio.pt",
   "results": {
     "final_anc": {
-      "mean": 0.6601664536274066,
-      "stderr": 0.0219800507583954
+      "mean": 0.24040421934861048,
+      "stderr": 0.024420250665705936
     },
     "threshold_hit_fraction": {
-      "mean": 0.78,
-      "stderr": 0.023916521486202793
+      "mean": 0.6533333333333333,
+      "stderr": 0.027476589361908853
     },
     "solved_fraction": {
-      "mean": 0.47333333333333333,
-      "stderr": 0.028826428203351222
+      "mean": 0.23666666666666666,
+      "stderr": 0.024539461794937253
     },
-    "mean_delta_anc_per_round": -0.006048913931410634,
-    "mean_delta_anc_per_round_stderr": 0.005010521546192394,
-    "mean_anc_on_failed": 0.35474643093811364,
+    "mean_delta_anc_per_round": -0.09613226472890005,
+    "mean_delta_anc_per_round_stderr": 0.005571758219635223,
+    "mean_anc_on_failed": 0.004896357225253902,
     "anc_by_round": [
       {
-        "mean": 0.7379019138554628,
-        "stderr": 0.01077300069599725
+        "mean": 0.5408324631369655,
+        "stderr": 0.018159110663392833
       },
       {
-        "mean": 0.6624449114235216,
-        "stderr": 0.01682324960370639
+        "mean": 0.22248158612919933,
+        "stderr": 0.021220617823548442
       },
       {
-        "mean": 0.5590989468081891,
-        "stderr": 0.020459026269960785
+        "mean": 0.04739058120704268,
+        "stderr": 0.011992394046691371
       },
       {
-        "mean": 0.48466100058111866,
-        "stderr": 0.02347714696317423
+        "mean": 0.0029742727669155944,
+        "stderr": 0.0001703004539506597
       },
       {
-        "mean": 0.39674518395397607,
-        "stderr": 0.024126649554352012
+        "mean": 0.004896357225253902,
+        "stderr": 0.00028111955622532473
       }
     ]
   }
