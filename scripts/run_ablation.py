@@ -55,28 +55,30 @@ def build_ablation_runs() -> list[dict]:
         },
     ]
 
-    runs.extend(
-        {
-            "name": f"drop_global_{feature_name}",
-            "active_node_features": FEATURE_NAMES,
-            "active_global_features": tuple(
-                feature for feature in GLOBAL_FEATURE_NAMES if feature != feature_name
-            ),
-            "use_virtual_node": False,
-        }
-        for feature_name in GLOBAL_FEATURE_NAMES
-    )
-    runs.extend(
-        {
-            "name": f"drop_node_{feature_name}",
-            "active_node_features": tuple(
-                feature for feature in FEATURE_NAMES if feature != feature_name
-            ),
-            "active_global_features": GLOBAL_FEATURE_NAMES,
-            "use_virtual_node": False,
-        }
-        for feature_name in FEATURE_NAMES
-    )
+    for use_virtual_node in (False, True):
+        virtual_suffix = "_virtual" if use_virtual_node else ""
+        runs.extend(
+            {
+                "name": f"drop_global_{feature_name}{virtual_suffix}",
+                "active_node_features": FEATURE_NAMES,
+                "active_global_features": tuple(
+                    feature for feature in GLOBAL_FEATURE_NAMES if feature != feature_name
+                ),
+                "use_virtual_node": use_virtual_node,
+            }
+            for feature_name in GLOBAL_FEATURE_NAMES
+        )
+        runs.extend(
+            {
+                "name": f"drop_node_{feature_name}{virtual_suffix}",
+                "active_node_features": tuple(
+                    feature for feature in FEATURE_NAMES if feature != feature_name
+                ),
+                "active_global_features": GLOBAL_FEATURE_NAMES,
+                "use_virtual_node": use_virtual_node,
+            }
+            for feature_name in FEATURE_NAMES
+        )
     return runs
 
 
