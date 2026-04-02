@@ -78,6 +78,22 @@ def test_resolve_grid_spec_hard_regime_incomplete_falls_back_to_training():
     assert grid_spec["graph_seed"] == 7 + 2000
 
 
+def test_resolve_grid_spec_training_primary_follows_cli_overrides():
+    grid_spec = resolve_grid_spec(
+        make_config(),
+        make_args(
+            alpha_values=[0.33],
+            pfail_values=[0.07],
+            budgets=[4],
+            max_rounds=9,
+        ),
+    )
+    assert grid_spec["primary_alpha"] == 0.33
+    assert grid_spec["primary_pfail"] == 0.07
+    assert grid_spec["primary_budget"] == 4
+    assert grid_spec["primary_max_rounds"] == 9
+
+
 def test_resolve_grid_spec_uses_selected_grid_as_primary_for_regime_mapping():
     grid_spec = resolve_grid_spec(make_config(), make_args(grid_source="regime_mapping"))
 

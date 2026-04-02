@@ -192,16 +192,12 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
     if getattr(args, "n_range", None) is not None:
         n_range = tuple(args.n_range)
 
-    if args.grid_source == "training":
-        primary_alpha = float(regime["alpha"])
-        primary_pfail = float(regime["pfail"])
-        primary_budget = int(regime["budget"])
-        primary_max_rounds = int(regime["max_rounds"])
-    else:
-        primary_alpha = float(alpha_values[0])
-        primary_pfail = float(pfail_values[0])
-        primary_budget = int(budgets[0])
-        primary_max_rounds = int(max_rounds)
+    primary_alpha = float(alpha_values[0]) if alpha_values else float(regime["alpha"])
+    primary_pfail = float(pfail_values[0]) if pfail_values else float(regime["pfail"])
+    primary_budget = int(budgets[0]) if budgets else int(regime["budget"])
+    primary_max_rounds = (
+        int(max_rounds) if max_rounds is not None else int(regime["max_rounds"])
+    )
 
     return {
         "alpha_values": alpha_values,
