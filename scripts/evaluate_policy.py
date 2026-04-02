@@ -16,6 +16,8 @@ from cascading_rl.evaluation import (
     build_policy_factories,
     build_regime_cells,
     estimate_minimum_budget,
+    evaluate_policy_factories_on_graphs,
+    filter_interesting_graphs,
     serialize_regime_cell,
     summarize_regime_buckets,
 )
@@ -24,6 +26,25 @@ from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.reproducibility import write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
+
+
+def serialize_policy_summary(summary) -> dict:
+    return {
+        "final_anc_mean": summary.final_anc.mean,
+        "final_anc_stderr": summary.final_anc.stderr,
+        "threshold_hit_mean": summary.threshold_hit_fraction.mean,
+        "rounds_mean": summary.rounds.mean,
+        "solved_fraction_mean": summary.solved_fraction.mean,
+        "mean_delta_anc_per_round": summary.mean_delta_anc_per_round.mean,
+        "mean_delta_anc_per_round_stderr": summary.mean_delta_anc_per_round.stderr,
+        "mean_anc_on_failed": (
+            summary.mean_anc_on_failed.mean if summary.mean_anc_on_failed is not None else None
+        ),
+        "anc_by_round": [
+            {"mean": metric.mean, "stderr": metric.stderr}
+            for metric in summary.anc_by_round
+        ],
+    }
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -324,6 +345,21 @@ def main() -> None:
         m=grid_spec["m"],
         seed=grid_spec["graph_seed"],
     )
+    graphs = filter_interesting_graphs(
+        graphs,
+        policy_factories,
+        alpha=grid_spec["primary_alpha"],
+        pfail=grid_spec["primary_pfail"],
+        budget=grid_spec["primary_budget"],
+        max_rounds=grid_spec["primary_max_rounds"],
+        seeds=grid_spec["seeds"],
+        tau=tau,
+        spread_threshold=float(config["regime_mapping"]["spread_threshold"]),
+    )
+    filtered_out = grid_spec["num_graphs"] - len(graphs)
+    print(f"Kept {len(graphs)} benchmark graphs ({filtered_out} filtered out as non-interesting).")
+    if not graphs:
+        raise ValueError("No benchmark graphs remained after interest filtering.")
 
     cells = build_regime_cells(
         graphs,

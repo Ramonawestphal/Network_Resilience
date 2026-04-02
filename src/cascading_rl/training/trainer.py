@@ -17,11 +17,11 @@ from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
 from cascading_rl.models import (
+    FEATURE_NAMES,
+    GLOBAL_FEATURE_NAMES,
     QNetworkConfig,
     RecoveryQNetwork,
     build_greedy_policy,
-    observation_to_global_features,
-    observation_to_graph_tensor,
     select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
@@ -59,6 +59,8 @@ class TrainingConfig:
     embed_dim: int = 64
     num_layers: int = 2
     use_global_features: bool = True
+    active_node_features: tuple[str, ...] = FEATURE_NAMES
+    active_global_features: tuple[str, ...] = GLOBAL_FEATURE_NAMES
     use_virtual_node: bool = False
     validation_graphs: int = 2
     validation_seeds: tuple[int, ...] = (0, 1, 2)
@@ -100,6 +102,8 @@ def build_model_config(config: TrainingConfig) -> QNetworkConfig:
         embed_dim=config.embed_dim,
         num_layers=config.num_layers,
         use_global_features=config.use_global_features,
+        active_node_features=config.active_node_features,
+        active_global_features=config.active_global_features,
         use_virtual_node=config.use_virtual_node,
     )
 
@@ -193,15 +197,10 @@ def compute_dqn_loss(
 ) -> torch.Tensor:
     losses = []
     for transition in transitions:
-        graph_tensor = observation_to_graph_tensor(
+        graph_tensor, q_values = model.score_observation(
             transition.observation,
-            use_virtual_node=model.config.use_virtual_node,
             device=device,
         )
-        global_features = None
-        if model.config.use_global_features:
-            global_features = observation_to_global_features(transition.observation).to(device)
-        q_values = model(graph_tensor, global_features)
 
         action_indices = [graph_tensor.node_to_index[action] for action in transition.action]
         q_selected = torch.stack([q_values[index] for index in action_indices]).mean()
@@ -209,17 +208,11 @@ def compute_dqn_loss(
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device)
             if not transition.done and transition.next_observation.failed:
-                next_tensor = observation_to_graph_tensor(
+                next_tensor, next_q = target_model.score_observation(
                     transition.next_observation,
-                    use_virtual_node=target_model.config.use_virtual_node,
                     device=device,
                 )
-                next_global = None
-                if target_model.config.use_global_features:
-                    next_global = observation_to_global_features(transition.next_observation).to(
-                        device
-                    )
-                next_q = target_model(next_tensor, next_global)
+                # target: mean of top-B Q-values in next state
                 next_budget = int(transition.next_observation.budget)
                 valid_next = [
                     next_q[next_tensor.node_to_index[node]].item()

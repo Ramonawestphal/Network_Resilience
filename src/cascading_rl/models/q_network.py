@@ -16,6 +16,7 @@ from cascading_rl.models.gnn import (
     GlobalReadout,
     GraphStateEncoder,
     GraphTensor,
+    _canonicalize_feature_subset,
     observation_to_global_features,
     observation_to_graph_tensor,
     resolve_feature_names,
@@ -27,12 +28,47 @@ Node = Hashable
 
 @dataclass(frozen=True)
 class QNetworkConfig:
-    input_dim: int = len(FEATURE_NAMES)
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
     use_global_features: bool = True
+    active_node_features: tuple[str, ...] = FEATURE_NAMES
+    active_global_features: tuple[str, ...] = GLOBAL_FEATURE_NAMES
     use_virtual_node: bool = False
+
+    def __post_init__(self) -> None:
+        canonical_node_features = _canonicalize_feature_subset(
+            FEATURE_NAMES,
+            self.active_node_features,
+            feature_group="node",
+        )
+        canonical_global_features = _canonicalize_feature_subset(
+            GLOBAL_FEATURE_NAMES,
+            self.active_global_features,
+            feature_group="global",
+        )
+        object.__setattr__(self, "active_node_features", canonical_node_features)
+        object.__setattr__(self, "active_global_features", canonical_global_features)
+        object.__setattr__(
+            self,
+            "use_global_features",
+            self.use_global_features and bool(canonical_global_features),
+        )
+
+    @property
+    def input_dim(self) -> int:
+        return len(self.active_node_features)
+
+    @property
+    def global_feat_dim(self) -> int:
+        return len(self.active_global_features)
+
+    @classmethod
+    def from_dict(cls, values: dict) -> "QNetworkConfig":
+        config_values = dict(values)
+        config_values.pop("input_dim", None)
+        config_values.pop("global_feat_dim", None)
+        return cls(**config_values)
 
 
 class RecoveryQNetwork(nn.Module):
@@ -53,10 +89,9 @@ class RecoveryQNetwork(nn.Module):
         global_out_dim = self.config.embed_dim // 2 if self.config.use_global_features else 0
         self.global_readout = None
         if self.config.use_global_features:
-            global_feat_dim = len(self.global_feature_names)
             self.global_readout = GlobalReadout(
                 embed_dim=self.config.embed_dim,
-                global_feat_dim=global_feat_dim,
+                global_feat_dim=self.config.global_feat_dim,
                 out_dim=global_out_dim,
             )
         self.q_head = nn.Sequential(
@@ -95,6 +130,7 @@ class RecoveryQNetwork(nn.Module):
     ) -> tuple[GraphTensor, torch.Tensor]:
         graph_tensor = observation_to_graph_tensor(
             observation,
+            active_node_features=self.config.active_node_features,
             use_virtual_node=self.config.use_virtual_node,
             feature_names=self.feature_names,
             device=device,
@@ -103,7 +139,7 @@ class RecoveryQNetwork(nn.Module):
         if self.config.use_global_features:
             global_features = observation_to_global_features(
                 observation,
-                global_feature_names=self.global_feature_names,
+                active_global_features=self.config.active_global_features,
             )
             if device is not None:
                 global_features = global_features.to(device)
@@ -154,7 +190,7 @@ def load_q_network(
 ) -> tuple[RecoveryQNetwork, dict]:
     """Load a saved learner checkpoint."""
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
-    model_config = QNetworkConfig(**checkpoint["model_config"])
+    model_config = QNetworkConfig.from_dict(checkpoint["model_config"])
     model = RecoveryQNetwork(model_config)
     model.load_state_dict(checkpoint["model_state"])
     model.to(map_location)
@@ -183,21 +219,7 @@ def select_top_b(
 
     model.eval()
     with torch.no_grad():
-        graph_tensor = observation_to_graph_tensor(
-            observation,
-            use_virtual_node=model.config.use_virtual_node,
-            feature_names=model.feature_names,
-            device=device,
-        )
-        global_features = None
-        if model.config.use_global_features:
-            global_features = observation_to_global_features(
-                observation,
-                global_feature_names=model.global_feature_names,
-            )
-            if device is not None:
-                global_features = global_features.to(device)
-        q_values = model(graph_tensor, global_features)
+        graph_tensor, q_values = model.score_observation(observation, device=device)
 
     valid_indices = [graph_tensor.node_to_index[node] for node in valid_actions]
     valid_q = [(q_values[i].item(), graph_tensor.node_ids[i]) for i in valid_indices]

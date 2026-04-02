@@ -17,20 +17,115 @@ if str(SRC) not in sys.path:
 
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_graph_batch
-from cascading_rl.models import build_greedy_policy
+from cascading_rl.models import FEATURE_NAMES, GLOBAL_FEATURE_NAMES, build_greedy_policy
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
-ABLATION_CONFIGS = [
-    {"name": "node_only", "use_global_features": False, "use_virtual_node": False},
-    {"name": "node_global", "use_global_features": True, "use_virtual_node": False},
-    {"name": "node_virtual", "use_global_features": False, "use_virtual_node": True},
-    {"name": "node_global_virtual", "use_global_features": True, "use_virtual_node": True},
-]
 ABLATION_OUTPUT_DIR = ROOT / "experiments" / "ablation"
 ABLATION_OUTPUT_PATH = ABLATION_OUTPUT_DIR / "ablation_comparison.json"
 TRAIN_GRAPH_SPEC_SEED_OFFSET = 20_000
 EVAL_GRAPH_SEED_OFFSET = 30_000
+
+
+def build_ablation_runs() -> list[dict]:
+    runs = [
+        {
+            "name": "node_only",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": (),
+            "use_virtual_node": False,
+        },
+        {
+            "name": "node_global",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": GLOBAL_FEATURE_NAMES,
+            "use_virtual_node": False,
+        },
+        {
+            "name": "node_virtual",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": (),
+            "use_virtual_node": True,
+        },
+        {
+            "name": "node_global_virtual",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": GLOBAL_FEATURE_NAMES,
+            "use_virtual_node": True,
+        },
+    ]
+
+    runs.extend(
+        {
+            "name": f"drop_global_{feature_name}",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": tuple(
+                feature for feature in GLOBAL_FEATURE_NAMES if feature != feature_name
+            ),
+            "use_virtual_node": False,
+        }
+        for feature_name in GLOBAL_FEATURE_NAMES
+    )
+    runs.extend(
+        {
+            "name": f"drop_node_{feature_name}",
+            "active_node_features": tuple(
+                feature for feature in FEATURE_NAMES if feature != feature_name
+            ),
+            "active_global_features": GLOBAL_FEATURE_NAMES,
+            "use_virtual_node": False,
+        }
+        for feature_name in FEATURE_NAMES
+    )
+    runs.extend(
+        {
+            "name": f"drop_global_{feature_name}_vn",
+            "active_node_features": FEATURE_NAMES,
+            "active_global_features": tuple(
+                feature for feature in GLOBAL_FEATURE_NAMES if feature != feature_name
+            ),
+            "use_virtual_node": True,
+        }
+        for feature_name in GLOBAL_FEATURE_NAMES
+    )
+    runs.extend(
+        {
+            "name": f"drop_node_{feature_name}_vn",
+            "active_node_features": tuple(
+                feature for feature in FEATURE_NAMES if feature != feature_name
+            ),
+            "active_global_features": GLOBAL_FEATURE_NAMES,
+            "use_virtual_node": True,
+        }
+        for feature_name in FEATURE_NAMES
+    )
+    return runs
+
+
+ABLATION_RUNS = build_ablation_runs()
+
+
+def serialize_policy_summary(summary) -> dict:
+    return {
+        "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
+        "threshold_hit_fraction": {
+            "mean": summary.threshold_hit_fraction.mean,
+            "stderr": summary.threshold_hit_fraction.stderr,
+        },
+        "solved_fraction": {
+            "mean": summary.solved_fraction.mean,
+            "stderr": summary.solved_fraction.stderr,
+        },
+        "mean_delta_anc_per_round": summary.mean_delta_anc_per_round.mean,
+        "mean_delta_anc_per_round_stderr": summary.mean_delta_anc_per_round.stderr,
+        "mean_anc_on_failed": (
+            summary.mean_anc_on_failed.mean if summary.mean_anc_on_failed is not None else None
+        ),
+        "anc_by_round": [
+            {"mean": metric.mean, "stderr": metric.stderr}
+            for metric in summary.anc_by_round
+        ],
+    }
 
 
 def load_config(path: Path) -> dict:
@@ -96,33 +191,24 @@ def evaluate_config(model, training_config: TrainingConfig, eval_graphs: list, e
         tau=tau,
     )
     summary = summaries["rl"]
-    return {
-        "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
-        "threshold_hit_fraction": {
-            "mean": summary.threshold_hit_fraction.mean,
-            "stderr": summary.threshold_hit_fraction.stderr,
-        },
-        "solved_fraction": {
-            "mean": summary.solved_fraction.mean,
-            "stderr": summary.solved_fraction.stderr,
-        },
-    }
+    return serialize_policy_summary(summary)
 
 
 def print_comparison_table(results: list[dict]) -> None:
     print("")
     print(
-        f"{'config':<22} {'global':<8} {'virtual':<8} "
+        f"{'config':<28} {'node':<6} {'global':<8} {'virtual':<8} "
         f"{'final_anc':<18} {'threshold_hit':<18} {'solved':<18}"
     )
-    print("-" * 92)
+    print("-" * 108)
     for item in results:
         final_anc = item["results"]["final_anc"]
         threshold = item["results"]["threshold_hit_fraction"]
         solved = item["results"]["solved_fraction"]
         print(
-            f"{item['name']:<22} "
-            f"{str(item['use_global_features']):<8} "
+            f"{item['name']:<28} "
+            f"{len(item['active_node_features']):<6} "
+            f"{len(item['active_global_features']):<8} "
             f"{str(item['use_virtual_node']):<8} "
             f"{final_anc['mean']:.3f}+/-{final_anc['stderr']:.3f}   "
             f"{threshold['mean']:.3f}+/-{threshold['stderr']:.3f}   "
@@ -169,11 +255,13 @@ def main() -> None:
     ABLATION_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     comparison_results = []
 
-    for ablation_config in ABLATION_CONFIGS:
+    for ablation_config in ABLATION_RUNS:
         training_config = replace(
             base_training_config,
             checkpoint_name=f"{ablation_config['name']}.pt",
-            use_global_features=ablation_config["use_global_features"],
+            use_global_features=bool(ablation_config["active_global_features"]),
+            active_node_features=ablation_config["active_node_features"],
+            active_global_features=ablation_config["active_global_features"],
             use_virtual_node=ablation_config["use_virtual_node"],
             episode_graph_specs=frozen_episode_graph_specs,
         )
@@ -185,16 +273,19 @@ def main() -> None:
             eval_seeds,
             eval_tau,
         )
-        comparison_results.append(
-            {
-                "name": ablation_config["name"],
-                "use_global_features": ablation_config["use_global_features"],
-                "use_virtual_node": ablation_config["use_virtual_node"],
-                "training_episodes": training_config.num_episodes,
-                "checkpoint_path": str(checkpoint_path),
-                "results": results,
-            }
-        )
+        run_payload = {
+            "name": ablation_config["name"],
+            "active_node_features": list(ablation_config["active_node_features"]),
+            "active_global_features": list(ablation_config["active_global_features"]),
+            "use_virtual_node": ablation_config["use_virtual_node"],
+            "training_episodes": training_config.num_episodes,
+            "checkpoint_path": str(checkpoint_path),
+            "results": results,
+        }
+        comparison_results.append(run_payload)
+        run_output_path = ABLATION_OUTPUT_DIR / f"{ablation_config['name']}.json"
+        with run_output_path.open("w", encoding="utf-8") as file:
+            json.dump(run_payload, file, indent=2)
 
     payload = {"configs": comparison_results}
     with ABLATION_OUTPUT_PATH.open("w", encoding="utf-8") as file:

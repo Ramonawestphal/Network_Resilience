@@ -1,9 +1,12 @@
 from pathlib import Path
 
 import networkx as nx
+import pytest
 
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.models import (
+    FEATURE_NAMES,
+    GLOBAL_FEATURE_NAMES,
     QNetworkConfig,
     RecoveryQNetwork,
     observation_to_global_features,
@@ -13,17 +16,21 @@ from cascading_rl.models.gnn import VIRTUAL_NODE
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
-def test_observation_to_graph_tensor_builds_features_and_mask():
+def _make_test_observation():
     graph = nx.path_graph(4)
     env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
 
-    observation = env.reset(seed=0)
+    env.reset(seed=0)
     env.state.active = {0, 1}
     env.state.failed = {2, 3}
     env.state.frontier = {2}
     env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
     env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
-    observation = env.observe()
+    return env.observe()
+
+
+def test_observation_to_graph_tensor_builds_features_and_mask():
+    observation = _make_test_observation()
 
     graph_tensor = observation_to_graph_tensor(observation)
 
@@ -33,16 +40,7 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
 
 def test_q_network_masks_invalid_actions():
-    graph = nx.path_graph(4)
-    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
-
-    observation = env.reset(seed=0)
-    env.state.active = {0, 1}
-    env.state.failed = {2, 3}
-    env.state.frontier = {2}
-    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
-    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
-    observation = env.observe()
+    observation = _make_test_observation()
 
     model = RecoveryQNetwork()
     graph_tensor = observation_to_graph_tensor(observation)
@@ -78,16 +76,7 @@ def test_virtual_node_sentinel_distinct_from_string_graph_node():
 
 
 def test_observation_to_graph_tensor_supports_virtual_node():
-    graph = nx.path_graph(4)
-    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
-
-    observation = env.reset(seed=0)
-    env.state.active = {0, 1}
-    env.state.failed = {2, 3}
-    env.state.frontier = {2}
-    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
-    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
-    observation = env.observe()
+    observation = _make_test_observation()
 
     graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
 
@@ -96,17 +85,37 @@ def test_observation_to_graph_tensor_supports_virtual_node():
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
 
 
-def test_q_network_supports_ablation_flags():
-    graph = nx.path_graph(4)
-    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+def test_observation_to_graph_tensor_supports_feature_subsets_in_canonical_order():
+    observation = _make_test_observation()
 
-    observation = env.reset(seed=0)
-    env.state.active = {0, 1}
-    env.state.failed = {2, 3}
-    env.state.frontier = {2}
-    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
-    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
-    observation = env.observe()
+    requested_features = ("degree_norm", "load_norm")
+    graph_tensor = observation_to_graph_tensor(
+        observation,
+        active_node_features=requested_features,
+    )
+
+    assert graph_tensor.node_features.shape == (4, 2)
+    assert graph_tensor.node_features[0].tolist() == pytest.approx([0.4, 0.5])
+
+
+def test_observation_to_global_features_supports_feature_subsets_in_canonical_order():
+    observation = _make_test_observation()
+
+    requested_features = (
+        "max_load_capacity_ratio",
+        "failed_fraction",
+    )
+    global_features = observation_to_global_features(
+        observation,
+        active_global_features=requested_features,
+    )
+
+    assert tuple(global_features.shape) == (2,)
+    assert global_features.tolist() == pytest.approx([0.5, 0.8])
+
+
+def test_q_network_supports_ablation_flags():
+    observation = _make_test_observation()
 
     model = RecoveryQNetwork(
         QNetworkConfig(use_global_features=False, use_virtual_node=True)
@@ -136,6 +145,30 @@ def test_q_network_supports_legacy_checkpoint_feature_width():
 
     assert graph_tensor.node_features.shape == (4, 9)
     assert q_values.shape[0] == 4
+
+
+def test_q_network_config_derives_dimensions_from_active_features():
+    config = QNetworkConfig(
+        active_node_features=("degree_norm", "load_norm"),
+        active_global_features=("max_load_capacity_ratio", "failed_fraction"),
+        use_virtual_node=True,
+    )
+
+    model = RecoveryQNetwork(config)
+
+    assert config.active_node_features == ("load_norm", "degree_norm")
+    assert config.active_global_features == ("failed_fraction", "max_load_capacity_ratio")
+    assert config.input_dim == 2
+    assert config.global_feat_dim == 2
+    assert model.encoder.layers[0].self_linear.in_features == 2
+    assert model.global_readout.proj.in_features == 2 * config.embed_dim + 2
+
+
+def test_training_config_defaults_match_feature_constants():
+    config = TrainingConfig()
+
+    assert config.active_node_features == FEATURE_NAMES
+    assert config.active_global_features == GLOBAL_FEATURE_NAMES
 
 
 def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):

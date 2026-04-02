@@ -9,7 +9,7 @@ budget_scaling:
 
 cascade:
   alpha: 0.2
-  pfail: 0.05
+  pfail: 0.1
 
 recovery:
   budget: 3
@@ -25,7 +25,7 @@ regime_mapping:
   output_dir: experiments/regime_map
   comprehensive_output_dir: experiments/regime_comprehensive
   graph_seed: 123
-  num_graphs: 3
+  num_graphs: 10
   seeds: [0, 1, 2, 3, 4, 5]
   alpha_values: [0.2, 0.4, 0.6, 0.8]
   pfail_values: [0.02, 0.05, 0.08, 0.1]
@@ -82,12 +82,12 @@ training:
   num_layers: 2
   use_global_features: true
   use_virtual_node: false
-  validation_graphs: 2
-  validation_seeds: [0, 1, 2]
+  validation_graphs: 5
+  validation_seeds: [0, 1, 2, 3, 4]
   validation_seed: 42
   validation_every: 20
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
-  benchmark_graphs: 3
-  benchmark_seeds: [0, 1, 2, 3, 4, 5]
+  benchmark_graphs: 30
+  benchmark_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   benchmark_dir: experiments/learner_benchmark

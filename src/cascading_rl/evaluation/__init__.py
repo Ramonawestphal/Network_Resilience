@@ -14,6 +14,7 @@ from cascading_rl.evaluation.regime import (
     build_regime_cells,
     compute_regime_diagnostics,
     evaluate_policy_factories_on_graphs,
+    filter_interesting_graphs,
     serialize_regime_cell,
     summarize_regime_buckets,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "estimate_minimum_budget",
     "evaluate_policies",
     "evaluate_policy_factories_on_graphs",
+    "filter_interesting_graphs",
     "rollout_policy",
     "serialize_regime_cell",
     "summarize_episode_results",

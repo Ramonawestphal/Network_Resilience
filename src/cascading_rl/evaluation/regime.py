@@ -97,6 +97,42 @@ def evaluate_policy_factories_on_graphs(
     )
 
 
+def filter_interesting_graphs(
+    graphs: Sequence[nx.Graph],
+    policy_factories: Mapping[str, PolicyFactory],
+    *,
+    alpha: float,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None = None,
+    seeds: Iterable[int],
+    tau: float,
+    spread_threshold: float = 0.05,
+) -> list[nx.Graph]:
+    """Keep only graphs whose per-policy final-ANC spread exceeds the threshold."""
+    filtered_graphs: list[nx.Graph] = []
+
+    for graph in graphs:
+        policy_summaries = evaluate_policy_factories_on_graphs(
+            [graph],
+            policy_factories,
+            alpha=alpha,
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            seeds=seeds,
+            tau=tau,
+        )
+        final_anc_values = [
+            summary.final_anc.mean for summary in policy_summaries.values()
+        ]
+        final_anc_spread = max(final_anc_values) - min(final_anc_values)
+        if final_anc_spread > spread_threshold:
+            filtered_graphs.append(graph)
+
+    return filtered_graphs
+
+
 def compute_regime_diagnostics(
     policy_summaries: Mapping[str, PolicyEvaluationSummary],
     *,
