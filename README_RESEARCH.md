@@ -34,6 +34,41 @@ The comprehensive regime mapping evaluates exactly three heuristic policies:
 
 No RL checkpoint is included in this artifact set, and other heuristics such as `greedy` or `risk` are not part of this retained evaluation.
 
+## Experimental Setup
+
+The retained extensive evaluation in `experiments/regime_comprehensive` uses:
+
+- graph family: Barabasi-Albert graphs
+- graph generation: `100` graphs with deterministic seeds derived from `MASTER_SEED=2026`
+- graph size range: `n in [30, 50]`
+- attachment parameter: `m=2`
+- seeds per graph: `10`
+- total regime cells: `378`
+- total policy-instance rows: `1,134,000`
+
+Regime grid:
+
+- `alpha in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30}`
+- `pfail in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20}`
+- `budget_ref in {1, 2, 3, 4, 5, 6}`
+- `max_rounds = 5`
+- `reference_n = 40`
+
+Thresholds used for cell labeling and sensitivity analysis:
+
+- `delta_h = 0.30`
+- `delta_t = 0.80`
+- `delta_s = 0.15`
+- `min_ds_frac = 0.50`
+
+The reduced smoke verification in `experiments/regime_comprehensive_smoke` uses the same logic on a smaller grid:
+
+- `10` graphs
+- `3` seeds per graph
+- `alpha in {0.05, 0.10, 0.15}`
+- `pfail in {0.05, 0.10, 0.15}`
+- `budget_ref in {1, 2, 3}`
+
 ## Smoke Verification Run
 
 `experiments/regime_comprehensive_smoke` is a reduced-sample run used only to verify that the rewritten pipeline works end to end before spending the full compute budget.
@@ -64,30 +99,56 @@ Interpretation:
 - use this run only as an engineering validation of the rewritten script
 - do not treat the smoke outputs as the scientific conclusion
 
+## Retained Outputs
+
+### Smoke Outputs
+
+`experiments/regime_comprehensive_smoke` contains:
+
+- `checkpoint.parquet`
+- `regime_instances.parquet`
+- `regime_instances.csv`
+- `regime_cells.json`
+- `regime_cells.csv`
+- `budget_summary.json`
+- `threshold_sensitivity.json`
+- `training_recommendation.json`
+- `graph_variance.json`
+- `run_metadata.json`
+- `plots/`
+
+### Full Outputs
+
+`experiments/regime_comprehensive` contains:
+
+- `checkpoint.parquet`
+- `regime_instances.parquet`
+- `regime_instances.csv`
+- `regime_cells.json`
+- `regime_cells.csv`
+- `budget_summary.json`
+- `threshold_sensitivity.json`
+- `training_recommendation.json`
+- `graph_variance.json`
+- `run_metadata.json`
+- `plots/`
+
+Full plot outputs:
+
+- `spread_distribution_by_alpha.png`
+- `pr_degree_distribution_by_alpha.png`
+- `cascade_amplification_heatmap.png`
+- `pr_post_cascade_heatmap.png`
+- `ds_fraction_heatmap.png`
+- `interestingness_heatmap.png`
+- `budget_comparison.png`
+- `feasibility_heatmap.png`
+- `threshold_sensitivity_heatmap.png`
+- `graph_vs_seed_variance.png`
+
 ## Full Comprehensive Evaluation
 
 `experiments/regime_comprehensive` is the retained full extensive evaluation.
-
-Full grid:
-
-- `alpha in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30}`
-- `pfail in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20}`
-- `budget in {1, 2, 3, 4, 5, 6}`
-- `100` BA graphs
-- `10` seeds per graph
-- `378` cells total
-- `1,134,000` policy-instance rows total
-
-Main retained artifacts:
-
-- `experiments/regime_comprehensive/regime_instances.csv`
-- `experiments/regime_comprehensive/regime_cells.json`
-- `experiments/regime_comprehensive/regime_cells.csv`
-- `experiments/regime_comprehensive/budget_summary.json`
-- `experiments/regime_comprehensive/threshold_sensitivity.json`
-- `experiments/regime_comprehensive/training_recommendation.json`
-- `experiments/regime_comprehensive/graph_variance.json`
-- `experiments/regime_comprehensive/run_metadata.json`
 
 These files mean:
 
@@ -115,13 +176,9 @@ Top interesting cells by `interestingness_degree`:
 
 Training recommendation from `training_recommendation.json`:
 
-- best single training cell:
-  - `alpha=0.05`
-  - `pfail=0.20`
-  - `budget_ref=5`
-  - `f_ds=0.536`
-  - `interestingness=0.464`
-  - `feasibility_ratio_mean=0.948`
+- no single regime cell satisfies the current recommendation rule
+  - the `best_single_cell` field is `null`
+  - this happens because the recommendation requires `feasibility_ratio_mean < 1.0`
 - best mixed-training budget:
   - `budget_ref=3`
 - recommended mixed regime coverage at `budget_ref=3`:
@@ -133,19 +190,21 @@ Budget-level interpretation from `budget_summary.json`:
 
 - `budget_ref=1` is mostly too hard:
   - `44` hopeless cells
-  - mean feasibility ratio `2.955`
+  - mean feasibility ratio `7.555`
 - `budget_ref=2` still contains many infeasible cells:
   - `15` decision-sensitive cells
-  - mean feasibility ratio `1.477`
+  - mean feasibility ratio `3.778`
 - `budget_ref=3` is the main mixed-training sweet spot:
   - `27` decision-sensitive cells
-  - mean feasibility ratio `0.979`
+  - mean feasibility ratio `2.487`
 - `budget_ref=4` still has strong individual interesting cells, but the grid as a whole shifts toward triviality:
   - `15` decision-sensitive cells
   - `48` trivial cells
+  - mean feasibility ratio `1.832`
 - `budget_ref in {5, 6}` becomes increasingly easy overall:
   - `60` trivial cells at `5`
   - `63` trivial cells at `6`
+  - mean feasibility ratios `1.435` and `1.204`
 
 Threshold-sensitivity interpretation:
 
@@ -167,12 +226,12 @@ Two exported diagnostics need careful interpretation:
 - `n_failed_at_start`
 - `pr_post_cascade`
 
-In the current environment implementation, `env.reset()` does not expose a first observation after an executed cascade wave. To keep the analysis read-only with respect to `src/`, these two fields are derived from a one-wave cascade preview built from a cloned reset state.
+In the current environment implementation, `env.reset()` does not expose a first observation after an executed cascade wave. To keep the analysis read-only with respect to `src/`, these two fields are derived from a full-settlement cascade preview built from a cloned reset state.
 
 That means:
 
 - the main regime map is valid for the implemented analysis pipeline
-- these two diagnostics should be read as preview-based severity measures, not as a directly emitted environment observation
+- these two diagnostics should be read as preview-based severity measures after full cascade settlement, not as a directly emitted environment observation
 
 ## Current Reading Of The Full Run
 
@@ -180,7 +239,7 @@ The full extensive evaluation supports the following conclusions:
 
 - the retained regime grid is not degenerate; it contains meaningful `decision_sensitive`, `trivial`, and `hopeless` regions
 - the most useful mixed-training regime is centered on `budget_ref=3`
-- the hardest still-feasible single-cell recommendation shifts toward very high `pfail` and relatively low `alpha`
+- under the stricter full-settlement preview, no single cell satisfies the current feasibility-filtered recommendation rule
 - larger budgets quickly make the grid trivial, even though a few `budget_ref=4` cells remain individually interesting
 - the chosen threshold family is reasonably stable, so the qualitative regime split is not an artifact of a single fragile `delta_s` setting
 
