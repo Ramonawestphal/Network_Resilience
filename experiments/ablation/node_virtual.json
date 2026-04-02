@@ -13,7 +13,7 @@
   ],
   "active_global_features": [],
   "use_virtual_node": true,
-  "training_episodes": 1,
+  "training_episodes": 10,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\node_virtual.pt",
   "results": {
     "final_anc": {

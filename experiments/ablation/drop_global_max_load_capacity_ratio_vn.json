@@ -1,0 +1,61 @@
+{
+  "name": "drop_global_max_load_capacity_ratio_vn",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "frontier_fraction"
+  ],
+  "use_virtual_node": true,
+  "training_episodes": 10,
+  "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_global_max_load_capacity_ratio_vn.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.8624600993554957,
+      "stderr": 0.017106787335694276
+    },
+    "threshold_hit_fraction": {
+      "mean": 0.85,
+      "stderr": 0.0206155281280883
+    },
+    "solved_fraction": {
+      "mean": 0.73,
+      "stderr": 0.025632011235952594
+    },
+    "mean_delta_anc_per_round": 0.04178935528449237,
+    "mean_delta_anc_per_round_stderr": 0.003784841018136642,
+    "mean_anc_on_failed": 0.4905929605759101,
+    "anc_by_round": [
+      {
+        "mean": 0.7754076796123728,
+        "stderr": 0.011193809837574968
+      },
+      {
+        "mean": 0.7708763777768417,
+        "stderr": 0.016313755088148734
+      },
+      {
+        "mean": 0.7273860260233291,
+        "stderr": 0.022923619169899608
+      },
+      {
+        "mean": 0.662129984045168,
+        "stderr": 0.030802208111427087
+      },
+      {
+        "mean": 0.6143741103425114,
+        "stderr": 0.03750130737679501
+      }
+    ]
+  }
+}

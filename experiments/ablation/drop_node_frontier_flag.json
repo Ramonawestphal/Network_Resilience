@@ -13,47 +13,48 @@
   "active_global_features": [
     "failed_fraction",
     "mean_load_capacity_ratio",
-    "max_load_capacity_ratio"
+    "max_load_capacity_ratio",
+    "frontier_fraction"
   ],
   "use_virtual_node": false,
-  "training_episodes": 100,
+  "training_episodes": 10,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_frontier_flag.pt",
   "results": {
     "final_anc": {
-      "mean": 0.9084079078491992,
-      "stderr": 0.012935420993948498
+      "mean": 0.4743516288104995,
+      "stderr": 0.0277968083848505
     },
     "threshold_hit_fraction": {
-      "mean": 0.9,
-      "stderr": 0.01732050807568877
+      "mean": 0.73,
+      "stderr": 0.025632011235952594
     },
     "solved_fraction": {
-      "mean": 0.7933333333333333,
-      "stderr": 0.023377735530168836
+      "mean": 0.44666666666666666,
+      "stderr": 0.02870281958017107
     },
-    "mean_delta_anc_per_round": 0.05163934185309645,
-    "mean_delta_anc_per_round_stderr": 0.0031097089265831167,
-    "mean_anc_on_failed": 0.5568124573348351,
+    "mean_delta_anc_per_round": -0.04167911489351436,
+    "mean_delta_anc_per_round_stderr": 0.006259013509512166,
+    "mean_anc_on_failed": 0.05003306411536062,
     "anc_by_round": [
       {
-        "mean": 0.7764978488790085,
-        "stderr": 0.01040021650768474
+        "mean": 0.7311547305596382,
+        "stderr": 0.012883693046803634
       },
       {
-        "mean": 0.8023012449616982,
-        "stderr": 0.01398059427217712
+        "mean": 0.5944835141928875,
+        "stderr": 0.022409971599280615
       },
       {
-        "mean": 0.7915867139606482,
-        "stderr": 0.01886026842096719
+        "mean": 0.3569229970875209,
+        "stderr": 0.02723159480835025
       },
       {
-        "mean": 0.764220119336301,
-        "stderr": 0.025260518809031695
+        "mean": 0.14698637932662173,
+        "stderr": 0.02031927030216146
       },
       {
-        "mean": 0.6946930261639975,
-        "stderr": 0.033677633939663096
+        "mean": 0.0557214888811369,
+        "stderr": 0.011240837989629363
       }
     ]
   }

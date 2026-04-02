@@ -13,47 +13,48 @@
   "active_global_features": [
     "failed_fraction",
     "mean_load_capacity_ratio",
-    "max_load_capacity_ratio"
+    "max_load_capacity_ratio",
+    "frontier_fraction"
   ],
   "use_virtual_node": false,
-  "training_episodes": 100,
+  "training_episodes": 10,
   "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_capacity_norm.pt",
   "results": {
     "final_anc": {
-      "mean": 0.7423121671973341,
-      "stderr": 0.019214554971766624
+      "mean": 0.2586006205690025,
+      "stderr": 0.025153616185098083
     },
     "threshold_hit_fraction": {
-      "mean": 0.78,
-      "stderr": 0.023916521486202793
+      "mean": 0.6533333333333333,
+      "stderr": 0.027476589361908853
     },
     "solved_fraction": {
-      "mean": 0.5333333333333333,
-      "stderr": 0.02880329199292382
+      "mean": 0.25666666666666665,
+      "stderr": 0.025218306108122385
     },
-    "mean_delta_anc_per_round": 0.011856662923451274,
-    "mean_delta_anc_per_round_stderr": 0.004414280379582319,
-    "mean_anc_on_failed": 0.4478117868514302,
+    "mean_delta_anc_per_round": -0.09219190911603937,
+    "mean_delta_anc_per_round_stderr": 0.005671997934413675,
+    "mean_anc_on_failed": 0.0026017317071782902,
     "anc_by_round": [
       {
-        "mean": 0.7591425095468433,
-        "stderr": 0.009739605596428964
+        "mean": 0.5496396865190272,
+        "stderr": 0.018011601181692687
       },
       {
-        "mean": 0.7063868688793268,
-        "stderr": 0.015478677977484135
+        "mean": 0.2633900764199597,
+        "stderr": 0.021804405842295708
       },
       {
-        "mean": 0.6387847786774988,
-        "stderr": 0.01964300956977291
+        "mean": 0.07445705779196231,
+        "stderr": 0.014215376467841077
       },
       {
-        "mean": 0.5642448241506987,
-        "stderr": 0.02294207852685026
+        "mean": 0.02617157442854,
+        "stderr": 0.00959985795741675
       },
       {
-        "mean": 0.498010715319482,
-        "stderr": 0.02459133650909006
+        "mean": 0.007054402547771245,
+        "stderr": 0.004452067353598942
       }
     ]
   }
