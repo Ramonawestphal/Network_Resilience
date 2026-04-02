@@ -49,7 +49,7 @@ the GNN, mean-pools and max-pools them into a graph-level summary, concatenates
 the four explicit global scalars, and projects everything down to a
 `global_dim`-dimensional vector:
 
-```
+```text
 node embeddings (N × embed_dim)
         ↓
 mean-pool → (embed_dim,)
@@ -129,8 +129,7 @@ encoder so they can still be benchmarked before artifacts are regenerated.
  
 **`RecoveryQNetwork.__init__`** now creates the global readout layer and
 adjusts the Q-head input size accordingly.
-```
- 
+
 **`forward(graph_tensor, global_features)`** now takes both inputs:
  
 1. Runs message passing to get node embeddings
@@ -216,7 +215,7 @@ The episode loop was simplified from B sequential steps per round to one
 batch step per round:
  
 **Before:**
-```
+```python
 while not done:
     action = select_action(...)           # one node, one forward pass
     obs, reward, done, info = env.step(action)
@@ -225,7 +224,7 @@ while not done:
 ```
  
 **After:**
-```
+```python
 while not done:
     actions = select_top_b(...)           # B nodes, one forward pass
     obs, reward, done, info = env.step_batch(actions)
@@ -267,6 +266,6 @@ training, matching exactly what it receives at inference time.
 | `src/cascading_rl/models/q_network.py` | `QNetworkConfig.input_dim` changed from 9 to 8. Updated `RecoveryQNetwork` to use global readout. Added `select_top_b`. Updated `score_observation` and `compute_dqn_loss` for global features and batch actions. |
 | `src/cascading_rl/envs/recovery.py` | Added `budget` and `max_rounds` to `RecoveryObservation`. Added `step_batch` method. Updated `observe()` to populate new fields. |
 | `src/cascading_rl/training/trainer.py` | Simplified training loop to use `select_top_b` and `step_batch`. Updated `compute_dqn_loss` for batch actions and global features. |
-| `src/cascading_rl/models/__init__.py` | Exported `GlobalReadout`, `GLOBAL_FEATURE_NAMES`, `observation_to_global_features`, `select_top_b`. |
+| `src/cascading_rl/models/__init__.py` | Re-exports include `GlobalReadout`, `GLOBAL_FEATURE_NAMES`, `FEATURE_NAMES`, `observation_to_global_features`, `select_top_b` (see package `__all__`). |
 | `docs/architecture.md` | Updated with global readout design and motivation. |
  

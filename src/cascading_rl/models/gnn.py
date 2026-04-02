@@ -164,6 +164,10 @@ def observation_to_graph_tensor(
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
         canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
+        # LEGACY_FEATURE_NAMES / old checkpoints used remaining_budget_norm and current_round_norm
+        # scaled by num_nodes (including the virtual row when use_virtual_node). Keep that division
+        # so loaded weights still see the training-time feature scale; canonical budget_coverage
+        # above uses num_real_nodes.
         legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
         legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
         feature_values = {

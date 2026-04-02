@@ -5,6 +5,7 @@ from argparse import Namespace
 from pathlib import Path
 import sys
 
+import pytest
 import yaml
 
 from scripts import evaluate_policy
@@ -52,6 +53,29 @@ def make_args(**overrides) -> Namespace:
     }
     defaults.update(overrides)
     return Namespace(**defaults)
+
+
+def test_resolve_grid_spec_hard_regime_rejects_non_mapping():
+    cfg = make_config()
+    cfg["hard_regime"] = "not-a-dict"
+    with pytest.raises(ValueError, match=r"hard_regime.*mapping"):
+        resolve_grid_spec(cfg, make_args(grid_source="hard_regime"))
+
+
+def test_resolve_grid_spec_hard_regime_incomplete_falls_back_to_training():
+    cfg = make_config()
+    cfg["hard_regime"] = {"alpha_values": [0.05]}
+    grid_spec = resolve_grid_spec(cfg, make_args(grid_source="hard_regime"))
+
+    assert grid_spec["alpha_values"] == [0.05]
+    assert grid_spec["pfail_values"] == [0.1]
+    assert grid_spec["budgets"] == [2]
+    assert grid_spec["max_rounds"] == 5
+    assert grid_spec["n_range"] == (30, 50)
+    assert grid_spec["m"] == 2
+    assert grid_spec["seeds"] == [0, 1, 2]
+    assert grid_spec["num_graphs"] == 3
+    assert grid_spec["graph_seed"] == 7 + 2000
 
 
 def test_resolve_grid_spec_uses_selected_grid_as_primary_for_regime_mapping():

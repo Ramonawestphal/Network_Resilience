@@ -26,6 +26,17 @@ from scripts.reproducibility import build_run_metadata
 POLICY_NAMES = ("random", "degree", "risk", "greedy", "betweenness")
 
 
+def _coerce_n_range(raw: object, *, context: str) -> tuple[int, int]:
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError(f"{context}: n_range must be a list or tuple of two ints, got {type(raw).__name__!r}.")
+    if len(raw) != 2:
+        raise ValueError(f"{context}: n_range must have length 2, got len={len(raw)}: {raw!r}.")
+    try:
+        return (int(raw[0]), int(raw[1]))
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{context}: n_range entries must be integers: {raw!r}.") from error
+
+
 @dataclass(frozen=True)
 class MappingConfig:
     alpha_values: tuple[float, ...]
@@ -69,7 +80,7 @@ def load_config(path: Path) -> MappingConfig:
         budgets=tuple(int(value) for value in regime_mapping["budgets"]),
         num_graphs=int(regime_mapping["num_graphs"]),
         seeds=tuple(int(value) for value in regime_mapping["seeds"]),
-        n_range=tuple(graph_cfg["n_range"]),
+        n_range=_coerce_n_range(graph_cfg["n_range"], context="config['graph']['n_range']"),
         m=int(graph_cfg["m"]),
         graph_seed=int(regime_mapping["graph_seed"]),
         max_rounds=int(regime_mapping["max_rounds"]),

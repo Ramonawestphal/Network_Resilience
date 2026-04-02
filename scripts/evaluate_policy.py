@@ -2,19 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 from cascading_rl.budgeting import DEFAULT_REFERENCE_N
 from cascading_rl.evaluation import (
@@ -26,7 +21,7 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
-from scripts.reproducibility import write_run_metadata
+from cascading_rl.reproducibility import write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
 
@@ -115,7 +110,6 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
     regime = training["regime"]
     graph_cfg = training["graph"]
     regime_mapping = config["regime_mapping"]
-    hard_regime = config.get("hard_regime", {})
 
     if args.grid_source == "training":
         alpha_values = [float(regime["alpha"])]
@@ -138,15 +132,43 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         n_range = tuple(config["graph"]["n_range"])
         m = int(config["graph"]["m"])
     else:
-        alpha_values = [float(value) for value in hard_regime.get("alpha_values", [hard_regime["alpha"]])]
-        pfail_values = [float(value) for value in hard_regime.get("pfail_values", [hard_regime["pfail"]])]
-        budgets = [int(hard_regime["budget"])]
+        raw_hr = config.get("hard_regime", {})
+        if raw_hr is None:
+            raw_hr = {}
+        if not isinstance(raw_hr, dict):
+            raise ValueError(
+                "config['hard_regime'] must be a mapping when grid_source=hard_regime; "
+                f"got {type(raw_hr).__name__!r}."
+            )
+        hard_regime = raw_hr
+        # hard_regime may be partial; fill from training.regime / training.graph / benchmark fields.
+        if "alpha_values" in hard_regime:
+            alpha_values = [float(value) for value in hard_regime["alpha_values"]]
+        elif "alpha" in hard_regime:
+            alpha_values = [float(hard_regime["alpha"])]
+        else:
+            alpha_values = [float(regime["alpha"])]
+
+        if "pfail_values" in hard_regime:
+            pfail_values = [float(value) for value in hard_regime["pfail_values"]]
+        elif "pfail" in hard_regime:
+            pfail_values = [float(hard_regime["pfail"])]
+        else:
+            pfail_values = [float(regime["pfail"])]
+
+        if "budgets" in hard_regime:
+            budgets = [int(value) for value in hard_regime["budgets"]]
+        elif "budget" in hard_regime:
+            budgets = [int(hard_regime["budget"])]
+        else:
+            budgets = [int(regime["budget"])]
+
         num_graphs = int(hard_regime.get("num_graphs", training["benchmark_graphs"]))
         seeds = list(hard_regime.get("seeds", training["benchmark_seeds"]))
         graph_seed = int(hard_regime.get("graph_seed", training["seed"] + 2000))
-        max_rounds = int(hard_regime["max_rounds"])
-        n_range = tuple(hard_regime["n_range"])
-        m = int(hard_regime["m"])
+        max_rounds = int(hard_regime.get("max_rounds", regime["max_rounds"]))
+        n_range = tuple(hard_regime.get("n_range", graph_cfg["n_range"]))
+        m = int(hard_regime.get("m", graph_cfg["m"]))
 
     if getattr(args, "alpha_values", None):
         alpha_values = list(args.alpha_values)
@@ -201,7 +223,11 @@ def select_primary_cell(
     budget: int,
 ) -> dict[str, Any] | None:
     for cell in serialized_cells:
-        if cell["alpha"] == alpha and cell["pfail"] == pfail and cell["budget"] == budget:
+        if (
+            math.isclose(float(cell["alpha"]), float(alpha), rel_tol=1e-9, abs_tol=1e-12)
+            and math.isclose(float(cell["pfail"]), float(pfail), rel_tol=1e-9, abs_tol=1e-12)
+            and int(cell["budget"]) == int(budget)
+        ):
             return cell
     return serialized_cells[0] if serialized_cells else None
 
@@ -367,6 +393,8 @@ def main() -> None:
         json.dump(legacy_summary, file, indent=2)
     with grid_output_path.open("w", encoding="utf-8") as file:
         json.dump(detailed_output, file, indent=2)
+    # Mirror grid payload under a regime-oriented filename for backward compatibility
+    # with older docs/tools that read evaluation_regime_summary.json specifically.
     with regime_output_path.open("w", encoding="utf-8") as file:
         json.dump(detailed_output, file, indent=2)
     write_run_metadata(

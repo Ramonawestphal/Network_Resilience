@@ -171,7 +171,12 @@ def main() -> None:
         cells = grid_summary.get("cells", [])
         if len(cells) != 1:
             raise ValueError(
-                "Compatibility wrapper expected exactly one grid cell per graph size."
+                "evaluate_scaling expected exactly one regime cell per graph size "
+                f"(from evaluate_policy subprocess); got cells_len={len(cells)}. "
+                f"Requested alpha={args.alpha!r} pfail={args.pfail!r} budget={args.budget!r} "
+                f"max_rounds={args.max_rounds!r} graph_size={graph_size!r}. "
+                f"grid_summary keys={sorted(grid_summary.keys())!r}. "
+                "If multiple cells appear, adjust CLI filters or evaluate_policy grid layout."
             )
         cell = cells[0]
         env_metadata = dict(grid_summary["env"])

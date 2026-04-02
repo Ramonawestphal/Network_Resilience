@@ -64,6 +64,7 @@ class TrainingConfig:
     validation_seeds: tuple[int, ...] = (0, 1, 2)
     validation_seed: int = 42
     validation_every: int = 20
+    validation_tau: float = 0.8
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
     episode_graph_specs: tuple[tuple[int, int], ...] | None = None
@@ -259,7 +260,7 @@ def validate_policy(
         budget=config.budget,
         max_rounds=config.max_rounds,
         seeds=config.validation_seeds,
-        tau=0.8,
+        tau=config.validation_tau,
         env_kwargs=_env_kwargs_from_config(config),
         scale_budget=config.scale_budget,
         reference_n=config.budget_reference_n,

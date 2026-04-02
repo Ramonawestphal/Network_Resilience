@@ -186,9 +186,7 @@ def propagate_cascade(
     frontier: Iterable[Node] | None = None,
 ) -> list[Node]:
     """Apply overload failures wave by wave until the cascade settles."""
-    failed_nodes = failed if failed is not None else set(graph.nodes()) - set(active)
-    if failed is None:
-        failed_nodes = set()
+    failed_nodes = set() if failed is None else set(failed)
 
     state = CascadeState(
         graph=graph,

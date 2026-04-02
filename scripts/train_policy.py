@@ -38,6 +38,7 @@ def build_training_config(
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
+    evaluation = config["evaluation"]
     budget_scaling = config.get("budget_scaling", {})
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
@@ -98,6 +99,9 @@ def build_training_config(
         validation_seeds=tuple(training["validation_seeds"]),
         validation_seed=int(training.get("validation_seed", defaults.validation_seed)),
         validation_every=int(training["validation_every"]),
+        validation_tau=float(
+            training.get("validation_tau", evaluation.get("tau", defaults.validation_tau))
+        ),
         checkpoint_dir=str(training["checkpoint_dir"]),
         checkpoint_name=str(training["checkpoint_name"]),
     )

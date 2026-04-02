@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
@@ -138,7 +138,7 @@ def build_greedy_policy(
     model: RecoveryQNetwork,
     *,
     device: torch.device | str | None = None,
-) -> callable:
+) -> Callable[[RecoveryObservation], Node]:
     """Wrap the Q-network as a greedy policy compatible with evaluation helpers."""
 
     def policy(observation: RecoveryObservation) -> Node:

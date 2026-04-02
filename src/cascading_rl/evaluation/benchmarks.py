@@ -6,6 +6,8 @@ from math import sqrt
 from random import Random
 from statistics import mean, pstdev
 
+import networkx as nx
+
 from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.policies import (
@@ -172,7 +174,7 @@ def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
 
 
 def evaluate_policy_factories_on_graphs(
-    graphs,
+    graphs: Sequence[nx.Graph],
     policy_factories: Mapping[str, PolicyFactory],
     *,
     alpha: float,

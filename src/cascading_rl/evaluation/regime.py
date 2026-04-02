@@ -137,14 +137,17 @@ def compute_regime_diagnostics(
 
     middle_final_anc = max(0.0, 1.0 - 2.0 * abs(mean_final_anc - 0.5))
     middle_threshold_hit = max(0.0, 1.0 - 2.0 * abs(mean_threshold_hit - 0.5))
-    interestingness_score = (
+    budget_weight = 0.20 if budget_sensitivity is not None else 0.0
+    base_score = (
         0.35 * final_anc_spread
         + 0.25 * threshold_hit_spread
         + 0.20 * middle_final_anc
         + 0.20 * middle_threshold_hit
     )
-    if budget_sensitivity is not None:
-        interestingness_score += 0.20 * budget_sensitivity
+    if budget_weight > 0.0 and budget_sensitivity is not None:
+        interestingness_score = (1.0 - budget_weight) * base_score + budget_weight * budget_sensitivity
+    else:
+        interestingness_score = base_score
 
     best_final_anc = max(final_anc_by_policy.values())
     best_threshold_hit = max(threshold_hit_by_policy.values())
@@ -212,6 +215,7 @@ def build_regime_cells(
     reference_n: int = 40,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
+    seeds_materialized: tuple[int, ...] = tuple(seeds)
     cells: list[RegimeCellResult] = []
     grouped_best_anc: dict[tuple[float, float], list[float]] = {}
     grouped_cells: dict[tuple[float, float], list[tuple[int, dict[str, PolicyEvaluationSummary]]]] = {}
@@ -226,7 +230,7 @@ def build_regime_cells(
                     pfail=pfail,
                     budget=budget,
                     max_rounds=max_rounds,
-                    seeds=seeds,
+                    seeds=seeds_materialized,
                     tau=tau,
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,
@@ -312,6 +316,8 @@ def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
 
 
 def _mean(values: Sequence[float]) -> float:
+    if not values:
+        return 0.0
     return sum(values) / len(values)
 
 
