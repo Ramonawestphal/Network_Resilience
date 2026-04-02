@@ -1,15 +1,15 @@
 {
   "rl": {
-    "final_anc_mean": 0.9014978111864399,
-    "final_anc_stderr": 0.055804645401266256,
-    "threshold_hit_mean": 0.8333333333333334,
-    "rounds_mean": 2.888888888888889,
-    "solved_fraction_mean": 0.7777777777777778,
-    "b_star": 2
+    "final_anc_mean": 0.558352835689252,
+    "final_anc_stderr": 0.119766165499752,
+    "threshold_hit_mean": 0.7777777777777778,
+    "rounds_mean": 3.2777777777777777,
+    "solved_fraction_mean": 0.5555555555555556,
+    "b_star": 3
   },
   "random": {
     "final_anc_mean": 0.4484989832837105,
-    "final_anc_stderr": 0.11627386720219424,
+    "final_anc_stderr": 0.11964482228534565,
     "threshold_hit_mean": 0.7777777777777778,
     "rounds_mean": 3.4444444444444446,
     "solved_fraction_mean": 0.4444444444444444,
@@ -17,15 +17,15 @@
   },
   "degree": {
     "final_anc_mean": 0.9643311365475777,
-    "final_anc_stderr": 0.024587984113425505,
+    "final_anc_stderr": 0.02530082692175375,
     "threshold_hit_mean": 0.9444444444444444,
     "rounds_mean": 2.7777777777777777,
     "solved_fraction_mean": 0.8888888888888888,
     "b_star": 2
   },
   "risk": {
-    "final_anc_mean": 0.6372476589530696,
-    "final_anc_stderr": 0.10428619498020122,
+    "final_anc_mean": 0.6379186756590717,
+    "final_anc_stderr": 0.10708028133731513,
     "threshold_hit_mean": 0.7777777777777778,
     "rounds_mean": 3.3333333333333335,
     "solved_fraction_mean": 0.5,
@@ -33,7 +33,7 @@
   },
   "greedy": {
     "final_anc_mean": 0.9930627818244884,
-    "final_anc_stderr": 0.006741764244242465,
+    "final_anc_stderr": 0.006937218175511628,
     "threshold_hit_mean": 1.0,
     "rounds_mean": 2.7222222222222223,
     "solved_fraction_mean": 0.9444444444444444,
@@ -41,7 +41,7 @@
   },
   "betweenness": {
     "final_anc_mean": 0.9672439168023361,
-    "final_anc_stderr": 0.022258253396273263,
+    "final_anc_stderr": 0.02290355379122584,
     "threshold_hit_mean": 0.8888888888888888,
     "rounds_mean": 2.7222222222222223,
     "solved_fraction_mean": 0.8888888888888888,
