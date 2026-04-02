@@ -79,6 +79,7 @@ def test_observation_to_global_features_supports_feature_subsets_in_canonical_or
 
     requested_features = (
         "max_load_capacity_ratio",
+        "frontier_fraction",
         "failed_fraction",
     )
     global_features = observation_to_global_features(
@@ -86,8 +87,8 @@ def test_observation_to_global_features_supports_feature_subsets_in_canonical_or
         active_global_features=requested_features,
     )
 
-    assert tuple(global_features.shape) == (2,)
-    assert global_features.tolist() == pytest.approx([0.5, 0.8])
+    assert tuple(global_features.shape) == (3,)
+    assert global_features.tolist() == pytest.approx([0.5, 0.25, 0.8])
 
 
 def test_q_network_supports_ablation_flags():
@@ -107,18 +108,22 @@ def test_q_network_supports_ablation_flags():
 def test_q_network_config_derives_dimensions_from_active_features():
     config = QNetworkConfig(
         active_node_features=("degree_norm", "load_norm"),
-        active_global_features=("max_load_capacity_ratio", "failed_fraction"),
+        active_global_features=("max_load_capacity_ratio", "frontier_fraction", "failed_fraction"),
         use_virtual_node=True,
     )
 
     model = RecoveryQNetwork(config)
 
     assert config.active_node_features == ("load_norm", "degree_norm")
-    assert config.active_global_features == ("failed_fraction", "max_load_capacity_ratio")
+    assert config.active_global_features == (
+        "failed_fraction",
+        "frontier_fraction",
+        "max_load_capacity_ratio",
+    )
     assert config.input_dim == 2
-    assert config.global_feat_dim == 2
+    assert config.global_feat_dim == 3
     assert model.encoder.layers[0].self_linear.in_features == 2
-    assert model.global_readout.proj.in_features == 2 * config.embed_dim + 2
+    assert model.global_readout.proj.in_features == 2 * config.embed_dim + 3
 
 
 def test_training_config_defaults_match_feature_constants():

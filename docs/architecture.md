@@ -47,7 +47,7 @@ The live feature definitions are in `src/cascading_rl/models/gnn.py`:
 At the time of writing, the code exposes:
 
 - 9 node features
-- 3 global scalar features
+- 4 global scalar features
 
 ### 2.2 `observation_to_graph_tensor(...)`
 
