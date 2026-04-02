@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from dataclasses import asdict, dataclass, replace
@@ -146,7 +147,30 @@ def checkpoint_path(output_dir: Path) -> Path:
     return output_dir / "checkpoint.json"
 
 
-def load_checkpoint(output_dir: Path) -> list[dict[str, Any]]:
+def _sort_mapping(obj: Any) -> Any:
+    """Recursively sort dict keys for deterministic JSON hashing."""
+    if isinstance(obj, dict):
+        return {k: _sort_mapping(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, (list, tuple)):
+        return [_sort_mapping(x) for x in obj]
+    return obj
+
+
+def fingerprint_payload(config: MappingConfig) -> dict[str, Any]:
+    """Canonical, JSON-safe snapshot of run-level parameters (for checkpoint metadata)."""
+    return _sort_mapping(asdict(config))
+
+
+def fingerprint_from_payload(payload: dict[str, Any]) -> str:
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def config_fingerprint(config: MappingConfig) -> str:
+    return fingerprint_from_payload(fingerprint_payload(config))
+
+
+def load_checkpoint(output_dir: Path, config: MappingConfig) -> list[dict[str, Any]]:
     path = checkpoint_path(output_dir)
     if not path.exists():
         return []
@@ -154,16 +178,39 @@ def load_checkpoint(output_dir: Path) -> list[dict[str, Any]]:
         data = json.load(file)
     if not isinstance(data, dict):
         return []
+    expected_fp = config_fingerprint(config)
+    stored_fp = data.get("config_fingerprint")
+    if stored_fp != expected_fp:
+        if stored_fp is None:
+            print(
+                "Ignoring checkpoint: no config_fingerprint (older checkpoint); "
+                "starting a fresh run. Remove checkpoint.json if you intended to resume."
+            )
+        else:
+            print(
+                "Ignoring checkpoint: config fingerprint does not match current run "
+                f"(checkpoint {stored_fp[:16]}… vs current {expected_fp[:16]}…)."
+            )
+        return []
     cells = data.get("cells", [])
     return cells if isinstance(cells, list) else []
 
 
-def save_checkpoint(output_dir: Path, cells: list[dict[str, Any]], total_cells: int) -> None:
+def save_checkpoint(
+    output_dir: Path,
+    cells: list[dict[str, Any]],
+    total_cells: int,
+    config: MappingConfig,
+) -> None:
     path = checkpoint_path(output_dir)
+    run_cfg = fingerprint_payload(config)
+    fp = fingerprint_from_payload(run_cfg)
     payload = {
         "saved_at": timestamp_utc(),
         "completed_cells": len(cells),
         "total_cells": total_cells,
+        "config_fingerprint": fp,
+        "run_config": run_cfg,
         "cells": cells,
     }
     with path.open("w", encoding="utf-8") as file:
@@ -209,7 +256,7 @@ def evaluate_all_cells(
         policy_name: base_factories[policy_name] for policy_name in POLICY_NAMES
     }
 
-    serialized_cells = load_checkpoint(output_dir)
+    serialized_cells = load_checkpoint(output_dir, config)
     completed = {
         cell_key(float(cell["alpha"]), float(cell["pfail"]), int(cell["budget"]))
         for cell in serialized_cells
@@ -284,13 +331,13 @@ def evaluate_all_cells(
                 serialized_cells.append(serialize_regime_cell(cell))
                 completed.add(key)
                 completed_this_run += 1
-                save_checkpoint(output_dir, serialized_cells, config.total_cells)
+                save_checkpoint(output_dir, serialized_cells, config.total_cells, config)
 
                 if fail_after_cells is not None and completed_this_run >= fail_after_cells:
                     raise RuntimeError("Intentional interruption")
 
     serialized_cells.sort(key=lambda cell: (cell["alpha"], cell["pfail"], cell["budget"]))
-    save_checkpoint(output_dir, serialized_cells, config.total_cells)
+    save_checkpoint(output_dir, serialized_cells, config.total_cells, config)
     return serialized_cells
 
 

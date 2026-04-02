@@ -101,7 +101,7 @@ def rollout_policy(
     threshold_step = 0 if tau is not None and current_anc >= tau else None
     threshold_round = 0 if threshold_step == 0 else None
 
-    if not observation.failed or observation.remaining_budget <= 0:
+    if not observation.failed:
         return EpisodeResult(
             total_reward=total_reward,
             final_anc=current_anc,
@@ -119,8 +119,12 @@ def rollout_policy(
     }
 
     while not done:
-        action = policy(observation)
-        observation, reward, done, info = env.step(action)
+        if observation.remaining_budget > 0:
+            action = policy(observation)
+            observation, reward, done, info = env.step(action)
+        else:
+            # `step` requires remaining budget per repair; advance dynamics with a no-op round.
+            observation, reward, done, info = env.step_batch([])
         total_reward += reward
         steps += 1
         if tau is not None and threshold_step is None and float(info["anc"]) >= tau:

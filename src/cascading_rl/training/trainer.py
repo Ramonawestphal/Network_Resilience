@@ -378,15 +378,16 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             )
             next_observation, reward, done, _info = env.step_batch(list(actions))
 
-            replay_buffer.push(
-                Transition(
-                    observation=observation,
-                    action=actions,
-                    reward=reward,
-                    next_observation=next_observation,
-                    done=done,
+            if actions:
+                replay_buffer.push(
+                    Transition(
+                        observation=observation,
+                        action=actions,
+                        reward=reward,
+                        next_observation=next_observation,
+                        done=done,
+                    )
                 )
-            )
 
             observation = next_observation
             total_reward += reward
