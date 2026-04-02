@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-04-01T19:30:47.530975+00:00",
+  "script": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\scripts\\evaluate_policy.py",
+  "argv": [
+    "scripts/evaluate_policy.py",
+    "--config",
+    "config/default.yaml",
+    "--checkpoint",
+    "experiments/learner/recovery_q.pt"
+  ],
+  "config_path": "config\\default.yaml",
+  "config_sha256": "fbbf8399f99413db08cbe0754f428ba358e2363f9043402bba68937b097bcfe0",
+  "git_commit": "67b05165bb532877158aa4bfce3c3c4ef3c123ef",
+  "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "torch_version": "2.9.1+cpu",
+  "output_dir": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\experiments\\learner_benchmark",
+  "policy_names": [
+    "rl",
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness"
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "scaling": {
+    "scale_budget": false,
+    "reference_n": 40
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "checkpoint_path": "experiments\\learner\\recovery_q.pt",
+  "num_episodes": 1,
+  "final_reward_mean_last_10": 0.09750000000000003,
+  "final_anc_mean_last_10": 1.0,
+  "num_updates": 0,
+  "validation_history": []
+}
