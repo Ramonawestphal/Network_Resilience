@@ -246,7 +246,7 @@ class GraphStateEncoder(nn.Module):
 
         layers: list[nn.Module] = []
         layer_in_dim = input_dim
-        for _ in range(max(1, num_layers - 1)):
+        for _ in range(max(0, num_layers - 1)):
             layers.append(GraphMessagePassingLayer(layer_in_dim, hidden_dim))
             layer_in_dim = hidden_dim
         layers.append(GraphMessagePassingLayer(layer_in_dim, embed_dim))
