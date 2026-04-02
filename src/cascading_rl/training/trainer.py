@@ -226,10 +226,11 @@ def compute_dqn_loss(
                     for node in transition.next_observation.valid_actions
                 ]
                 top_b_next = sorted(valid_next, reverse=True)[:next_budget]
-                target_value = target_value + gamma * torch.tensor(
-                    sum(top_b_next) / len(top_b_next),
-                    device=device,
-                )
+                if top_b_next:
+                    target_value = target_value + gamma * torch.tensor(
+                        sum(top_b_next) / len(top_b_next),
+                        device=device,
+                    )
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
 

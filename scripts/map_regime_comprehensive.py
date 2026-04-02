@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,7 +17,12 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.evaluation import build_policy_factories, build_regime_cells, serialize_regime_cell
+from cascading_rl.evaluation import (
+    build_policy_factories,
+    build_regime_cells,
+    compute_regime_diagnostics,
+    serialize_regime_cell,
+)
 from cascading_rl.graph.generation import make_graph_batch
 from scripts.map_regime import build_recommendation, write_csv
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
@@ -132,6 +137,11 @@ def cell_key(alpha: float, pfail: float, budget: int) -> str:
     return f"{alpha:.8f}|{pfail:.8f}|{budget}"
 
 
+def _best_final_anc_across_policies(serialized_cell: dict[str, Any]) -> float:
+    summaries = serialized_cell["policy_summaries"]
+    return max(float(s["final_anc"]["mean"]) for s in summaries.values())
+
+
 def checkpoint_path(output_dir: Path) -> Path:
     return output_dir / "checkpoint.json"
 
@@ -210,8 +220,10 @@ def evaluate_all_cells(
     completed_this_run = 0
     for alpha in config.alpha_values:
         for pfail in config.pfail_values:
-            budget_keys = [cell_key(alpha, pfail, budget) for budget in config.budgets]
-            if all(key in completed for key in budget_keys):
+            remaining_budgets = [
+                b for b in config.budgets if cell_key(alpha, pfail, b) not in completed
+            ]
+            if not remaining_budgets:
                 continue
 
             cells_for_pair = build_regime_cells(
@@ -219,7 +231,7 @@ def evaluate_all_cells(
                 policy_factories,
                 alpha_values=[alpha],
                 pfail_values=[pfail],
-                budgets=list(config.budgets),
+                budgets=list(remaining_budgets),
                 max_rounds=config.max_rounds,
                 seeds=config.seeds,
                 tau=config.tau,
@@ -230,6 +242,40 @@ def evaluate_all_cells(
                 scale_budget=config.scale_budget,
                 reference_n=config.reference_n,
             )
+
+            serialized_by_key = {
+                cell_key(float(c["alpha"]), float(c["pfail"]), int(c["budget"])): c
+                for c in serialized_cells
+            }
+            best_anc_values: list[float] = []
+            for budget in config.budgets:
+                k = cell_key(alpha, pfail, budget)
+                if k in serialized_by_key:
+                    best_anc_values.append(_best_final_anc_across_policies(serialized_by_key[k]))
+                else:
+                    match = next(c for c in cells_for_pair if int(c.budget) == int(budget))
+                    best_anc_values.append(
+                        max(s.final_anc.mean for s in match.policy_summaries.values())
+                    )
+            budget_sensitivity = (
+                max(best_anc_values) - min(best_anc_values)
+                if len(best_anc_values) > 1
+                else 0.0
+            )
+            cells_for_pair = [
+                replace(
+                    cell,
+                    diagnostics=compute_regime_diagnostics(
+                        cell.policy_summaries,
+                        hopeless_threshold=config.hopeless_threshold,
+                        trivial_threshold=config.trivial_threshold,
+                        spread_threshold=config.spread_threshold,
+                        budget_sensitivity=budget_sensitivity,
+                    ),
+                )
+                for cell in cells_for_pair
+            ]
+
             for cell in cells_for_pair:
                 key = cell_key(cell.alpha, cell.pfail, cell.budget)
                 if key in completed:

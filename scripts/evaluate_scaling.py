@@ -145,6 +145,8 @@ def main() -> None:
             "--n-range",
             str(graph_size),
             str(graph_size),
+            "--m",
+            str(args.m),
             "--graph-seed",
             str(args.graph_seed + graph_size),
             "--output-dir",

@@ -7,6 +7,9 @@ import networkx as nx
 
 PreparedGraph = Union[nx.Graph, nx.DiGraph]
 
+# ``nx.read_graphml`` may yield any of these depending on file contents.
+AnyGraph = Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]
+
 
 def load_edge_list_graph(
     path: str | Path, delimiter: str | None = None, nodetype: type = int
@@ -18,7 +21,7 @@ def load_edge_list_graph(
     return nx.read_edgelist(file_path, delimiter=delimiter, nodetype=nodetype)
 
 
-def load_graphml_graph(path: str | Path) -> nx.Graph:
+def load_graphml_graph(path: str | Path) -> AnyGraph:
     """Load a graph from GraphML for real-world evaluation datasets."""
     file_path = Path(path)
     if not file_path.exists():
@@ -27,7 +30,7 @@ def load_graphml_graph(path: str | Path) -> nx.Graph:
 
 
 def prepare_graph(
-    graph: nx.Graph | nx.DiGraph,
+    graph: AnyGraph,
     *,
     undirected: bool = True,
     largest_component_only: bool = True,
@@ -69,7 +72,7 @@ def prepare_graph(
     return prepared
 
 
-def load_prepared_graphml_graph(path: str | Path) -> nx.Graph:
+def load_prepared_graphml_graph(path: str | Path) -> PreparedGraph:
     """Load and normalize a GraphML graph for evaluation."""
     return prepare_graph(load_graphml_graph(path))
 

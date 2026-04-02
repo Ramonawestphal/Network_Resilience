@@ -63,6 +63,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--policies", type=str, nargs="+", default=None)
     parser.add_argument("--graph-seed", type=int, default=None)
     parser.add_argument("--n-range", type=int, nargs=2, default=None)
+    parser.add_argument(
+        "--m",
+        type=int,
+        default=None,
+        help="Override Barabási–Albert m (edges per new node) from config.",
+    )
     parser.add_argument("--tau", type=float, default=None)
     parser.add_argument("--scale-budget", action="store_true")
     parser.add_argument("--reference-n", type=int, default=None)
@@ -191,6 +197,8 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         max_rounds = args.max_rounds
     if getattr(args, "n_range", None) is not None:
         n_range = tuple(args.n_range)
+    if getattr(args, "m", None) is not None:
+        m = int(args.m)
 
     primary_alpha = float(alpha_values[0]) if alpha_values else float(regime["alpha"])
     primary_pfail = float(pfail_values[0]) if pfail_values else float(regime["pfail"])
@@ -377,6 +385,7 @@ def main() -> None:
             "budgets": grid_spec["budgets"],
             "max_rounds": grid_spec["max_rounds"],
             "n_range": list(grid_spec["n_range"]),
+            "m": grid_spec["m"],
         },
         "cells": serialized_cells,
         "bucket_summary": bucket_summary,

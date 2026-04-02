@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from math import sqrt
 from random import Random
-from statistics import mean, pstdev
+from statistics import mean, stdev
 
 import networkx as nx
 
@@ -56,7 +56,7 @@ def _aggregate(values: list[float]) -> AggregateMetric:
         raise ValueError("Cannot aggregate an empty metric list.")
     if len(values) == 1:
         return AggregateMetric(mean=values[0], stderr=0.0)
-    return AggregateMetric(mean=mean(values), stderr=pstdev(values) / sqrt(len(values)))
+    return AggregateMetric(mean=mean(values), stderr=stdev(values) / sqrt(len(values)))
 
 
 def summarize_episode_results(episode_results: Sequence[EpisodeResult]) -> PolicyEvaluationSummary:
@@ -145,12 +145,13 @@ def evaluate_policies(
     tau: float | None = None,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate multiple policies with matched seeds and aggregate the outcomes."""
+    seeds_list = list(seeds)
     summaries: dict[str, PolicyEvaluationSummary] = {}
 
     for policy_name, policy in policy_map.items():
         episode_results = [
             rollout_policy(env_factory(seed), policy, seed=seed, tau=tau)
-            for seed in seeds
+            for seed in seeds_list
         ]
         summaries[policy_name] = summarize_episode_results(episode_results)
 
@@ -188,6 +189,7 @@ def evaluate_policy_factories_on_graphs(
     reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policy factories across fixed graphs and matched seeds."""
+    seeds_list = list(seeds)
     episode_results_by_policy: dict[str, list[EpisodeResult]] = {
         name: [] for name in policy_factories
     }
@@ -200,7 +202,7 @@ def evaluate_policy_factories_on_graphs(
             reference_n=reference_n,
             enabled=scale_budget,
         )
-        for seed in seeds:
+        for seed in seeds_list:
             for policy_name, policy_factory in policy_factories.items():
                 env = RecoveryEnv(
                     graph,
