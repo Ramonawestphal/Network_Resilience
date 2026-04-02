@@ -230,18 +230,23 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         n_range = tuple(graph_cfg["n_range"])
         m = int(graph_cfg["m"])
     else:
-        hard = config["hard_regime"]
-        alpha_values = list(hard.get("alpha_values", [hard["alpha"]]))
-        pfail_values = list(hard.get("pfail_values", [hard["pfail"]]))
-        budgets = [int(hard["budget"])]
+        hard = config.get("hard_regime", {})
+        if not isinstance(hard, dict):
+            raise ValueError("hard_regime must be a mapping when grid_source='hard_regime'.")
+        train_regime = training["regime"]
+        train_graph = training["graph"]
+        alpha_values = list(hard.get("alpha_values", [hard.get("alpha", train_regime["alpha"])]))
+        pfail_values = list(hard.get("pfail_values", [hard.get("pfail", train_regime["pfail"])]))
+        budgets = [int(hard.get("budget", train_regime["budget"]))]
         num_graphs = int(hard.get("num_graphs", training["benchmark_graphs"]))
         seeds = list(hard.get("seeds", training["benchmark_seeds"]))
-        max_rounds = int(hard["max_rounds"])
+        max_rounds = int(hard.get("max_rounds", train_regime["max_rounds"]))
         graph_seed = int(hard.get("graph_seed", training["seed"]) + 2000)
-        n_range = tuple(hard["n_range"])
-        m = int(hard["m"])
+        n_range = tuple(hard.get("n_range", train_graph["n_range"]))
+        m = int(hard.get("m", train_graph["m"]))
 
-    return {
+    n_range_override = getattr(args, "n_range", None)
+    resolved = {
         "alpha_values": list(args.alpha_values) if args.alpha_values is not None else list(alpha_values),
         "pfail_values": list(args.pfail_values) if args.pfail_values is not None else list(pfail_values),
         "budgets": list(args.budgets) if args.budgets is not None else list(budgets),
@@ -249,8 +254,31 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         "seeds": list(args.seeds) if args.seeds is not None else list(seeds),
         "max_rounds": int(args.max_rounds) if args.max_rounds is not None else int(max_rounds),
         "graph_seed": int(args.graph_seed) if args.graph_seed is not None else int(graph_seed),
-        "n_range": tuple(args.n_range) if args.n_range is not None else tuple(n_range),
+        "n_range": tuple(n_range_override) if n_range_override is not None else tuple(n_range),
         "m": int(m),
+    }
+    resolved["primary_alpha"] = float(resolved["alpha_values"][0])
+    resolved["primary_pfail"] = float(resolved["pfail_values"][0])
+    resolved["primary_budget"] = int(resolved["budgets"][0])
+    resolved["primary_max_rounds"] = int(resolved["max_rounds"])
+    return resolved
+
+
+def serialize_legacy_summary(
+    primary_cell: dict[str, Any],
+    b_star_by_policy: dict[str, int | None],
+) -> dict[str, dict[str, float | int | None]]:
+    policy_summaries = primary_cell["policy_summaries"]
+    return {
+        policy_name: {
+            "final_anc_mean": metrics["final_anc"]["mean"],
+            "final_anc_stderr": metrics["final_anc"]["stderr"],
+            "threshold_hit_mean": metrics["threshold_hit_fraction"]["mean"],
+            "rounds_mean": metrics["rounds"]["mean"],
+            "solved_fraction_mean": metrics["solved_fraction"]["mean"],
+            "b_star": b_star_by_policy.get(policy_name),
+        }
+        for policy_name, metrics in policy_summaries.items()
     }
 
 
@@ -713,6 +741,8 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "evaluation_summary.json"
     grid_path = output_dir / "evaluation_grid_summary.json"
+    regime_path = output_dir / "evaluation_regime_summary.json"
+    metadata_path = output_dir / "run_metadata.json"
     summary_payload = {
         "checkpoint": serialize_path(args.checkpoint),
         "config": serialize_path(args.config),
@@ -723,9 +753,24 @@ def main() -> None:
         json.dump(summary_payload, file, indent=2)
     with grid_path.open("w", encoding="utf-8") as file:
         json.dump(grid_results, file, indent=2)
+    with regime_path.open("w", encoding="utf-8") as file:
+        json.dump(grid_results, file, indent=2)
+    with metadata_path.open("w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "script": "scripts/evaluate_policy.py",
+                "checkpoint": serialize_path(args.checkpoint),
+                "config": serialize_path(args.config),
+                "grid_source": args.grid_source,
+                "policies": selected_policy_names,
+            },
+            file,
+            indent=2,
+        )
 
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")
+    print(f"Saved regime evaluation summary to {regime_path}")
     for policy_name, metrics in summary_payload.items():
         if policy_name in {"checkpoint", "config", "policies", "scaling"}:
             continue

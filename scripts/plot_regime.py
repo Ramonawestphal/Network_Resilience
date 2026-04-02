@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -37,6 +42,27 @@ def _prepare_grid(cells: list[dict], budget: int, value_key: str) -> tuple[list[
 
 def plot_interestingness_heatmaps(results: dict, output_path: Path) -> None:
     cells = results["cells"]
+    if not cells:
+        logger.warning(
+            "plot_interestingness_heatmaps: empty cells; writing placeholder to %s",
+            output_path,
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig, axis = plt.subplots(figsize=(6, 4), constrained_layout=True)
+        axis.text(
+            0.5,
+            0.5,
+            "No regime cells to plot",
+            ha="center",
+            va="center",
+            transform=axis.transAxes,
+            fontsize=12,
+        )
+        axis.set_axis_off()
+        fig.savefig(output_path, dpi=180, bbox_inches="tight")
+        plt.close(fig)
+        return
+
     budgets = sorted({cell["budget"] for cell in cells})
     columns = min(2, len(budgets))
     rows = math.ceil(len(budgets) / columns)
@@ -45,17 +71,31 @@ def plot_interestingness_heatmaps(results: dict, output_path: Path) -> None:
     )
     axes_list = axes.flatten().tolist() if hasattr(axes, "flatten") else [axes]
 
+    prepared = [
+        _prepare_grid(cells, budget, "interestingness_score") for budget in budgets
+    ]
+    stacked = np.concatenate([grid.ravel() for _, _, grid in prepared])
+    finite = stacked[np.isfinite(stacked)]
+    if finite.size:
+        vmin = float(finite.min())
+        vmax = float(finite.max())
+    else:
+        vmin, vmax = 0.0, 1.0
+    if vmin == vmax:
+        vmax = vmin + 1e-9
+
     image = None
-    for axis, budget in zip(axes_list, budgets):
-        alphas, pfails, grid = _prepare_grid(cells, budget, "interestingness_score")
-        image = axis.imshow(grid, aspect="auto", origin="lower")
+    for axis, budget, (alphas, pfails, grid) in zip(axes_list, budgets, prepared):
+        im = axis.imshow(grid, aspect="auto", origin="lower", vmin=vmin, vmax=vmax)
+        if image is None:
+            image = im
         axis.set_title(f"Interestingness score (budget={budget})")
         axis.set_xticks(range(len(pfails)), labels=[f"{pfail:.2f}" for pfail in pfails])
         axis.set_yticks(range(len(alphas)), labels=[f"{alpha:.2f}" for alpha in alphas])
         axis.set_xlabel("pfail")
         axis.set_ylabel("alpha")
 
-    for axis in axes_list[len(budgets) :]:
+    for axis in axes_list[len(budgets):]:
         axis.set_axis_off()
 
     if image is not None:

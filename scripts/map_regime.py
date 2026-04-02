@@ -262,17 +262,32 @@ def main() -> None:
     json_path = output_dir / "regime_results.json"
     csv_path = output_dir / "regime_results.csv"
     note_path = output_dir / "recommended_regime.md"
+    metadata_path = output_dir / "run_metadata.json"
 
     with json_path.open("w", encoding="utf-8") as file:
         json.dump(results, file, indent=2)
     write_csv(serialized_cells, csv_path, selected_policies)
     write_note(recommendation, note_path, tau=tau, num_graphs=len(graphs), seeds=seeds)
+    with metadata_path.open("w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "script": "scripts/map_regime.py",
+                "config_path": str(args.config),
+                "output_dir": str(output_dir),
+                "num_graphs": len(graphs),
+                "policies": selected_policies,
+                "tau": tau,
+            },
+            file,
+            indent=2,
+        )
     plot_interestingness_heatmaps(results, output_dir / "interestingness_heatmap.png")
     plot_budget_curves(results, output_dir / "budget_curves.png")
 
     print(f"Saved regime map to {json_path}")
     print(f"Saved summary table to {csv_path}")
     print(f"Saved recommendation note to {note_path}")
+    print(f"Saved run metadata to {metadata_path}")
 
 
 if __name__ == "__main__":

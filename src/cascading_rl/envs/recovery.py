@@ -68,7 +68,9 @@ class RecoveryObservation:
     failed: frozenset[Node]
     frontier: frozenset[Node]
     remaining_budget: int
+    budget: int
     current_round: int
+    max_rounds: int
     action_space: str = "failed"
     obs_hops: int | None = None
 
@@ -183,7 +185,9 @@ class RecoveryEnv:
             failed=failed_set,
             frontier=frozenset(self.state.frontier),
             remaining_budget=self.remaining_budget,
+            budget=self.budget,
             current_round=self.current_round,
+            max_rounds=self.max_rounds,
             action_space=self.action_space,
             obs_hops=self.obs_hops,
         )

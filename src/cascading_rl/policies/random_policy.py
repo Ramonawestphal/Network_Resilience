@@ -12,7 +12,8 @@ def choose_random_failed_node(
     observation: RecoveryObservation, rng: Random | None = None
 ) -> Node:
     """Sample a failed node uniformly at random."""
-    if not observation.failed:
-        raise ValueError("No failed nodes remain to reactivate.")
+    valid_actions = observation.valid_actions
+    if not valid_actions:
+        raise ValueError("No valid nodes remain to reactivate.")
     rng = rng or Random()
-    return rng.choice(tuple(observation.failed))
+    return rng.choice(valid_actions)
