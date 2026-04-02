@@ -206,8 +206,8 @@ class RecoveryEnv:
         if round_complete and self.state.failed:
             newly_failed = advance_cascade_round(self.state)
 
-        reward = repaired_anc - previous_anc
         post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = post_cascade_anc - previous_anc
         exhausted_rounds = action_round >= self.max_rounds
         if not self.state.failed:
             done = True
@@ -263,8 +263,8 @@ class RecoveryEnv:
         if self.state.failed:
             newly_failed = advance_cascade_round(self.state)
 
-        reward = repaired_anc - previous_anc
         post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = post_cascade_anc - previous_anc
 
         exhausted_rounds = self.current_round >= self.max_rounds
         done = not self.state.failed or exhausted_rounds
