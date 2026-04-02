@@ -22,30 +22,12 @@ FEATURE_NAMES = (
     "failed_flag",
     "active_flag",
     "frontier_flag",
-    "budget_coverage",
-    "degree_norm",
-)
-
-GLOBAL_FEATURE_NAMES = (
-    "failed_fraction",
-    "mean_load_capacity_ratio",
-    "max_load_capacity_ratio",
-    "current_round_norm",
-)
-
-LEGACY_FEATURE_NAMES = (
-    "load_norm",
-    "capacity_norm",
-    "load_capacity_ratio",
-    "failed_flag",
-    "active_flag",
-    "frontier_flag",
     "remaining_budget_norm",
     "current_round_norm",
     "degree_norm",
 )
 
-LEGACY_GLOBAL_FEATURE_NAMES = (
+GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
@@ -112,7 +94,6 @@ def observation_to_global_features(
         "failed_fraction": len(failed) / max(num_nodes, 1),
         "mean_load_capacity_ratio": sum(ratios) / len(ratios),
         "max_load_capacity_ratio": max(ratios),
-        "current_round_norm": float(observation.current_round) / max(1.0, float(observation.max_rounds)),
     }
     global_features = torch.tensor(
         [feature_values[name] for name in GLOBAL_FEATURE_NAMES],
@@ -134,16 +115,12 @@ def observation_to_global_features(
 def resolve_feature_names(input_dim: int) -> tuple[str, ...]:
     if input_dim == len(FEATURE_NAMES):
         return FEATURE_NAMES
-    if input_dim == len(LEGACY_FEATURE_NAMES):
-        return LEGACY_FEATURE_NAMES
     raise ValueError(f"Unsupported node-feature width: {input_dim}")
 
 
 def resolve_global_feature_names(input_dim: int) -> tuple[str, ...]:
     if input_dim == len(FEATURE_NAMES):
         return GLOBAL_FEATURE_NAMES
-    if input_dim == len(LEGACY_FEATURE_NAMES):
-        return LEGACY_GLOBAL_FEATURE_NAMES
     raise ValueError(f"Unsupported node-feature width: {input_dim}")
 
 
@@ -240,13 +217,10 @@ def observation_to_graph_tensor(
         load = float(observation.loads[node])
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
-        canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
-        # LEGACY_FEATURE_NAMES / old checkpoints used remaining_budget_norm and current_round_norm
-        # scaled by num_nodes (including the virtual row when use_virtual_node). Keep that division
-        # so loaded weights still see the training-time feature scale; canonical budget_coverage
-        # above uses num_real_nodes.
-        legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
-        legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
+        # Normalise budget and round by total node count (including virtual node when present)
+        # so the scale matches training-time expectations regardless of use_virtual_node.
+        remaining_budget_norm = float(observation.remaining_budget) / max(1.0, float(num_nodes))
+        current_round_norm = float(observation.current_round) / max(1.0, float(num_nodes))
         feature_values = {
             "load_norm": load / scale,
             "capacity_norm": capacity / scale,
@@ -254,9 +228,8 @@ def observation_to_graph_tensor(
             "failed_flag": 1.0 if node in observation.failed else 0.0,
             "active_flag": 1.0 if node in observation.active else 0.0,
             "frontier_flag": 1.0 if node in observation.frontier else 0.0,
-            "budget_coverage": canonical_budget,
-            "remaining_budget_norm": legacy_budget,
-            "current_round_norm": legacy_round,
+            "remaining_budget_norm": remaining_budget_norm,
+            "current_round_norm": current_round_norm,
             "degree_norm": degree / max(1.0, float(max_degree)),
         }
         node_features[index] = torch.tensor(

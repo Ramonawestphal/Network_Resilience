@@ -12,7 +12,6 @@ from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
-    LEGACY_FEATURE_NAMES,
     GlobalReadout,
     GraphStateEncoder,
     GraphTensor,
