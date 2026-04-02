@@ -2,13 +2,14 @@ from pathlib import Path
 
 import networkx as nx
 
-from cascading_rl.envs.recovery import RecoveryEnv
+from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.models import (
     QNetworkConfig,
     RecoveryQNetwork,
     observation_to_global_features,
     observation_to_graph_tensor,
 )
+from cascading_rl.models.gnn import VIRTUAL_NODE
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
@@ -51,6 +52,29 @@ def test_q_network_masks_invalid_actions():
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
     assert q_values[1].item() < -1e8
+
+
+def test_virtual_node_sentinel_distinct_from_string_graph_node():
+    graph = nx.Graph()
+    graph.add_edge("__virtual__", 0)
+    graph.add_edge(0, 1)
+    observation = RecoveryObservation(
+        graph=graph,
+        loads={"__virtual__": 1.0, 0: 1.0, 1: 1.0},
+        capacities={"__virtual__": 1.0, 0: 1.0, 1: 1.0},
+        active=frozenset({0, 1}),
+        failed=frozenset({"__virtual__"}),
+        frontier=frozenset({"__virtual__"}),
+        remaining_budget=2,
+        budget=2,
+        current_round=1,
+        max_rounds=5,
+    )
+    graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
+    n_real = graph.number_of_nodes()
+    assert graph_tensor.node_to_index[VIRTUAL_NODE] == n_real
+    assert graph_tensor.node_to_index["__virtual__"] in range(n_real)
+    assert graph_tensor.node_to_index["__virtual__"] != graph_tensor.node_to_index[VIRTUAL_NODE]
 
 
 def test_observation_to_graph_tensor_supports_virtual_node():

@@ -9,7 +9,11 @@ from torch import nn
 from cascading_rl.envs.recovery import RecoveryObservation
 
 Node = Hashable
-VIRTUAL_NODE_ID = "__virtual__"
+
+# Sentinel graph node id for the virtual MPNN node. Using a unique object avoids
+# colliding with a real node whose id is the string "__virtual__" (or any other
+# hashable env graph uses).
+VIRTUAL_NODE: Hashable = object()
 
 FEATURE_NAMES = (
     "load_norm",
@@ -143,7 +147,7 @@ def observation_to_graph_tensor(
     num_real_nodes = len(node_ids)
     num_nodes = num_real_nodes + int(use_virtual_node)
     if use_virtual_node:
-        node_to_index[VIRTUAL_NODE_ID] = num_real_nodes
+        node_to_index[VIRTUAL_NODE] = num_real_nodes
 
     max_load = max((float(value) for value in observation.loads.values()), default=1.0)
     max_capacity = max((float(value) for value in observation.capacities.values()), default=1.0)
