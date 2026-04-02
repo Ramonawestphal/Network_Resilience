@@ -82,13 +82,18 @@ def build_eval_policy_factories(
             f"Unsupported policies: {invalid}. Supported values: {list(SUPPORTED_POLICIES)}"
         )
 
-    model, _ = load_q_network(checkpoint_path)
-    rl_policy = build_greedy_policy(model)
+    rl_policy: Any | None = None
+    if "rl" in selected_policies:
+        model, _ = load_q_network(checkpoint_path)
+        rl_policy = build_greedy_policy(model)
+
     base_factories = build_policy_factories(base_seed=base_seed)
     policy_factories: dict[str, Any] = {}
     for policy_name in selected_policies:
         if policy_name == "rl":
-            policy_factories["rl"] = lambda _graph_index, _seed: rl_policy
+            assert rl_policy is not None
+            captured_rl = rl_policy
+            policy_factories["rl"] = lambda _graph_index, _seed, _p=captured_rl: _p
         else:
             policy_factories[policy_name] = base_factories[policy_name]
     return policy_factories

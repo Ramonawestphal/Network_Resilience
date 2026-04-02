@@ -263,9 +263,9 @@ training, matching exactly what it receives at inference time.
 | File | What changed |
 |---|---|
 | `src/cascading_rl/models/gnn.py` | Added `GLOBAL_FEATURE_NAMES`, `observation_to_global_features`, `GlobalReadout`. Removed `current_round_norm` from per-node features, kept `budget_coverage` (remaining_budget / num_nodes). `FEATURE_NAMES` reduced from 9 to 8 entries. |
-| `src/cascading_rl/models/q_network.py` | `QNetworkConfig.input_dim` changed from 9 to 8. Updated `RecoveryQNetwork` to use global readout. Added `select_top_b`. Updated `score_observation` and `compute_dqn_loss` for global features and batch actions. |
+| `src/cascading_rl/models/q_network.py` | `QNetworkConfig.input_dim` changed from 9 to 8. Updated `RecoveryQNetwork` to use global readout. Added `select_top_b`. Updated `score_observation` for global features at inference. |
 | `src/cascading_rl/envs/recovery.py` | Added `budget` and `max_rounds` to `RecoveryObservation`. Added `step_batch` method. Updated `observe()` to populate new fields. |
-| `src/cascading_rl/training/trainer.py` | Simplified training loop to use `select_top_b` and `step_batch`. Updated `compute_dqn_loss` for batch actions and global features. |
+| `src/cascading_rl/training/trainer.py` | Simplified training loop to use `select_top_b` and `step_batch`. **`compute_dqn_loss`** (defined here) updated for batch actions (mean Q over selected nodes, top-B target) and **`observation_to_global_features`** on current/next observations so training matches inference. |
 | `src/cascading_rl/models/__init__.py` | Re-exports include `GlobalReadout`, `GLOBAL_FEATURE_NAMES`, `FEATURE_NAMES`, `observation_to_global_features`, `select_top_b` (see package `__all__`). |
 | `docs/architecture.md` | Updated with global readout design and motivation. |
  
