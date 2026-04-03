@@ -135,11 +135,34 @@ def test_environment_step_batch_repairs_full_round_before_cascade():
     env.remaining_budget = 2
     env.current_round = 1
 
+    prev_anc = env.current_anc()
     observation, reward, done, info = env.step_batch([3, 4])
 
-    assert reward >= 0.0
+    assert reward == info["anc_after_cascade"] - prev_anc
     assert done is False
     assert info["cascade_executed"] is True
     assert info["actions"] == [3, 4]
     assert observation.current_round == 2
     assert observation.remaining_budget == 2
+
+
+def test_recovery_env_reset_reseeds_rng_independent_of_constructor_seed():
+    """``reset(seed=...)`` fully controls failure sampling; constructor seed must not leak."""
+    graph = nx.barabasi_albert_graph(28, 2, seed=0)
+    env_low = RecoveryEnv(graph, alpha=0.2, pfail=0.35, budget=3, max_rounds=6, seed=0)
+    env_high = RecoveryEnv(graph, alpha=0.2, pfail=0.35, budget=3, max_rounds=6, seed=9_999_999)
+
+    failure_seed = 50_001
+    f_low = frozenset(env_low.reset(seed=failure_seed).failed)
+    f_high = frozenset(env_high.reset(seed=failure_seed).failed)
+    assert f_low == f_high
+
+    same_again = frozenset(env_low.reset(seed=failure_seed).failed)
+    assert same_again == f_low
+
+    diff_found = False
+    for s in range(50_002, 50_400):
+        if frozenset(env_low.reset(seed=s).failed) != f_low:
+            diff_found = True
+            break
+    assert diff_found, "expected different failure_seed to change the initial failure set"

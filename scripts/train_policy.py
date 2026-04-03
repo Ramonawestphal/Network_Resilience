@@ -14,7 +14,29 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.training import TrainingConfig, train_recovery_agent
+from cascading_rl.training import (
+    FREEZE_GRAPH_SPECS_SEED_OFFSET,
+    TrainingConfig,
+    train_recovery_agent,
+)
+
+
+def training_config_for_json(config: TrainingConfig) -> dict[str, Any]:
+    """JSON-serializable training config; avoid huge episode_graph_specs in summaries."""
+    data: dict[str, Any] = asdict(config)
+    if config.episode_graph_specs is not None:
+        data["episode_graph_specs"] = {
+            "frozen": config.freeze_graphs,
+            "count": len(config.episode_graph_specs),
+            "spec_seed": config.seed + FREEZE_GRAPH_SPECS_SEED_OFFSET,
+        }
+    elif config.freeze_graphs:
+        data["episode_graph_specs"] = {
+            "frozen": True,
+            "count": config.num_episodes,
+            "spec_seed": config.seed + FREEZE_GRAPH_SPECS_SEED_OFFSET,
+        }
+    return data
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -103,6 +125,14 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         validation_tau=float(training.get("validation_tau", defaults.validation_tau)),
         checkpoint_dir=str(training["checkpoint_dir"]),
         checkpoint_name=str(training["checkpoint_name"]),
+        freeze_graphs=bool(training.get("freeze_graphs", defaults.freeze_graphs)),
+        log_episode_spread=bool(training.get("log_episode_spread", defaults.log_episode_spread)),
+        log_grad_norm=bool(training.get("log_grad_norm", defaults.log_grad_norm)),
+        validation_eval_set_path=(
+            str(training["validation_eval_set_path"]).strip()
+            if training.get("validation_eval_set_path")
+            else defaults.validation_eval_set_path
+        ),
     )
 
 
@@ -147,6 +177,28 @@ def parse_args() -> argparse.Namespace:
         default="experiments/learner",
         help="Directory for checkpoints.",
     )
+    parser.add_argument(
+        "--log-episode-spread",
+        action="store_true",
+        help="Log PR(degree)-PR(random) per episode and summary stats (diagnostic).",
+    )
+    parser.add_argument(
+        "--log-grad-norm",
+        action="store_true",
+        help="After each optimizer step, print sum of per-parameter grad L2 norms (diagnostic).",
+    )
+    parser.add_argument(
+        "--validation-eval-set",
+        type=Path,
+        default=None,
+        help="If set, run periodic validation on this pickle (e.g. eval_sets/ds_validation.pkl).",
+    )
+    parser.add_argument(
+        "--validation-every",
+        type=int,
+        default=None,
+        help="Override validation interval (episodes).",
+    )
     return parser.parse_args()
 
 
@@ -174,6 +226,21 @@ def main() -> None:
         )
     if args.episodes is not None:
         training_config = replace(training_config, num_episodes=args.episodes)
+    if args.log_episode_spread:
+        training_config = replace(training_config, log_episode_spread=True)
+    if args.log_grad_norm:
+        training_config = replace(training_config, log_grad_norm=True)
+    if args.validation_eval_set is not None:
+        ves = args.validation_eval_set
+        if not ves.is_absolute():
+            ves = ROOT / ves
+        training_config = replace(
+            training_config, validation_eval_set_path=str(ves.resolve())
+        )
+    if args.validation_every is not None:
+        training_config = replace(
+            training_config, validation_every=int(args.validation_every)
+        )
     training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
@@ -181,7 +248,7 @@ def main() -> None:
     summary_path = checkpoint_path.with_suffix(".summary.json")
     summary = {
         "checkpoint_path": str(checkpoint_path),
-        "training_config": asdict(training_config),
+        "training_config": training_config_for_json(training_config),
         "num_episodes": training_config.num_episodes,
         "alpha_values": list(training_config.alpha_values),
         "pfail_values": list(training_config.pfail_values),

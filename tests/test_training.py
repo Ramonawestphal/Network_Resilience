@@ -262,6 +262,91 @@ def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
     assert agreement > 0.60
 
 
+def test_freeze_graphs_identical_graph_spec_sequence_across_two_runs(tmp_path: Path, monkeypatch):
+    """Same training.seed + freeze_graphs must yield the same (n, graph_seed) stream (fair arch search)."""
+    from cascading_rl.graph.generation import make_ba_graph as real_make_ba
+    from cascading_rl.training import trainer as trainer_mod
+
+    recorded: list[list[tuple[int, int]]] = []
+
+    for run_idx in range(2):
+        calls: list[tuple[int, int]] = []
+
+        def recorder(n: int, m: int, seed: int | None = None):
+            calls.append((n, int(seed or 0)))
+            return real_make_ba(n=n, m=m, seed=seed)
+
+        monkeypatch.setattr(trainer_mod, "make_ba_graph", recorder)
+        run_dir = tmp_path / f"freeze_run_{run_idx}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        config = TrainingConfig(
+            num_episodes=10,
+            seed=42,
+            freeze_graphs=True,
+            alpha_values=(0.2,),
+            pfail_values=(0.1,),
+            scale_budget=False,
+            replay_capacity=128,
+            warmup_transitions=8,
+            batch_size=4,
+            validation_graphs=1,
+            validation_seeds=(0,),
+            validation_every=1_000_000,
+            checkpoint_dir=str(run_dir),
+            checkpoint_name="freeze.pt",
+            n_range=(18, 40),
+            budget=2,
+            max_rounds=3,
+            device="cpu",
+        )
+        train_recovery_agent(config)
+        recorded.append(list(calls))
+
+    assert recorded[0] == recorded[1]
+    assert len(recorded[0]) == 10
+
+
+def test_train_recovery_agent_uses_episode_graph_specs_when_set(tmp_path: Path, monkeypatch):
+    from cascading_rl.graph.generation import make_ba_graph as real_make_ba_graph
+    from cascading_rl.training import trainer as trainer_mod
+
+    calls: list[tuple[int, int, int]] = []
+
+    def recorder(n: int, m: int, seed: int | None = None):
+        calls.append((n, m, int(seed or 0)))
+        return real_make_ba_graph(n=n, m=m, seed=seed)
+
+    monkeypatch.setattr(trainer_mod, "make_ba_graph", recorder)
+
+    checkpoint_dir = tmp_path / "learner_specs"
+    config = TrainingConfig(
+        num_episodes=4,
+        replay_capacity=64,
+        warmup_transitions=4,
+        batch_size=4,
+        alpha_values=(0.2,),
+        pfail_values=(0.1,),
+        scale_budget=False,
+        validation_graphs=1,
+        validation_seeds=(0,),
+        validation_every=100_000,
+        checkpoint_dir=str(checkpoint_dir),
+        checkpoint_name="specs.pt",
+        n_range=(30, 50),
+        budget=2,
+        max_rounds=3,
+        device="cpu",
+        episode_graph_specs=((10, 999_001), (11, 999_002)),
+    )
+
+    train_recovery_agent(config)
+
+    assert calls[0] == (10, config.m, 999_001)
+    assert calls[1] == (11, config.m, 999_002)
+    assert calls[2] == (10, config.m, 999_001)
+    assert calls[3] == (11, config.m, 999_002)
+
+
 def test_budget_scaling_helper_matches_canonical_reference_rule():
     assert compute_scaled_budget(2, num_nodes=40, reference_n=40, enabled=True) == 2
     assert compute_scaled_budget(2, num_nodes=30, reference_n=40, enabled=True) == 2

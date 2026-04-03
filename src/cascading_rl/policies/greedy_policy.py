@@ -10,7 +10,7 @@ Node = Hashable
 
 
 def choose_greedy_anc_node(observation: RecoveryObservation) -> Node:
-    """Choose the failed node with the highest pre-cascade ANC gain."""
+    """Choose the failed node with the highest ANC gain from a single reactivation (no cascade)."""
     if not observation.failed:
         raise ValueError("No failed nodes remain to reactivate.")
 

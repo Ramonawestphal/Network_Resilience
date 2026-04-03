@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import pickle
+import warnings
 from argparse import Namespace
 from pathlib import Path
 import sys
 
+import networkx as nx
 import pytest
 import yaml
 
@@ -222,3 +225,88 @@ def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypa
 
     assert grid_payload == regime_payload
     assert grid_payload["policies"] == ["rl", "degree"]
+
+
+def _minimal_eval_set_config() -> dict:
+    return {
+        "evaluation": {"tau": 0.8},
+        "training": {
+            "seed": 1,
+            "regime": {
+                "capacity_noise": 0.0,
+                "failure_bias": "uniform",
+                "action_space": "failed",
+                "obs_hops": None,
+            },
+        },
+        "regime_mapping": {
+            "hopeless_threshold": 0.25,
+            "trivial_threshold": 0.75,
+            "spread_threshold": 0.05,
+        },
+    }
+
+
+def test_run_eval_set_mode_warns_when_no_decision_sensitive_instances(tmp_path: Path):
+    checkpoint_path = save_checkpoint(
+        RecoveryQNetwork(),
+        TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub.pt"),
+        TrainingState(),
+        tmp_path / "stub.pt",
+        episode=0,
+    )
+    inst = {
+        "graph": nx.path_graph(8),
+        "alpha": 0.2,
+        "p_fail": 0.4,
+        "budget": 2,
+        "max_rounds": 4,
+        "failure_seed": 3,
+        "regime_label": "trivial",
+    }
+    pkl = tmp_path / "no_ds.pkl"
+    with pkl.open("wb") as file:
+        pickle.dump([inst], file, protocol=4)
+
+    args = Namespace(
+        eval_set=pkl,
+        checkpoint=checkpoint_path,
+        policies=["degree"],
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        evaluate_policy.run_eval_set_mode(args, _minimal_eval_set_config())
+
+    assert any(
+        "no decision-sensitive" in str(w.message).lower() for w in caught
+    ), f"expected UserWarning, got: {[w.message for w in caught]}"
+
+
+def test_run_eval_set_mode_large_graph_pickle_requires_b_scaled(tmp_path: Path):
+    checkpoint_path = save_checkpoint(
+        RecoveryQNetwork(),
+        TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub2.pt"),
+        TrainingState(),
+        tmp_path / "stub2.pt",
+        episode=0,
+    )
+    inst = {
+        "graph": nx.path_graph(20),
+        "alpha": 0.15,
+        "p_fail": 0.18,
+        "budget": 3,
+        "max_rounds": 5,
+        "failure_seed": 1,
+        "regime_label": "decision-sensitive",
+    }
+    pkl = tmp_path / "large_graph_medium.pkl"
+    with pkl.open("wb") as file:
+        pickle.dump([inst], file, protocol=4)
+
+    args = Namespace(
+        eval_set=pkl,
+        checkpoint=checkpoint_path,
+        policies=["degree"],
+    )
+    with pytest.raises(ValueError, match="b_scaled"):
+        evaluate_policy.run_eval_set_mode(args, _minimal_eval_set_config())

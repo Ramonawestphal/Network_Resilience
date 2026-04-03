@@ -102,7 +102,9 @@ class RecoveryEnv:
 
     ``step`` exposes intra-round single-node repairs, while ``step_batch`` performs a
     full round decision of up to ``B`` repairs followed by one cascade wave. Both use
-    the same reward: PR/ANC gain after repair(s) and before the cascade advances.
+    the same reward: net PR/ANC change from the state at the start of the transition to
+    after any repairs in that transition and after the cascade wave (if the round ends
+    and a wave runs). Intra-round steps omit the wave, so reward equals repair-only gain.
     """
 
     def __init__(
@@ -143,6 +145,9 @@ class RecoveryEnv:
         self.current_round = 1
 
     def reset(self, seed: int | None = None) -> RecoveryObservation:
+        # When ``seed`` is given, the environment RNG is fully re-seeded before
+        # ``build_initial_state``; the constructor ``seed=`` does not affect
+        # failure sampling after such a reset (only ``reset(seed=...)`` matters).
         if seed is not None:
             self._rng.seed(seed)
         self.state = build_initial_state(
@@ -203,7 +208,6 @@ class RecoveryEnv:
         self.remaining_budget -= 1
 
         anc_after_reactivation = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        reward = anc_after_reactivation - previous_anc
 
         newly_failed: list[Node] = []
         cascade_executed = False
@@ -213,6 +217,7 @@ class RecoveryEnv:
             newly_failed = advance_cascade_round(self.state)
 
         anc_after_cascade = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = anc_after_cascade - previous_anc
 
         exhausted_rounds = action_round >= self.max_rounds
         if not self.state.failed:
@@ -272,8 +277,8 @@ class RecoveryEnv:
             cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
-        reward = repaired_anc - previous_anc
         post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = post_cascade_anc - previous_anc
 
         exhausted_rounds = self.current_round >= self.max_rounds
         done = not self.state.failed or exhausted_rounds

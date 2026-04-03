@@ -1,3 +1,12 @@
+# Short-run diagnostics: same as default.yaml except training knobs below.
+# Use: python scripts/train_policy.py --config config/diagnostic.yaml --episodes 300 --log-grad-norm
+# Optional: --validation-eval-set eval_sets/ds_validation.pkl --validation-every 50
+#
+# warmup_transitions: default 500 needs ~150+ episodes before the first optimizer step
+#   on typical n∈[30,50], B=3 runs; 100 clears warmup within a few dozen episodes.
+# epsilon_decay_episodes: ε decays from epsilon_start to epsilon_end over this many episodes
+#   (YAML key name; not "epsilon_decay").
+
 graph:
   n_range: [30, 50]
   m: 2
@@ -47,8 +56,6 @@ training:
   regime:
     alpha: 0.15
     pfail: 0.18
-    # Optional: train on a small distribution instead of one (alpha, pfail).
-    # If provided, each episode samples one alpha and one pfail uniformly.
     alpha_values: [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
     pfail_values: [0.12, 0.15, 0.18, 0.20]
     budget: 3
@@ -62,13 +69,13 @@ training:
     m: 2
   num_episodes: 8000
   replay_capacity: 10000
-  warmup_transitions: 500
+  warmup_transitions: 100
   batch_size: 64
   gamma: 0.99
   learning_rate: 0.0003
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 6000
+  epsilon_decay_episodes: 200
   target_update_interval: 200
   hidden_dim: 128
   embed_dim: 128
