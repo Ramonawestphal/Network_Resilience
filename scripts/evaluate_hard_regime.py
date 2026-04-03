@@ -115,7 +115,7 @@ def main() -> None:
     if args.checkpoint.exists():
         device = torch.device("cpu")
         model, _ = load_q_network(args.checkpoint, map_location=device)
-        rl_policy = build_greedy_policy(model, device=device)
+        rl_policy = build_greedy_policy(model, device=device, batch_actions=True)
         policy_factories = {"rl": lambda _gi, _se: rl_policy, **policy_factories}
 
     cells = build_regime_cells(

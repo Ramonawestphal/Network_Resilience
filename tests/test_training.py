@@ -7,9 +7,8 @@ import torch
 from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.graph.generation import make_graph_batch
-from cascading_rl.models import RecoveryQNetwork, observation_to_graph_tensor
+from cascading_rl.models import QNetworkConfig, RecoveryQNetwork, observation_to_graph_tensor
 from cascading_rl.training import TrainingConfig, train_recovery_agent
-from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
 from cascading_rl.training.trainer import (
     _imitation_agreement_rate,
     generate_imitation_data,
@@ -30,9 +29,9 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
     env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
     observation = env.observe()
 
-    graph_tensor = observation_to_graph_tensor(observation)
+    graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
 
-    assert graph_tensor.node_features.shape == (5, 9)
+    assert graph_tensor.node_features.shape == (5, 8)
     assert graph_tensor.adjacency.shape == (5, 5)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
     assert torch.allclose(
@@ -59,6 +58,31 @@ def test_q_network_masks_invalid_actions():
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
     assert q_values[1].item() < -1e8
+
+
+def test_q_network_supports_global_features_and_virtual_node():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    observation = env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
+    observation = env.observe()
+
+    model = RecoveryQNetwork(
+        config=QNetworkConfig(
+            use_global_features=True,
+            use_virtual_node=True,
+        )
+    )
+    graph_tensor, q_values = model.score_observation(observation)
+
+    assert graph_tensor.node_features.shape == (5, 8)
+    assert q_values.shape[0] == 4
+    assert q_values[0].item() < -1e8
 
 
 def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path):
@@ -195,6 +219,13 @@ def test_train_recovery_agent_cycles_all_regime_combinations_once(tmp_path: Path
 
 def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
     train_graphs = make_graph_batch(num_graphs=50, n_range=(10, 12), m=2, seed=123)
+    expert_policy = lambda observation: tuple(
+        sorted(
+            observation.valid_actions,
+            key=lambda node: (observation.graph.degree(node), str(node)),
+            reverse=True,
+        )[: observation.remaining_budget]
+    )
     samples = generate_imitation_data(
         train_graphs,
         alpha=0.20,
@@ -202,7 +233,7 @@ def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
         budget=2,
         max_rounds=3,
         num_seeds=3,
-        policy=choose_highest_degree_failed_node,
+        policy=expert_policy,
         base_seed=321,
     )
     model = RecoveryQNetwork()
@@ -221,7 +252,7 @@ def test_imitation_pretraining_matches_degree_policy_on_heldout_graphs():
         budget=2,
         max_rounds=3,
         num_seeds=3,
-        policy=choose_highest_degree_failed_node,
+        policy=expert_policy,
         base_seed=654,
     )
 

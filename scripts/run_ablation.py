@@ -84,7 +84,7 @@ def generate_episode_graph_specs(config: TrainingConfig, *, seed: int) -> tuple[
 
 
 def evaluate_config(model, training_config: TrainingConfig, eval_graphs: list, eval_seeds: list[int], tau: float) -> dict:
-    rl_policy = build_greedy_policy(model, device=training_config.device)
+    rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
     summaries = evaluate_policy_factories_on_graphs(
         eval_graphs,
         {"rl": lambda graph_index, seed: rl_policy},

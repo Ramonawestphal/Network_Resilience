@@ -177,7 +177,7 @@ def build_eval_policy_factories(
     rl_policy = None
     if "rl" in selected_policies:
         model, _ = load_q_network(checkpoint_path)
-        rl_policy = build_greedy_policy(model)
+        rl_policy = build_greedy_policy(model, batch_actions=True)
     base_factories = build_policy_factories(base_seed=base_seed)
     policy_factories: dict[str, Any] = {}
     for policy_name in selected_policies:

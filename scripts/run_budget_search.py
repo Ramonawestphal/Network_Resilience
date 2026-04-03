@@ -119,7 +119,7 @@ def main() -> None:
     for policy_name in selected_policies:
         if policy_name == "rl":
             model, _ = load_q_network(args.checkpoint)
-            policy_map["rl"] = build_greedy_policy(model)
+            policy_map["rl"] = build_greedy_policy(model, batch_actions=True)
         else:
             policy_map[policy_name] = base_factories[policy_name](0, 0)
 

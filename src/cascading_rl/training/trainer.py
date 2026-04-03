@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Hashable, Iterable, Sequence
-from typing import Any
+from collections.abc import Callable, Hashable, Sequence
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from random import Random
+from typing import Any
 import sys
 
 import torch
-from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 
@@ -21,10 +20,10 @@ from cascading_rl.models import (
     QNetworkConfig,
     RecoveryQNetwork,
     build_greedy_policy,
+    observation_to_global_features,
     observation_to_graph_tensor,
-    select_action,
+    select_top_b,
 )
-from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
 from cascading_rl.training.replay import ReplayBuffer, Transition
 
 Node = Hashable
@@ -53,7 +52,7 @@ class TrainingConfig:
     warmup_transitions: int = 500
     batch_size: int = 64
     gamma: float = 0.99
-    use_monte_carlo_returns: bool = True
+    use_monte_carlo_returns: bool = False
     learning_rate: float = 3e-4
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
@@ -62,6 +61,8 @@ class TrainingConfig:
     hidden_dim: int = 128
     embed_dim: int = 128
     num_layers: int = 2
+    use_global_features: bool = False
+    use_virtual_node: bool = False
     use_imitation_warmstart: bool = False
     imitation_graphs: int = 500
     imitation_seeds: int = 5
@@ -70,6 +71,7 @@ class TrainingConfig:
     validation_seeds: tuple[int, ...] = (0, 1, 2)
     validation_seed: int = 42
     validation_every: int = 200
+    validation_tau: float = 0.8
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
 
@@ -88,7 +90,7 @@ class TrainingState:
 @dataclass(frozen=True)
 class ImitationSample:
     observation: RecoveryObservation
-    action: Node
+    action: object
 
 
 def resolve_device(requested_device: str) -> torch.device:
@@ -109,6 +111,8 @@ def build_model_config(config: TrainingConfig) -> QNetworkConfig:
         hidden_dim=config.hidden_dim,
         embed_dim=config.embed_dim,
         num_layers=config.num_layers,
+        use_global_features=config.use_global_features,
+        use_virtual_node=config.use_virtual_node,
     )
 
 
@@ -119,6 +123,51 @@ def _mean_recent(values: list[float], window: int = 10) -> float:
     return sum(recent) / len(recent)
 
 
+def _normalize_action_batch(action: object) -> tuple[Node, ...]:
+    if isinstance(action, tuple):
+        return action
+    if isinstance(action, list):
+        return tuple(action)
+    return (action,)
+
+
+def _graph_tensor_for_model(
+    model: RecoveryQNetwork,
+    observation: RecoveryObservation,
+    *,
+    device: torch.device,
+):
+    return observation_to_graph_tensor(
+        observation,
+        use_virtual_node=model.config.use_virtual_node,
+        feature_names=model.feature_names,
+        device=device,
+    )
+
+
+def _global_features_for_model(
+    model: RecoveryQNetwork,
+    observation: RecoveryObservation,
+    *,
+    device: torch.device,
+) -> torch.Tensor | None:
+    if not model.config.use_global_features:
+        return None
+    return observation_to_global_features(
+        observation,
+        global_feature_names=model.global_feature_names,
+    ).to(device)
+
+
+def _choose_degree_batch(observation: RecoveryObservation) -> tuple[Node, ...]:
+    ranked = sorted(
+        observation.valid_actions,
+        key=lambda node: (observation.graph.degree(node), str(node)),
+        reverse=True,
+    )
+    return tuple(ranked[: observation.remaining_budget])
+
+
 def _reset_with_non_empty_failures(
     env: RecoveryEnv,
     base_seed: int,
@@ -126,7 +175,6 @@ def _reset_with_non_empty_failures(
     *,
     max_attempts: int = 1024,
 ) -> RecoveryObservation:
-    """Reset until at least one node failed; Bernoulli pfail can yield an empty episode otherwise."""
     seed = base_seed
     for _ in range(max_attempts):
         observation = env.reset(seed=seed)
@@ -187,30 +235,42 @@ def compute_dqn_loss(
     transitions: list[Transition],
     *,
     gamma: float,
-    use_monte_carlo_returns: bool,
     device: torch.device,
 ) -> torch.Tensor:
-    """Per-graph forwards; stack predictions and targets; single smooth_l1 over the batch."""
-    q_selected: list[torch.Tensor] = []
-    targets: list[torch.Tensor] = []
+    losses: list[torch.Tensor] = []
     for transition in transitions:
-        graph_tensor = observation_to_graph_tensor(transition.observation, device=device)
-        q_values = model(graph_tensor)
-        action_index = graph_tensor.node_to_index[transition.action]
-        q_selected.append(q_values[action_index])
+        graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
+        global_features = _global_features_for_model(model, transition.observation, device=device)
+        q_values = model(graph_tensor, global_features)
+
+        action_indices = [graph_tensor.node_to_index[action] for action in _normalize_action_batch(transition.action)]
+        q_selected = torch.stack([q_values[index] for index in action_indices]).mean()
 
         with torch.no_grad():
-            reward_t = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
-            if use_monte_carlo_returns:
-                targets.append(reward_t)
-            elif not transition.done and transition.next_observation.failed:
-                next_tensor = observation_to_graph_tensor(transition.next_observation, device=device)
-                next_q_values = target_model(next_tensor)
-                targets.append(reward_t + gamma * torch.max(next_q_values))
-            else:
-                targets.append(reward_t)
+            target_value = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
+            if not transition.done and transition.next_observation.failed:
+                next_tensor = _graph_tensor_for_model(target_model, transition.next_observation, device=device)
+                next_global = _global_features_for_model(
+                    target_model,
+                    transition.next_observation,
+                    device=device,
+                )
+                next_q_values = target_model(next_tensor, next_global)
+                valid_next_indices = [
+                    next_tensor.node_to_index[node] for node in transition.next_observation.valid_actions
+                ]
+                if valid_next_indices:
+                    next_budget = min(
+                        transition.next_observation.remaining_budget,
+                        len(valid_next_indices),
+                    )
+                    valid_next_q = next_q_values[valid_next_indices]
+                    top_next_q = torch.topk(valid_next_q, k=next_budget).values.mean()
+                    target_value = target_value + gamma * top_next_q
 
-    return F.smooth_l1_loss(torch.stack(q_selected), torch.stack(targets))
+        losses.append(F.smooth_l1_loss(q_selected, target_value))
+
+    return torch.stack(losses).mean()
 
 
 def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
@@ -231,20 +291,6 @@ def _resolve_budget_for_graph(config: TrainingConfig, graph: Any) -> int:
     )
 
 
-def _compute_discounted_returns(
-    transitions: Sequence[Transition],
-    *,
-    gamma: float,
-) -> list[float]:
-    returns: list[float] = []
-    discounted_return = 0.0
-    for transition in reversed(transitions):
-        discounted_return = float(transition.reward) + gamma * discounted_return
-        returns.append(discounted_return)
-    returns.reverse()
-    return returns
-
-
 def generate_imitation_data(
     graphs: Sequence[Any],
     alpha: float,
@@ -252,7 +298,7 @@ def generate_imitation_data(
     budget: int,
     max_rounds: int,
     num_seeds: int,
-    policy: Callable[[RecoveryObservation], Node],
+    policy: Callable[[RecoveryObservation], object],
     *,
     env_kwargs: dict[str, Any] | None = None,
     base_seed: int = 0,
@@ -286,9 +332,9 @@ def generate_imitation_data(
             observation = _reset_with_non_empty_failures(env, rollout_seed, rng)
             done = False
             while not done and observation.failed:
-                action = policy(observation)
+                action = _normalize_action_batch(policy(observation))
                 samples.append(ImitationSample(observation=observation, action=action))
-                observation, _reward, done, _info = env.step(action)
+                observation, _reward, done, _info = env.step_batch(list(action))
     return samples
 
 
@@ -321,11 +367,14 @@ def pretrain_by_imitation(
             batch_losses: list[torch.Tensor] = []
             for sample_index in batch_indices:
                 sample = samples[sample_index]
-                graph_tensor = observation_to_graph_tensor(sample.observation, device=device)
-                logits = model(graph_tensor)
-                action_index = graph_tensor.node_to_index[sample.action]
-                target = torch.tensor([action_index], device=device, dtype=torch.long)
-                batch_losses.append(F.cross_entropy(logits.unsqueeze(0), target))
+                graph_tensor = _graph_tensor_for_model(model, sample.observation, device=device)
+                global_features = _global_features_for_model(model, sample.observation, device=device)
+                logits = model(graph_tensor, global_features)
+                action_indices = [
+                    graph_tensor.node_to_index[action] for action in _normalize_action_batch(sample.action)
+                ]
+                log_probs = F.log_softmax(logits, dim=0)
+                batch_losses.append(-log_probs[action_indices].mean())
             loss = torch.stack(batch_losses).mean()
             optimizer.zero_grad()
             loss.backward()  # type: ignore[no-untyped-call]
@@ -348,18 +397,21 @@ def _imitation_agreement_rate(
     if not samples:
         return 0.0
 
-    agreements = 0
+    overlap_sum = 0.0
     for sample in samples:
-        predicted_action = select_action(
-            model,
-            sample.observation,
-            epsilon=0.0,
-            rng=Random(0),
-            device=device,
+        predicted_actions = set(
+            select_top_b(
+                model,
+                sample.observation,
+                budget=sample.observation.remaining_budget,
+                epsilon=0.0,
+                rng=Random(0),
+                device=device,
+            )
         )
-        if predicted_action == sample.action:
-            agreements += 1
-    return agreements / len(samples)
+        target_actions = set(_normalize_action_batch(sample.action))
+        overlap_sum += len(predicted_actions & target_actions) / max(1, len(target_actions))
+    return overlap_sum / len(samples)
 
 
 def validate_policy(
@@ -369,7 +421,7 @@ def validate_policy(
     device: torch.device,
     validation_graphs: Sequence[Any],
 ) -> dict[str, Any]:
-    policy = build_greedy_policy(model, device=device)
+    policy = build_greedy_policy(model, device=device, batch_actions=True)
     env_kwargs = _env_kwargs_from_config(config)
     reference_summaries = evaluate_policy_factories_on_graphs(
         validation_graphs,
@@ -379,7 +431,7 @@ def validate_policy(
         budget=config.budget,
         max_rounds=config.max_rounds,
         seeds=config.validation_seeds,
-        tau=0.8,
+        tau=config.validation_tau,
         env_kwargs=env_kwargs,
         scale_budget=config.scale_budget,
         reference_n=config.budget_reference_n,
@@ -396,7 +448,7 @@ def validate_policy(
                 budget=config.budget,
                 max_rounds=config.max_rounds,
                 seeds=config.validation_seeds,
-                tau=0.8,
+                tau=config.validation_tau,
                 env_kwargs=env_kwargs,
                 scale_budget=config.scale_budget,
                 reference_n=config.budget_reference_n,
@@ -410,6 +462,7 @@ def validate_policy(
                     "rounds_mean": grid_summary.rounds.mean,
                 }
             )
+
     grid_final_anc_mean = sum(cell["final_anc_mean"] for cell in grid_cells) / len(grid_cells)
     grid_threshold_hit_mean = sum(cell["threshold_hit_mean"] for cell in grid_cells) / len(grid_cells)
     grid_rounds_mean = sum(cell["rounds_mean"] for cell in grid_cells) / len(grid_cells)
@@ -423,12 +476,13 @@ def validate_policy(
             budget=config.budget,
             max_rounds=config.max_rounds,
             seeds=config.validation_seeds,
-            tau=0.8,
+            tau=config.validation_tau,
             env_kwargs=env_kwargs,
             scale_budget=config.scale_budget,
             reference_n=config.budget_reference_n,
         )["rl"]
         per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
+
     return {
         "final_anc_mean": reference_summary.final_anc.mean,
         "final_anc_stderr": reference_summary.final_anc.stderr,
@@ -509,15 +563,14 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     pfail_values = tuple(config.pfail_values) if config.pfail_values else (config.pfail,)
     if not alpha_values or not pfail_values:
         raise ValueError("alpha_values and pfail_values must be non-empty.")
+
     validation_graphs = make_graph_batch(
         num_graphs=config.validation_graphs,
         n_range=config.n_range,
         m=config.m,
         seed=config.validation_seed,
     )
-    regime_combinations = [
-        (float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values
-    ]
+    regime_combinations = [(float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values]
 
     if config.use_imitation_warmstart:
         imitation_graphs = make_graph_batch(
@@ -533,7 +586,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             budget=config.budget,
             max_rounds=config.max_rounds,
             num_seeds=config.imitation_seeds,
-            policy=choose_highest_degree_failed_node,
+            policy=_choose_degree_batch,
             env_kwargs=_env_kwargs_from_config(config),
             base_seed=config.seed + 20_000,
             scale_budget=config.scale_budget,
@@ -559,6 +612,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         )
 
     checkpoint_path = Path(config.checkpoint_dir) / config.checkpoint_name
+    env_kwargs = _env_kwargs_from_config(config)
 
     for episode in range(config.num_episodes):
         epsilon = epsilon_for_episode(config, episode)
@@ -566,6 +620,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         if cycle_index == 0 and episode > 0:
             rng.shuffle(regime_combinations)
         alpha, pfail = regime_combinations[cycle_index]
+
         graph_size = rng.randint(config.n_range[0], config.n_range[1])
         graph_seed = rng.randint(0, 10**9)
         graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_seed)
@@ -577,62 +632,38 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             budget=resolved_budget,
             max_rounds=config.max_rounds,
             seed=graph_seed,
-            capacity_noise=config.capacity_noise,
-            failure_bias=config.failure_bias,
-            action_space=config.action_space,
-            obs_hops=config.obs_hops,
+            **env_kwargs,
         )
 
         observation = _reset_with_non_empty_failures(env, graph_seed, rng)
         done = False
         total_reward = 0.0
-        episode_transitions: list[Transition] = []
-        episode_step_totals: list[int] = []
 
         while not done and observation.failed:
-            action = select_action(
-                model,
-                observation,
-                epsilon=epsilon,
-                rng=rng,
-                device=device,
+            actions = tuple(
+                select_top_b(
+                    model,
+                    observation,
+                    budget=observation.remaining_budget,
+                    epsilon=epsilon,
+                    rng=rng,
+                    device=device,
+                )
             )
-            next_observation, reward, done, _ = env.step(action)
-            transition = Transition(
-                observation=observation,
-                action=action,
-                reward=reward,
-                next_observation=next_observation,
-                done=done,
+            next_observation, reward, done, _info = env.step_batch(list(actions))
+            replay_buffer.push(
+                Transition(
+                    observation=observation,
+                    action=actions,
+                    reward=reward,
+                    next_observation=next_observation,
+                    done=done,
+                )
             )
-            episode_transitions.append(transition)
+
             observation = next_observation
             total_reward += reward
             training_state.total_steps += 1
-            episode_step_totals.append(training_state.total_steps)
-
-        if config.use_monte_carlo_returns:
-            transition_rewards = _compute_discounted_returns(
-                episode_transitions,
-                gamma=config.gamma,
-            )
-        else:
-            transition_rewards = [float(transition.reward) for transition in episode_transitions]
-
-        for transition, stored_reward, step_total in zip(
-            episode_transitions,
-            transition_rewards,
-            episode_step_totals,
-        ):
-            replay_buffer.push(
-                Transition(
-                    observation=transition.observation,
-                    action=transition.action,
-                    reward=stored_reward,
-                    next_observation=transition.next_observation,
-                    done=transition.done,
-                )
-            )
 
             if len(replay_buffer) >= max(config.batch_size, config.warmup_transitions):
                 batch = replay_buffer.sample(config.batch_size, rng=rng)
@@ -641,7 +672,6 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                     target_model,
                     batch,
                     gamma=config.gamma,
-                    use_monte_carlo_returns=config.use_monte_carlo_returns,
                     device=device,
                 )
                 optimizer.zero_grad()
@@ -650,20 +680,23 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 optimizer.step()
                 training_state.losses.append(float(loss.item()))
 
-                if step_total % config.target_update_interval == 0:
+                if training_state.total_steps % config.target_update_interval == 0:
                     target_model.load_state_dict(model.state_dict())
 
         training_state.episode_rewards.append(total_reward)
         training_state.episode_final_anc.append(env.current_anc())
         training_state.episode_alpha.append(alpha)
         training_state.episode_pfail.append(pfail)
-        progress_line = _render_progress_line(
-            episode,
-            config.num_episodes,
-            epsilon=epsilon,
-            training_state=training_state,
+        print(
+            _render_progress_line(
+                episode,
+                config.num_episodes,
+                epsilon=epsilon,
+                training_state=training_state,
+            ),
+            end="",
+            flush=True,
         )
-        print(progress_line, end="", flush=True)
 
         if (episode + 1) % config.validation_every == 0:
             validation = validate_policy(

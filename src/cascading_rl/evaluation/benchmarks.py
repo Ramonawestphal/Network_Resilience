@@ -18,7 +18,8 @@ from cascading_rl.policies import (
     choose_random_failed_node,
 )
 
-Policy = Callable[[RecoveryObservation], object]
+PolicyAction = object
+Policy = Callable[[RecoveryObservation], PolicyAction]
 PolicyFactory = Callable[[int, int], Policy]
 
 
@@ -119,12 +120,11 @@ def rollout_policy(
     }
 
     while not done:
-        if observation.remaining_budget > 0:
-            action = policy(observation)
-            observation, reward, done, info = env.step(action)
+        action = policy(observation)
+        if isinstance(action, (list, tuple)):
+            observation, reward, done, info = env.step_batch(list(action))
         else:
-            # `step` requires remaining budget per repair; advance dynamics with a no-op round.
-            observation, reward, done, info = env.step_batch([])
+            observation, reward, done, info = env.step(action)
         total_reward += reward
         steps += 1
         if tau is not None and threshold_step is None and float(info["anc"]) >= tau:

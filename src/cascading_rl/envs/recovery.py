@@ -100,18 +100,9 @@ class RecoveryObservation:
 class RecoveryEnv:
     """Budget-constrained recovery environment with batch-per-round cascade waves.
 
-    Step semantics:
-      1) Reactivate exactly one failed node (action).
-      2) Reward = ANC(after reactivation, before cascade) - ANC(before), so cascade
-         side-effects do not affect this step's credit assignment.
-      3) If repair budget remains in the current round, do not advance the cascade yet.
-      4) When the round budget is exhausted, advance the cascade by exactly one wave.
-      5) Rounds repeat until solved or max_rounds is reached.
-
-    Partial observability (``obs_hops=k``): the agent only sees load/capacity for nodes
-    within ``k`` hops of **any** currently failed node (partial observability around the
-    failure region); other nodes show zero load/capacity in observations while the graph
-    structure stays full (for GNN message passing).
+    ``step`` exposes intra-round single-node repairs, while ``step_batch`` performs a
+    full round decision of up to ``B`` repairs followed by one cascade wave. Both use
+    the same reward: PR/ANC gain after repair(s) and before the cascade advances.
     """
 
     def __init__(
@@ -202,8 +193,8 @@ class RecoveryEnv:
             raise RuntimeError("Environment must be reset before use.")
         if self.remaining_budget <= 0:
             raise RuntimeError("No recovery budget remains.")
-        if action not in self.state.failed:
-            raise ValueError("Action must be a currently failed node.")
+        if action not in self.observe().valid_actions:
+            raise ValueError("Action must be a currently valid recovery choice.")
 
         action_round = self.current_round
         action_index_in_round = self.budget - self.remaining_budget + 1
@@ -250,6 +241,62 @@ class RecoveryEnv:
             "max_rounds_reached": round_complete and exhausted_rounds,
             "reactivated_node": action,
             "newly_failed_nodes": newly_failed,
+            "cascade_executed": cascade_executed,
+        }
+        return self.observe(), reward, done, info
+
+    def step_batch(self, actions: list[Node]) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
+        """Reactivate up to the remaining budget at once, then fire one cascade wave."""
+        if self.state is None:
+            raise RuntimeError("Environment must be reset before use.")
+        if len(actions) > self.remaining_budget:
+            raise ValueError(f"Cannot reactivate more than {self.remaining_budget} nodes this round.")
+        if len(set(actions)) != len(actions):
+            raise ValueError("Duplicate actions in batch.")
+
+        valid_actions = set(self.observe().valid_actions)
+        invalid_actions = [action for action in actions if action not in valid_actions]
+        if invalid_actions:
+            raise ValueError(f"Invalid recovery actions: {invalid_actions}")
+
+        action_round = self.current_round
+        previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+
+        for action in actions:
+            self.state = reactivate_node(self.state, action)
+        repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+
+        newly_failed: list[Node] = []
+        cascade_executed = False
+        if self.state.frontier and self.state.failed:
+            cascade_executed = True
+            newly_failed = advance_cascade_round(self.state)
+
+        reward = repaired_anc - previous_anc
+        post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+
+        exhausted_rounds = self.current_round >= self.max_rounds
+        done = not self.state.failed or exhausted_rounds
+
+        if not done:
+            self.current_round += 1
+            self.remaining_budget = self.budget
+        else:
+            self.remaining_budget = max(0, self.remaining_budget - len(actions))
+
+        info = {
+            "anc": post_cascade_anc,
+            "anc_after_cascade": post_cascade_anc,
+            "anc_after_reactivation": repaired_anc,
+            "failed_nodes": len(self.state.failed),
+            "active_nodes": len(self.state.active),
+            "frontier_nodes": len(self.state.frontier),
+            "newly_failed_nodes": newly_failed,
+            "action_round": action_round,
+            "actions": list(actions),
+            "remaining_budget": self.remaining_budget,
+            "round_complete": True,
+            "max_rounds_reached": exhausted_rounds,
             "cascade_executed": cascade_executed,
         }
         return self.observe(), reward, done, info

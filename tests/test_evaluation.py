@@ -64,3 +64,24 @@ def test_evaluate_policies_uses_matched_seed_rollouts():
     assert set(summaries) == {"degree", "random"}
     assert summaries["degree"].final_anc.mean >= 0.0
     assert summaries["degree"].threshold_hit_fraction.mean >= 0.0
+
+
+def test_rollout_policy_supports_batch_actions():
+    graph = nx.path_graph(5)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0}
+    env.state.failed = {1, 2, 3, 4}
+    env.state.frontier = {1}
+    env.state.loads = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0, 4: 2.0}
+    env.reset = lambda seed=None: env.observe()
+
+    def batch_policy(observation: RecoveryObservation) -> list[int]:
+        return list(observation.valid_actions[: observation.remaining_budget])
+
+    result = rollout_policy(env, batch_policy, tau=0.9)
+
+    assert result.steps >= 1
+    assert result.rounds >= 1

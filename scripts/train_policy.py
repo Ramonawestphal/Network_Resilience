@@ -84,6 +84,12 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         hidden_dim=int(training["hidden_dim"]),
         embed_dim=int(training["embed_dim"]),
         num_layers=int(training["num_layers"]),
+        use_global_features=bool(
+            training.get("use_global_features", defaults.use_global_features)
+        ),
+        use_virtual_node=bool(
+            training.get("use_virtual_node", defaults.use_virtual_node)
+        ),
         use_imitation_warmstart=bool(
             training.get("use_imitation_warmstart", defaults.use_imitation_warmstart)
         ),
@@ -92,7 +98,9 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         imitation_epochs=int(training.get("imitation_epochs", defaults.imitation_epochs)),
         validation_graphs=int(training["validation_graphs"]),
         validation_seeds=tuple(training["validation_seeds"]),
+        validation_seed=int(training.get("validation_seed", defaults.validation_seed)),
         validation_every=int(training["validation_every"]),
+        validation_tau=float(training.get("validation_tau", defaults.validation_tau)),
         checkpoint_dir=str(training["checkpoint_dir"]),
         checkpoint_name=str(training["checkpoint_name"]),
     )

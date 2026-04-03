@@ -120,3 +120,26 @@ def test_environment_stops_when_max_rounds_are_reached():
 
     assert done is True
     assert info["max_rounds_reached"] is True
+
+
+def test_environment_step_batch_repairs_full_round_before_cascade():
+    graph = nx.star_graph(4)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=3)
+
+    env.reset()
+    env.state.active = {0, 2}
+    env.state.failed = {1, 3, 4}
+    env.state.frontier = {1}
+    env.state.loads = {0: 0.0, 1: 3.0, 2: 0.0, 3: 0.0, 4: 0.0}
+    env.state.capacities = {0: 2.0, 1: 3.0, 2: 2.0, 3: 2.0, 4: 2.0}
+    env.remaining_budget = 2
+    env.current_round = 1
+
+    observation, reward, done, info = env.step_batch([3, 4])
+
+    assert reward >= 0.0
+    assert done is False
+    assert info["cascade_executed"] is True
+    assert info["actions"] == [3, 4]
+    assert observation.current_round == 2
+    assert observation.remaining_budget == 2
