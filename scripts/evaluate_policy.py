@@ -6,7 +6,6 @@ import math
 import sys
 import warnings
 from pathlib import Path
-from random import Random
 from typing import Any
 
 import yaml
@@ -32,7 +31,6 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
-from cascading_rl.policies import choose_random_failed_node
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
 
@@ -312,8 +310,6 @@ def estimate_b_star_for_policies(
             if rl_policy is None:
                 raise ValueError("Cannot estimate RL b_star without an RL policy.")
             policy = rl_policy
-        elif policy_name == "random":
-            policy = lambda observation: choose_random_failed_node(observation, rng=Random(0))
         else:
             policy = base_factories[policy_name](0, 0)
         b_star[policy_name] = estimate_minimum_budget(
