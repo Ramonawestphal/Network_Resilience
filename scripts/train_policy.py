@@ -7,18 +7,22 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.reproducibility import portable_artifact_path
 from cascading_rl.training import (
     FREEZE_GRAPH_SPECS_SEED_OFFSET,
     TrainingConfig,
     train_recovery_agent,
 )
+from scripts.reproducibility import write_run_metadata
 
 
 def training_config_for_json(config: TrainingConfig) -> dict[str, Any]:
@@ -52,6 +56,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
+    evaluation = config["evaluation"]
     budget_scaling = config.get("budget_scaling", {})
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
@@ -109,6 +114,12 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         use_global_features=bool(
             training.get("use_global_features", defaults.use_global_features)
         ),
+        active_node_features=tuple(
+            training.get("active_node_features", defaults.active_node_features)
+        ),
+        active_global_features=tuple(
+            training.get("active_global_features", defaults.active_global_features)
+        ),
         use_virtual_node=bool(
             training.get("use_virtual_node", defaults.use_virtual_node)
         ),
@@ -122,7 +133,9 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         validation_seeds=tuple(training["validation_seeds"]),
         validation_seed=int(training.get("validation_seed", defaults.validation_seed)),
         validation_every=int(training["validation_every"]),
-        validation_tau=float(training.get("validation_tau", defaults.validation_tau)),
+        validation_tau=float(
+            training.get("validation_tau", evaluation.get("tau", defaults.validation_tau))
+        ),
         checkpoint_dir=str(training["checkpoint_dir"]),
         checkpoint_name=str(training["checkpoint_name"]),
         freeze_graphs=bool(training.get("freeze_graphs", defaults.freeze_graphs)),
@@ -259,7 +272,7 @@ def main() -> None:
 
     summary_path = checkpoint_path.with_suffix(".summary.json")
     summary = {
-        "checkpoint_path": str(checkpoint_path),
+        "checkpoint_path": portable_artifact_path(checkpoint_path),
         "training_config": training_config_for_json(training_config),
         "num_episodes": training_config.num_episodes,
         "alpha_values": list(training_config.alpha_values),
@@ -287,6 +300,16 @@ def main() -> None:
     }
     with summary_path.open("w", encoding="utf-8") as file:
         json.dump(summary, file, indent=2)
+    write_run_metadata(
+        checkpoint_path.parent / "run_metadata.json",
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        config_path=args.config,
+        extra={
+            "checkpoint_path": portable_artifact_path(checkpoint_path),
+            "summary_path": portable_artifact_path(summary_path),
+        },
+    )
 
     print(f"Saved checkpoint to {checkpoint_path}")
     print(f"Saved training summary to {summary_path}")

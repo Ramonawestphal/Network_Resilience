@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import sqrt
 from random import Random
 from statistics import mean, stdev
@@ -32,6 +32,8 @@ class EpisodeResult:
     remaining_failed_nodes: int
     threshold_step: int | None
     threshold_round: int | None
+    anc_by_round: list[float] = field(default_factory=list)
+    mean_delta_anc_per_round: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,11 @@ class PolicyEvaluationSummary:
     threshold_hit_fraction: AggregateMetric
     threshold_step: AggregateMetric | None
     threshold_round: AggregateMetric | None
+    mean_anc_on_failed: AggregateMetric | None = None
+    anc_by_round: list[AggregateMetric] = field(default_factory=list)
+    mean_delta_anc_per_round: AggregateMetric = field(
+        default_factory=lambda: AggregateMetric(mean=0.0, stderr=0.0)
+    )
 
 
 def _aggregate(values: list[float]) -> AggregateMetric:
@@ -72,6 +79,22 @@ def summarize_episode_results(episode_results: Sequence[EpisodeResult]) -> Polic
         for result in episode_results
         if result.threshold_round is not None
     ]
+    failed_episode_anc = [
+        result.final_anc
+        for result in episode_results
+        if result.remaining_failed_nodes > 0
+    ]
+    max_rounds_observed = max((len(result.anc_by_round) for result in episode_results), default=0)
+    anc_by_round = [
+        _aggregate(
+            [
+                result.anc_by_round[round_index]
+                for result in episode_results
+                if len(result.anc_by_round) > round_index
+            ]
+        )
+        for round_index in range(max_rounds_observed)
+    ]
     return PolicyEvaluationSummary(
         final_anc=_aggregate([result.final_anc for result in episode_results]),
         total_reward=_aggregate([result.total_reward for result in episode_results]),
@@ -85,6 +108,11 @@ def summarize_episode_results(episode_results: Sequence[EpisodeResult]) -> Polic
         ),
         threshold_step=_aggregate(threshold_steps) if threshold_steps else None,
         threshold_round=_aggregate(threshold_rounds) if threshold_rounds else None,
+        mean_anc_on_failed=_aggregate(failed_episode_anc) if failed_episode_anc else None,
+        anc_by_round=anc_by_round,
+        mean_delta_anc_per_round=_aggregate(
+            [result.mean_delta_anc_per_round for result in episode_results]
+        ),
     )
 
 
@@ -98,24 +126,27 @@ def rollout_policy(
     observation = env.reset(seed=seed)
     total_reward = 0.0
     steps = 0
-    current_anc = env.current_anc()
-    threshold_step = 0 if tau is not None and current_anc >= tau else None
+    initial_anc = env.current_anc()
+    threshold_step = 0 if tau is not None and initial_anc >= tau else None
     threshold_round = 0 if threshold_step == 0 else None
+    anc_by_round: list[float] = []
 
     if not observation.failed:
         return EpisodeResult(
             total_reward=total_reward,
-            final_anc=current_anc,
+            final_anc=initial_anc,
             steps=steps,
             rounds=0,
             remaining_failed_nodes=len(observation.failed),
             threshold_step=threshold_step,
             threshold_round=threshold_round,
+            anc_by_round=anc_by_round,
+            mean_delta_anc_per_round=0.0,
         )
 
     done = False
     info = {
-        "anc": current_anc,
+        "anc": initial_anc,
         "failed_nodes": len(observation.failed),
     }
 
@@ -127,18 +158,28 @@ def rollout_policy(
             observation, reward, done, info = env.step(action)
         total_reward += reward
         steps += 1
+        if bool(info.get("round_complete")):
+            anc_by_round.append(float(info["anc"]))
         if tau is not None and threshold_step is None and float(info["anc"]) >= tau:
             threshold_step = steps
             threshold_round = int(info["action_round"])
 
+    final_anc = float(info["anc"])
+    rounds = env.current_round
+    if rounds > len(anc_by_round):
+        anc_by_round.append(final_anc)
+    mean_delta_anc_per_round = (final_anc - initial_anc) / rounds if rounds > 0 else 0.0
+
     return EpisodeResult(
         total_reward=total_reward,
-        final_anc=float(info["anc"]),
+        final_anc=final_anc,
         steps=steps,
-        rounds=env.current_round,
+        rounds=rounds,
         remaining_failed_nodes=int(info["failed_nodes"]),
         threshold_step=threshold_step,
         threshold_round=threshold_round,
+        anc_by_round=anc_by_round,
+        mean_delta_anc_per_round=mean_delta_anc_per_round,
     )
 
 

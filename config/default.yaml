@@ -74,8 +74,11 @@ training:
   hidden_dim: 128
   embed_dim: 128
   num_layers: 2
+  use_global_features: false
+  use_virtual_node: false
   validation_graphs: 2
   validation_seeds: [0, 1, 2]
+  validation_seed: 42
   validation_every: 200
   # Fixed eval set for comparable validation across runs (JSON; regenerate with scripts/generate_eval_set.py).
   validation_eval_set_path: eval_sets/ds_validation.json

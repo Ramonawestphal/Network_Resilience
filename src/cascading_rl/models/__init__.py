@@ -19,9 +19,9 @@ from cascading_rl.models.q_network import (
 __all__ = [
     "FEATURE_NAMES",
     "GLOBAL_FEATURE_NAMES",
-    "GlobalReadout",
     "GraphStateEncoder",
     "GraphTensor",
+    "GlobalReadout",
     "QNetworkConfig",
     "RecoveryQNetwork",
     "build_greedy_policy",

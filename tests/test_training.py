@@ -8,7 +8,13 @@ import torch
 from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.graph.generation import make_graph_batch
-from cascading_rl.models import QNetworkConfig, RecoveryQNetwork, observation_to_graph_tensor
+from cascading_rl.models import (
+    FEATURE_NAMES,
+    GLOBAL_FEATURE_NAMES,
+    QNetworkConfig,
+    RecoveryQNetwork,
+    observation_to_graph_tensor,
+)
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 from cascading_rl.training.trainer import (
     _imitation_agreement_rate,
@@ -84,6 +90,35 @@ def test_q_network_supports_global_features_and_virtual_node():
     assert graph_tensor.node_features.shape == (5, 8)
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
+
+
+def test_q_network_uses_explicit_global_layout_for_node_feature_subsets():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    observation = env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 2.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
+    observation = env.observe()
+
+    active_node_features = FEATURE_NAMES[:-1]
+    model = RecoveryQNetwork(
+        config=QNetworkConfig(
+            use_global_features=True,
+            active_node_features=active_node_features,
+        )
+    )
+
+    assert model.feature_names == active_node_features
+    assert model.global_feature_names == GLOBAL_FEATURE_NAMES
+
+    graph_tensor, q_values = model.score_observation(observation)
+
+    assert graph_tensor.node_features.shape == (4, len(active_node_features))
+    assert q_values.shape[0] == 4
 
 
 def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path):
