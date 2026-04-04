@@ -1,0 +1,60 @@
+{
+  "name": "drop_node_current_round_norm_vn",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "max_load_capacity_ratio"
+  ],
+  "use_virtual_node": true,
+  "training_episodes": 10,
+  "checkpoint_path": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\experiments\\ablation\\drop_node_current_round_norm_vn.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.23507530313684907,
+      "stderr": 0.02440466303393441
+    },
+    "threshold_hit_fraction": {
+      "mean": 0.54,
+      "stderr": 0.02882306768491568
+    },
+    "solved_fraction": {
+      "mean": 0.23333333333333334,
+      "stderr": 0.024459979523511425
+    },
+    "mean_delta_anc_per_round": -0.06163843568923116,
+    "mean_delta_anc_per_round_stderr": 0.007196867841889198,
+    "mean_anc_on_failed": 0.0022721345263248868,
+    "anc_by_round": [
+      {
+        "mean": 0.3860010549278865,
+        "stderr": 0.022013753849302622
+      },
+      {
+        "mean": 0.0213181758473082,
+        "stderr": 0.004017423848621851
+      },
+      {
+        "mean": 0.0042834789404610635,
+        "stderr": 0.0014009722515890255
+      },
+      {
+        "mean": 0.002316481356309967,
+        "stderr": 0.0003404577912050427
+      },
+      {
+        "mean": 0.0022721345263248868,
+        "stderr": 0.00014697604992688603
+      }
+    ]
+  }
+}

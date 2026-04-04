@@ -18,8 +18,6 @@ from cascading_rl.models.gnn import (
     _canonicalize_feature_subset,
     observation_to_global_features,
     observation_to_graph_tensor,
-    resolve_feature_names,
-    resolve_global_feature_names,
 )
 
 Node = Hashable
@@ -76,8 +74,9 @@ class RecoveryQNetwork(nn.Module):
     def __init__(self, config: QNetworkConfig | None = None) -> None:
         super().__init__()
         self.config = config or QNetworkConfig()
-        self.feature_names = resolve_feature_names(self.config.input_dim)
-        self.global_feature_names = resolve_global_feature_names(self.config.input_dim)
+        # Always featurize the full node vector, then mask to active columns (see `observation_to_graph_tensor`).
+        self.feature_names = FEATURE_NAMES
+        self.global_feature_names = GLOBAL_FEATURE_NAMES
         self.encoder = GraphStateEncoder(
             input_dim=self.config.input_dim,
             hidden_dim=self.config.hidden_dim,

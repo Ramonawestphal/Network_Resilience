@@ -171,6 +171,8 @@ def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypa
             "num_graphs": 1,
             "seeds": [0],
             "max_rounds": 5,
+            # Single-graph batches may have zero policy spread; keep the graph regardless.
+            "spread_threshold": -1.0,
         }
     )
 

@@ -34,7 +34,7 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation)
 
-    assert graph_tensor.node_features.shape == (4, 8)
+    assert graph_tensor.node_features.shape == (4, len(FEATURE_NAMES))
     assert graph_tensor.adjacency.shape == (4, 4)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True]
 
@@ -80,7 +80,7 @@ def test_observation_to_graph_tensor_supports_virtual_node():
 
     graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
 
-    assert graph_tensor.node_features.shape == (5, 8)
+    assert graph_tensor.node_features.shape == (5, len(FEATURE_NAMES))
     assert graph_tensor.adjacency.shape == (5, 5)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
 
@@ -140,10 +140,10 @@ def test_q_network_supports_legacy_checkpoint_feature_width():
     env.state.capacities = {0: 2.0, 1: 2.5, 2: 1.5, 3: 1.5}
     observation = env.observe()
 
-    model = RecoveryQNetwork(QNetworkConfig(input_dim=9))
+    model = RecoveryQNetwork(QNetworkConfig())
     graph_tensor, q_values = model.score_observation(observation)
 
-    assert graph_tensor.node_features.shape == (4, 9)
+    assert graph_tensor.node_features.shape == (4, len(FEATURE_NAMES))
     assert q_values.shape[0] == 4
 
 
