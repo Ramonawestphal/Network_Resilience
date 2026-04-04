@@ -142,6 +142,22 @@ def _summary(
     )
 
 
+def test_compute_regime_diagnostics_marks_ambiguous_when_spread_below_threshold():
+    summaries = {
+        "greedy": _summary(
+            final_anc=0.52, threshold_hit=0.51, rounds=2.0, solved_fraction=0.40
+        ),
+        "degree": _summary(
+            final_anc=0.50, threshold_hit=0.50, rounds=2.0, solved_fraction=0.40
+        ),
+    }
+    diagnostics = compute_regime_diagnostics(summaries, spread_threshold=0.05)
+    assert diagnostics.regime_label == "ambiguous"
+    assert diagnostics.interesting_for_rl is False
+    assert diagnostics.final_anc_spread == pytest.approx(0.02)
+    assert diagnostics.threshold_hit_spread == pytest.approx(0.01)
+
+
 def test_compute_regime_diagnostics_tracks_best_heuristic_gap():
     summaries = {
         "rl": _summary(final_anc=0.68, threshold_hit=0.70, rounds=2.0, solved_fraction=0.60),

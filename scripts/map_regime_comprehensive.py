@@ -993,13 +993,13 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def save_instances_outputs(policy_rows: pd.DataFrame, output_dir: Path) -> None:
-    """Save the full policy-row parquet and a truncated CSV sample."""
+    """Save full policy rows (parquet when available, else CSV) and a truncated CSV sample."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
     if PARQUET_AVAILABLE:
         policy_rows.to_parquet(output_dir / "regime_instances.parquet", index=False)
     else:
-        policy_rows.to_csv(output_dir / "regime_instances.parquet.csv", index=False)
+        policy_rows.to_csv(output_dir / "regime_instances_no_parquet.csv", index=False)
     policy_rows.head(10000).to_csv(output_dir / "regime_instances.csv", index=False)
 
 

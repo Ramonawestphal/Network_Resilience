@@ -125,7 +125,7 @@ def compute_regime_diagnostics(
     spread_threshold: float = 0.05,
     budget_sensitivity: float | None = None,
 ) -> RegimeDiagnostics:
-    """Summarize whether a parameter cell is trivial, hopeless, or interesting."""
+    """Summarize whether a parameter cell is trivial, hopeless, ambiguous, or DS."""
     final_anc_by_policy = {
         policy_name: summary.final_anc.mean
         for policy_name, summary in policy_summaries.items()
@@ -187,8 +187,13 @@ def compute_regime_diagnostics(
         regime_label = "hopeless"
     elif worst_final_anc >= trivial_threshold and worst_threshold_hit >= trivial_threshold:
         regime_label = "trivial"
-    else:
+    elif (
+        final_anc_spread > spread_threshold
+        or threshold_hit_spread > spread_threshold
+    ):
         regime_label = "decision-sensitive"
+    else:
+        regime_label = "ambiguous"
 
     return RegimeDiagnostics(
         regime_label=regime_label,

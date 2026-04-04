@@ -727,7 +727,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             )
             table_rows.append(
                 (
-                    "validation (n≈30–50)",
+                    "validation (n≈30-50)",
                     mean_final_anc_from_summaries(base_overall, t_names),
                 )
             )
@@ -744,9 +744,9 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             policy_names=t_names,
         )
         if eval_path.name == "large_graph_medium.pkl":
-            row_label = "medium (n≈100–150)"
+            row_label = "medium (n≈100-150)"
         elif eval_path.name == "large_graph_large.pkl":
-            row_label = "large (n≈300–500)"
+            row_label = "large (n≈300-500)"
         else:
             row_label = f"current ({eval_path.name})"
         table_rows.append(

@@ -192,6 +192,7 @@ def test_output_files_created(tmp_path: Path):
         expected_paths.append(output_dir / "regime_instances.parquet")
         expected_paths.append(output_dir / "checkpoint.parquet")
     else:
+        expected_paths.append(output_dir / "regime_instances_no_parquet.csv")
         expected_paths.append(output_dir / "checkpoint.csv")
 
     for path in expected_paths:
