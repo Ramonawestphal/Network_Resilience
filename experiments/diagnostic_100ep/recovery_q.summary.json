@@ -1,5 +1,5 @@
 {
-  "checkpoint_path": "experiments\\diagnostic_100ep\\recovery_q.pt",
+  "checkpoint_path": "experiments/diagnostic_100ep/recovery_q.pt",
   "training_config": {
     "seed": 7,
     "device": "cpu",
@@ -67,7 +67,7 @@
     "freeze_graphs": false,
     "episode_graph_specs": null,
     "log_episode_spread": true,
-    "validation_eval_set_path": "C:\\Users\\Ramona\\.vscode\\Seminar_ML\\Cascading-RL\\eval_sets\\ds_validation.pkl"
+    "validation_eval_set_path": "eval_sets/ds_validation.pkl"
   },
   "num_episodes": 100,
   "alpha_values": [
