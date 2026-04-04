@@ -87,6 +87,7 @@ def evaluate_policy_factories_on_graphs(
     """Evaluate policies across fixed graph instances and matched seeds."""
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
     resolved_env_kwargs = dict(env_kwargs or {})
+    seeds_seq = tuple(seeds)
 
     for graph_index, graph in enumerate(graphs):
         resolved_budget = compute_scaled_budget(
@@ -95,7 +96,7 @@ def evaluate_policy_factories_on_graphs(
             reference_n=reference_n,
             enabled=scale_budget,
         )
-        for seed in seeds:
+        for seed in seeds_seq:
             for policy_name, policy_factory in policy_factories.items():
                 env = RecoveryEnv(
                     graph,
@@ -228,6 +229,7 @@ def build_regime_cells(
     cells: list[RegimeCellResult] = []
     grouped_best_anc: dict[tuple[float, float], list[float]] = {}
     grouped_cells: dict[tuple[float, float], list[tuple[int, dict[str, PolicyEvaluationSummary]]]] = {}
+    seeds_seq = tuple(seeds)
 
     for alpha in alpha_values:
         for pfail in pfail_values:
@@ -239,7 +241,7 @@ def build_regime_cells(
                     pfail=pfail,
                     budget=budget,
                     max_rounds=max_rounds,
-                    seeds=seeds,
+                    seeds=seeds_seq,
                     tau=tau,
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,

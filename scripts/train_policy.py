@@ -174,8 +174,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint-dir",
         type=str,
-        default="experiments/learner",
-        help="Directory for checkpoints.",
+        default=None,
+        help="Directory for checkpoints (default: training.checkpoint_dir from config).",
     )
     parser.add_argument(
         "--log-episode-spread",
@@ -241,7 +241,8 @@ def main() -> None:
         training_config = replace(
             training_config, validation_every=int(args.validation_every)
         )
-    training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
+    if args.checkpoint_dir is not None:
+        training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
 

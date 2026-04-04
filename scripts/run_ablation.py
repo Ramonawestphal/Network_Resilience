@@ -76,17 +76,6 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
     )
 
 
-def generate_episode_graph_specs(config: TrainingConfig, *, seed: int) -> tuple[tuple[int, int], ...]:
-    rng = Random(seed)
-    return tuple(
-        (
-            rng.randint(config.n_range[0], config.n_range[1]),
-            rng.randint(0, 10**9),
-        )
-        for _ in range(config.num_episodes)
-    )
-
-
 def evaluate_config(model, training_config: TrainingConfig, eval_graphs: list, eval_seeds: list[int], tau: float) -> dict:
     rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
     summaries = evaluate_policy_factories_on_graphs(

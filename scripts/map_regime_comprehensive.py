@@ -658,6 +658,7 @@ def quantile_metrics(series: pd.Series, prefix: str) -> dict[str, float]:
 def aggregate_single_cell(
     cell_policy_rows: pd.DataFrame,
     cell_instances: pd.DataFrame,
+    config: MappingConfig,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Aggregate one regime cell into flat summary stats and graph-variance details."""
 
@@ -698,7 +699,7 @@ def aggregate_single_cell(
         record["cell_label"] = "hopeless"
     elif record["f_trivial"] > 0.50:
         record["cell_label"] = "trivial"
-    elif record["f_ds"] >= MIN_DS_FRAC:
+    elif record["f_ds"] >= config.min_ds_frac:
         record["cell_label"] = "decision_sensitive"
     else:
         record["cell_label"] = "mixed"
@@ -746,6 +747,7 @@ def aggregate_single_cell(
 def aggregate_regime_cells(
     policy_rows: pd.DataFrame,
     instance_summary: pd.DataFrame,
+    config: MappingConfig,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     """Aggregate policy rows and instance summaries into per-cell outputs."""
 
@@ -756,7 +758,9 @@ def aggregate_regime_cells(
     grouped_policy_rows = policy_rows.groupby(cell_keys, sort=True)
     for key, cell_instances in grouped_instances:
         cell_policy_rows = grouped_policy_rows.get_group(key)
-        cell_record, variance_record = aggregate_single_cell(cell_policy_rows, cell_instances)
+        cell_record, variance_record = aggregate_single_cell(
+            cell_policy_rows, cell_instances, config
+        )
         cell_records.append(cell_record)
         variance_records.append(variance_record)
     cell_frame = pd.DataFrame(cell_records).sort_values(
@@ -1531,7 +1535,7 @@ def run_analysis(
     write_json(resolved_output_dir / "run_metadata.json", run_metadata)
 
     instance_summary = build_instance_summary(policy_rows)
-    cell_frame, graph_variance = aggregate_regime_cells(policy_rows, instance_summary)
+    cell_frame, graph_variance = aggregate_regime_cells(policy_rows, instance_summary, config)
     assert len(cell_frame) == config.total_cells
     budget_frame = aggregate_budget_summary(cell_frame)
     sensitivity_frame, stable_delta_s_range, most_permissive, proposed_entry, sensitivity_matrix = threshold_sensitivity_analysis(

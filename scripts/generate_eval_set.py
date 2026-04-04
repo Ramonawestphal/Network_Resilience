@@ -11,6 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation.regime import build_policy_factories
 from cascading_rl.graph.generation import make_ba_graph
@@ -27,7 +28,8 @@ NUM_GRAPHS = 30
 SEEDS_PER_GRAPH = 5
 ALPHA = 0.15
 P_FAIL = 0.18
-BUDGET = 3
+B_REF = 3
+N_REF = 40
 
 
 def load_config(path: Path) -> dict:
@@ -81,6 +83,12 @@ def main() -> None:
     factories = build_policy_factories(base_seed=master_seed)
 
     for gi, (graph, n, graph_seed) in enumerate(graphs_meta):
+        b_scaled = compute_scaled_budget(
+            B_REF,
+            num_nodes=n,
+            reference_n=N_REF,
+            enabled=True,
+        )
         for s in range(SEEDS_PER_GRAPH):
             generated += 1
             failure_seed = base_failure_seed + gi * 1000 + s
@@ -88,7 +96,7 @@ def main() -> None:
                 graph,
                 alpha=ALPHA,
                 pfail=P_FAIL,
-                budget=BUDGET,
+                budget=b_scaled,
                 max_rounds=max_rounds,
                 seed=0,
                 **env_kwargs,
@@ -104,7 +112,7 @@ def main() -> None:
                 graph,
                 alpha=ALPHA,
                 p_fail=P_FAIL,
-                budget=BUDGET,
+                budget=b_scaled,
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
@@ -115,7 +123,7 @@ def main() -> None:
                 graph,
                 alpha=ALPHA,
                 p_fail=P_FAIL,
-                budget=BUDGET,
+                budget=b_scaled,
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
@@ -131,7 +139,7 @@ def main() -> None:
                 graph,
                 alpha=ALPHA,
                 p_fail=P_FAIL,
-                budget=BUDGET,
+                budget=b_scaled,
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
@@ -148,7 +156,11 @@ def main() -> None:
                     "initial_failures": initial_failures,
                     "alpha": ALPHA,
                     "p_fail": P_FAIL,
-                    "budget": BUDGET,
+                    "budget": b_scaled,
+                    "b_scaled": b_scaled,
+                    "b_ref": B_REF,
+                    "n_ref": N_REF,
+                    "n": n,
                     "graph_seed": graph_seed,
                     "failure_seed": failure_seed,
                     "pr_degree": pr_degree,
