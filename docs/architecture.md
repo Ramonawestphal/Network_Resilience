@@ -218,7 +218,8 @@ This means:
 The script writes:
 
 - one JSON file per run in `experiments/ablation/`
-- one aggregate file: `experiments/ablation/ablation_comparison.json`
+- one aggregate file: `experiments/ablation/ablation_comparison.json` (rebuilt locally with
+  `python scripts/aggregate_ablation_comparison.py`; not committed — it duplicates the per-run files)
 
 Each run payload stores:
 
@@ -452,7 +453,7 @@ File:
 The same fields are now included in:
 
 - each per-run ablation JSON file
-- `ablation_comparison.json`
+- `ablation_comparison.json` (generated aggregate; see `scripts/aggregate_ablation_comparison.py`)
 
 The serialization logic is kept in `serialize_policy_summary(...)`, so that is
 the single best place to tweak ablation JSON structure.

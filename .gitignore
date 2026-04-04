@@ -27,3 +27,9 @@ Thumbs.db
 *.ckpt
 *.log
 *.tmp
+
+# Local Claude / IDE worktree metadata (must not be committed as gitlinks)
+.claude/
+
+# Derived ablation rollup (per-run JSONs under experiments/ablation/ are canonical)
+experiments/ablation/ablation_comparison.json
