@@ -782,9 +782,7 @@ def main() -> None:
     if reference_n < 1:
         raise ValueError("--reference-n must be at least 1.")
     env_kwargs = resolve_env_kwargs(config)
-    benchmark_reference_budget = (
-        int(args.budgets[0]) if args.budgets is not None else int(regime["budget"])
-    )
+    benchmark_reference_budget = int(regime["budget"])
     benchmark_graph_seed = (
         int(args.graph_seed) if args.graph_seed is not None else int(training["seed"]) + 1000
     )
@@ -824,7 +822,7 @@ def main() -> None:
     log_scaling_decisions(
         graphs=graphs,
         pfail=float(regime["pfail"]),
-        budget=int(regime["budget"]),
+        budget=benchmark_reference_budget,
         max_rounds=int(regime["max_rounds"]),
         scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
@@ -836,7 +834,7 @@ def main() -> None:
         benchmark_policy_factories,
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
-        budget=int(regime["budget"]),
+        budget=benchmark_reference_budget,
         max_rounds=int(regime["max_rounds"]),
         seeds=list(training["benchmark_seeds"]),
         tau=tau,
