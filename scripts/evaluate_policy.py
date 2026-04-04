@@ -525,6 +525,7 @@ def build_regime_cells_with_optional_scaling(
     for alpha in alpha_values:
         for pfail in pfail_values:
             for budget in budgets:
+                ref_budget = budget if scale_budget else reference_budget
                 policy_summaries = evaluate_policy_factories_with_optional_scaling(
                     graphs,
                     policy_factories,
@@ -537,7 +538,7 @@ def build_regime_cells_with_optional_scaling(
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,
                     scale_max_rounds=scale_max_rounds,
-                    reference_budget=reference_budget,
+                    reference_budget=ref_budget,
                     reference_n=reference_n,
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
@@ -549,6 +550,7 @@ def build_regime_cells_with_optional_scaling(
         anc_values = grouped_best_anc[(alpha, pfail)]
         budget_sensitivity = max(anc_values) - min(anc_values) if len(anc_values) > 1 else 0.0
         for budget, policy_summaries in budget_summaries:
+            ref_budget = budget if scale_budget else reference_budget
             diagnostics = compute_regime_diagnostics(
                 policy_summaries,
                 hopeless_threshold=hopeless_threshold,
@@ -556,6 +558,30 @@ def build_regime_cells_with_optional_scaling(
                 spread_threshold=spread_threshold,
                 budget_sensitivity=budget_sensitivity,
             )
+            scaling_base = build_scaling_metadata(
+                scale_budget=scale_budget,
+                scale_max_rounds=scale_max_rounds,
+                reference_budget=budget,
+                reference_n=reference_n,
+            )
+            assert scaling_base is not None
+            rep_nodes = graphs[0].number_of_nodes()
+            res_b, res_mr = resolve_budget_and_rounds(
+                num_nodes=rep_nodes,
+                pfail=pfail,
+                budget=budget,
+                max_rounds=max_rounds,
+                scale_budget=scale_budget,
+                scale_max_rounds=scale_max_rounds,
+                reference_budget=ref_budget,
+                reference_n=reference_n,
+            )
+            cell_scaling = {
+                **scaling_base,
+                "representative_num_nodes": rep_nodes,
+                "resolved_budget": res_b,
+                "resolved_max_rounds": res_mr,
+            }
             cells.append(
                 RegimeCellResult(
                     alpha=alpha,
@@ -563,6 +589,7 @@ def build_regime_cells_with_optional_scaling(
                     budget=budget,
                     diagnostics=diagnostics,
                     policy_summaries=dict(policy_summaries),
+                    scaling=cell_scaling,
                 )
             )
 
@@ -850,13 +877,25 @@ def main() -> None:
         serialized[policy_name]["b_star"] = value
     serialized["scaling"] = scaling_metadata
 
-    grid_reference_budget = int(grid_spec["budgets"][0])
+    grid_budgets = [int(b) for b in grid_spec["budgets"]]
+    grid_reference_budget = grid_budgets[0]
     grid_scaling_metadata = build_scaling_metadata(
         scale_budget=scale_budget_active,
         scale_max_rounds=args.scale_max_rounds,
         reference_budget=grid_reference_budget,
         reference_n=reference_n,
     )
+    if (
+        grid_scaling_metadata is not None
+        and scale_budget_active
+        and len(grid_budgets) > 1
+    ):
+        grid_scaling_metadata = {
+            **grid_scaling_metadata,
+            "reference_budget": None,
+            "beta": None,
+            "per_cell": True,
+        }
     grid_graphs = make_graph_batch(
         num_graphs=grid_spec["num_graphs"],
         n_range=grid_spec["n_range"],

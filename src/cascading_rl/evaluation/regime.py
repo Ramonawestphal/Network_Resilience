@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 from random import Random
 
 import networkx as nx
@@ -50,6 +51,7 @@ class RegimeCellResult:
     budget: int
     diagnostics: RegimeDiagnostics
     policy_summaries: dict[str, PolicyEvaluationSummary]
+    scaling: dict[str, Any] | None = None
 
 
 def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
@@ -297,7 +299,7 @@ def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, dict
 
 def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
     diagnostics = cell.diagnostics
-    return {
+    payload: dict[str, object] = {
         "alpha": cell.alpha,
         "pfail": cell.pfail,
         "budget": cell.budget,
@@ -322,6 +324,9 @@ def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
             for policy_name, summary in cell.policy_summaries.items()
         },
     }
+    if cell.scaling is not None:
+        payload["scaling"] = cell.scaling
+    return payload
 
 
 def _mean(values: Sequence[float]) -> float:
