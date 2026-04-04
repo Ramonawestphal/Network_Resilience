@@ -5,6 +5,7 @@ import csv
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -23,7 +24,20 @@ from cascading_rl.evaluation import (
     summarize_regime_buckets,
 )
 from cascading_rl.graph.generation import make_graph_batch
+from cascading_rl.reproducibility import portable_artifact_path
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
+from scripts.reproducibility import write_run_metadata
+
+
+def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
+    regime = config["training"]["regime"]
+    obs_hops = regime.get("obs_hops")
+    return {
+        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
+        "failure_bias": str(regime.get("failure_bias", "uniform")),
+        "action_space": str(regime.get("action_space", "failed")),
+        "obs_hops": int(obs_hops) if obs_hops is not None else None,
+    }
 
 
 def load_config(path: Path) -> dict:
@@ -211,6 +225,7 @@ def main() -> None:
     graph_config = config["graph"]
     evaluation_config = config["evaluation"]
     budget_scaling = config.get("budget_scaling", {})
+    env_kwargs = resolve_env_kwargs(config)
 
     output_dir = ROOT / regime_config["output_dir"]
     tau = float(evaluation_config["tau"])
@@ -240,6 +255,7 @@ def main() -> None:
         hopeless_threshold=float(regime_config["hopeless_threshold"]),
         trivial_threshold=float(regime_config["trivial_threshold"]),
         spread_threshold=float(regime_config["spread_threshold"]),
+        env_kwargs=env_kwargs,
         scale_budget=bool(budget_scaling.get("enabled", True)),
         reference_n=int(budget_scaling.get("reference_n", 40)),
     )
@@ -253,6 +269,7 @@ def main() -> None:
         "tau": tau,
         "seeds": seeds,
         "num_graphs": len(graphs),
+        "env": env_kwargs,
         "cells": serialized_cells,
         "bucket_summary": bucket_summary,
         "recommendation": recommendation,
@@ -268,19 +285,19 @@ def main() -> None:
         json.dump(results, file, indent=2)
     write_csv(serialized_cells, csv_path, selected_policies)
     write_note(recommendation, note_path, tau=tau, num_graphs=len(graphs), seeds=seeds)
-    with metadata_path.open("w", encoding="utf-8") as file:
-        json.dump(
-            {
-                "script": "scripts/map_regime.py",
-                "config_path": str(args.config),
-                "output_dir": str(output_dir),
-                "num_graphs": len(graphs),
-                "policies": selected_policies,
-                "tau": tau,
-            },
-            file,
-            indent=2,
-        )
+    write_run_metadata(
+        metadata_path,
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        config_path=args.config,
+        extra={
+            "output_dir": portable_artifact_path(output_dir),
+            "num_graphs": len(graphs),
+            "policies": selected_policies,
+            "tau": tau,
+            "env": env_kwargs,
+        },
+    )
     plot_interestingness_heatmaps(results, output_dir / "interestingness_heatmap.png")
     plot_budget_curves(results, output_dir / "budget_curves.png")
 

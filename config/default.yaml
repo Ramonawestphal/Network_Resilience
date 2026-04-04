@@ -73,8 +73,11 @@ training:
   hidden_dim: 128
   embed_dim: 128
   num_layers: 2
+  use_global_features: false
+  use_virtual_node: false
   validation_graphs: 2
   validation_seeds: [0, 1, 2]
+  validation_seed: 42
   validation_every: 200
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt

@@ -7,7 +7,7 @@ from random import Random
 
 import networkx as nx
 
-from cascading_rl.budgeting import compute_scaled_budget
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     PolicyEvaluationSummary,
@@ -115,6 +115,46 @@ def evaluate_policy_factories_on_graphs(
         policy_name: summarize_episode_results(episode_results)
         for policy_name, episode_results in episode_results_by_policy.items()
     }
+
+
+def filter_interesting_graphs(
+    graphs: Sequence[nx.Graph],
+    policy_factories: Mapping[str, PolicyFactory],
+    *,
+    alpha: float,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None = None,
+    seeds: Iterable[int],
+    tau: float,
+    spread_threshold: float = 0.05,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = DEFAULT_REFERENCE_N,
+) -> list[nx.Graph]:
+    """Keep only graphs whose per-policy final-ANC spread exceeds the threshold."""
+    filtered_graphs: list[nx.Graph] = []
+    seeds_seq = tuple(seeds)
+
+    for graph in graphs:
+        summaries = evaluate_policy_factories_on_graphs(
+            [graph],
+            policy_factories,
+            alpha=alpha,
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            seeds=seeds_seq,
+            tau=tau,
+            env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            reference_n=reference_n,
+        )
+        final_anc_values = [summary.final_anc.mean for summary in summaries.values()]
+        if max(final_anc_values) - min(final_anc_values) > spread_threshold:
+            filtered_graphs.append(graph)
+
+    return filtered_graphs
 
 
 def compute_regime_diagnostics(
@@ -337,6 +377,8 @@ def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
 
 
 def _mean(values: Sequence[float]) -> float:
+    if not values:
+        return 0.0
     return sum(values) / len(values)
 
 

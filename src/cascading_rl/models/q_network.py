@@ -9,6 +9,7 @@ import torch
 from torch import nn
 
 from cascading_rl.envs.recovery import RecoveryObservation
+from cascading_rl.reproducibility import REPO_ROOT
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
@@ -32,7 +33,35 @@ class QNetworkConfig:
     embed_dim: int = 64
     num_layers: int = 2
     use_global_features: bool = False
+    active_node_features: tuple[str, ...] | None = None
+    active_global_features: tuple[str, ...] | None = None
     use_virtual_node: bool = False
+
+    def __post_init__(self) -> None:
+        if self.active_node_features is not None:
+            unknown = tuple(
+                feature_name
+                for feature_name in self.active_node_features
+                if feature_name not in FEATURE_NAMES
+            )
+            if unknown:
+                raise ValueError(f"Unknown node feature(s): {unknown}")
+            object.__setattr__(self, "input_dim", len(self.active_node_features))
+        if self.active_global_features is not None:
+            unknown = tuple(
+                feature_name
+                for feature_name in self.active_global_features
+                if feature_name not in GLOBAL_FEATURE_NAMES
+            )
+            if unknown:
+                raise ValueError(f"Unknown global feature(s): {unknown}")
+            if not self.active_global_features:
+                object.__setattr__(self, "use_global_features", False)
+
+    @classmethod
+    def from_dict(cls, values: dict) -> "QNetworkConfig":
+        config_values = dict(values)
+        return cls(**config_values)
 
 
 class RecoveryQNetwork(nn.Module):
@@ -41,8 +70,16 @@ class RecoveryQNetwork(nn.Module):
     def __init__(self, config: QNetworkConfig | None = None) -> None:
         super().__init__()
         self.config = config or QNetworkConfig()
-        self.feature_names = resolve_feature_names(self.config.input_dim)
-        self.global_feature_names = resolve_global_feature_names(self.config.input_dim)
+        self.feature_names = (
+            self.config.active_node_features
+            if self.config.active_node_features is not None
+            else resolve_feature_names(self.config.input_dim)
+        )
+        self.global_feature_names = (
+            self.config.active_global_features
+            if self.config.active_global_features is not None
+            else resolve_global_feature_names(self.config.input_dim)
+        )
         self.encoder = GraphStateEncoder(
             input_dim=self.config.input_dim,
             hidden_dim=self.config.hidden_dim,
@@ -158,21 +195,7 @@ def select_top_b(
 
     model.eval()
     with torch.no_grad():
-        graph_tensor = observation_to_graph_tensor(
-            observation,
-            use_virtual_node=model.config.use_virtual_node,
-            feature_names=model.feature_names,
-            device=device,
-        )
-        global_features = None
-        if model.config.use_global_features:
-            global_features = observation_to_global_features(
-                observation,
-                global_feature_names=model.global_feature_names,
-            )
-            if device is not None:
-                global_features = global_features.to(device)
-        q_values = model(graph_tensor, global_features)
+        graph_tensor, q_values = model.score_observation(observation, device=device)
 
     valid_indices = [graph_tensor.node_to_index[node] for node in valid_actions]
     valid_q = [(q_values[index].item(), graph_tensor.node_ids[index]) for index in valid_indices]
@@ -208,8 +231,11 @@ def load_q_network(
     map_location: str | torch.device = "cpu",
 ) -> tuple[RecoveryQNetwork, dict]:
     """Load a saved learner checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location=map_location)
-    model_config = QNetworkConfig(**checkpoint["model_config"])
+    path = Path(checkpoint_path)
+    if not path.is_absolute():
+        path = (REPO_ROOT / path).resolve()
+    checkpoint = torch.load(path, map_location=map_location)
+    model_config = QNetworkConfig.from_dict(checkpoint["model_config"])
     model = RecoveryQNetwork(model_config)
     model.load_state_dict(checkpoint["model_state"])
     model.to(map_location)
