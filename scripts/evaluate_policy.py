@@ -612,23 +612,25 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
 
     instances = load_eval_instances(eval_path)
 
-    large_graph_filenames = {"large_graph_medium.pkl", "large_graph_large.pkl"}
-    if eval_path.name in large_graph_filenames:
-        missing_b = [i for i, inst in enumerate(instances) if "b_scaled" not in inst]
-        if missing_b:
+    scaled_eval_set = any(inst.get("b_scaled") is not None for inst in instances)
+    if scaled_eval_set:
+        bad_indices: list[int] = []
+        for i, inst in enumerate(instances):
+            raw = inst.get("b_scaled")
+            if raw is None:
+                bad_indices.append(i)
+                continue
+            try:
+                if int(raw) < 1:
+                    bad_indices.append(i)
+            except (TypeError, ValueError):
+                bad_indices.append(i)
+        if bad_indices:
             raise ValueError(
-                f"{eval_path.name}: every instance must include 'b_scaled' (scaled budget). "
-                f"Missing at indices {missing_b[:10]!r}{'...' if len(missing_b) > 10 else ''}."
-            )
-        mismatched = [
-            i
-            for i, inst in enumerate(instances)
-            if int(inst.get("budget", -1)) != int(inst["b_scaled"])
-        ]
-        if mismatched:
-            raise ValueError(
-                f"{eval_path.name}: 'budget' must match 'b_scaled' for each instance. "
-                f"Mismatch at indices {mismatched[:10]!r}."
+                f"{eval_path.name}: when any instance defines 'b_scaled', every instance must "
+                f"include a valid positive integer 'b_scaled'. "
+                f"Invalid or missing at indices {bad_indices[:10]!r}"
+                f"{'...' if len(bad_indices) > 10 else ''}."
             )
 
     ds_instances = [
@@ -700,7 +702,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             )
 
     large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
-    has_b_scaled = bool(instances) and any("b_scaled" in inst for inst in instances)
+    has_b_scaled = bool(instances) and any(inst.get("b_scaled") is not None for inst in instances)
     if eval_path.name in large_names or has_b_scaled:
         transfer_policies: list[str] = ["degree", "random"]
         if args.checkpoint.exists():

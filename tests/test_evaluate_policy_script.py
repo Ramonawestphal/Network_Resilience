@@ -282,7 +282,7 @@ def test_run_eval_set_mode_warns_when_no_decision_sensitive_instances(tmp_path: 
     ), f"expected UserWarning, got: {[w.message for w in caught]}"
 
 
-def test_run_eval_set_mode_large_graph_pickle_requires_b_scaled(tmp_path: Path):
+def test_run_eval_set_mode_scaled_pickle_requires_b_scaled_on_all_instances(tmp_path: Path):
     checkpoint_path = save_checkpoint(
         RecoveryQNetwork(),
         TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub2.pt"),
@@ -290,18 +290,18 @@ def test_run_eval_set_mode_large_graph_pickle_requires_b_scaled(tmp_path: Path):
         tmp_path / "stub2.pt",
         episode=0,
     )
-    inst = {
+    common = {
         "graph": nx.path_graph(20),
         "alpha": 0.15,
         "p_fail": 0.18,
-        "budget": 3,
         "max_rounds": 5,
-        "failure_seed": 1,
         "regime_label": "decision-sensitive",
     }
-    pkl = tmp_path / "large_graph_medium.pkl"
+    inst_scaled = {**common, "b_scaled": 3, "failure_seed": 1}
+    inst_missing_scaled = {**common, "budget": 3, "failure_seed": 2}
+    pkl = tmp_path / "scaled_eval_mixed.pkl"
     with pkl.open("wb") as file:
-        pickle.dump([inst], file, protocol=4)
+        pickle.dump([inst_scaled, inst_missing_scaled], file, protocol=4)
 
     args = Namespace(
         eval_set=pkl,
