@@ -19,6 +19,7 @@ from cascading_rl.budgeting import DEFAULT_REFERENCE_N
 from cascading_rl.evaluation import build_policy_factories, estimate_minimum_budget
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
+from cascading_rl.reproducibility import portable_artifact_path
 from scripts.reproducibility import write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
@@ -147,8 +148,8 @@ def main() -> None:
         }
 
     payload = {
-        "config_path": str(args.config),
-        "checkpoint_path": str(args.checkpoint),
+        "config_path": portable_artifact_path(args.config),
+        "checkpoint_path": portable_artifact_path(args.checkpoint),
         "alpha": alpha,
         "pfail": pfail,
         "max_rounds": max_rounds,
@@ -174,7 +175,7 @@ def main() -> None:
         argv=sys.argv,
         config_path=args.config,
         extra={
-            "output_dir": str(args.output_dir),
+            "output_dir": portable_artifact_path(args.output_dir),
             "env": env_kwargs,
             "scaling": {
                 "scale_budget": scale_budget,

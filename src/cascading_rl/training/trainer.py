@@ -18,6 +18,8 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
 from cascading_rl.models import (
+    FEATURE_NAMES,
+    GLOBAL_FEATURE_NAMES,
     QNetworkConfig,
     RecoveryQNetwork,
     build_greedy_policy,
@@ -66,6 +68,8 @@ class TrainingConfig:
     embed_dim: int = 128
     num_layers: int = 2
     use_global_features: bool = False
+    active_node_features: tuple[str, ...] = FEATURE_NAMES
+    active_global_features: tuple[str, ...] = GLOBAL_FEATURE_NAMES
     use_virtual_node: bool = False
     use_imitation_warmstart: bool = False
     imitation_graphs: int = 500
@@ -135,6 +139,8 @@ def build_model_config(config: TrainingConfig) -> QNetworkConfig:
         embed_dim=config.embed_dim,
         num_layers=config.num_layers,
         use_global_features=config.use_global_features,
+        active_node_features=config.active_node_features,
+        active_global_features=config.active_global_features,
         use_virtual_node=config.use_virtual_node,
     )
 

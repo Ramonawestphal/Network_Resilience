@@ -31,6 +31,7 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
+from cascading_rl.reproducibility import portable_artifact_path, write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
 
@@ -160,10 +161,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def serialize_path(path: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(ROOT))
-    except ValueError:
-        return str(path.resolve())
+    return portable_artifact_path(path)
 
 
 def build_eval_policy_factories(
@@ -964,18 +962,17 @@ def main() -> None:
         json.dump(grid_results, file, indent=2)
     with regime_path.open("w", encoding="utf-8") as file:
         json.dump(grid_results, file, indent=2)
-    with metadata_path.open("w", encoding="utf-8") as file:
-        json.dump(
-            {
-                "script": "scripts/evaluate_policy.py",
-                "checkpoint": serialize_path(args.checkpoint),
-                "config": serialize_path(args.config),
-                "grid_source": args.grid_source,
-                "policies": selected_policy_names,
-            },
-            file,
-            indent=2,
-        )
+    write_run_metadata(
+        metadata_path,
+        script_path=Path(__file__).resolve(),
+        argv=sys.argv,
+        config_path=args.config,
+        extra={
+            "checkpoint": serialize_path(args.checkpoint),
+            "grid_source": args.grid_source,
+            "policies": selected_policy_names,
+        },
+    )
 
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")

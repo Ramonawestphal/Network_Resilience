@@ -28,6 +28,15 @@ Thumbs.db
 *.log
 *.tmp
 
-# Regime comprehensive runs (large JSON/Parquet/CSVs and plots — regenerate locally)
+# Local Claude / IDE worktree metadata (must not be committed as gitlinks)
+.claude/
+
+# Derived ablation rollup (per-run JSONs under experiments/ablation/ are canonical)
+experiments/ablation/ablation_comparison.json
+
+# Regime comprehensive runs (large JSON/Parquet/CSVs and plots - regenerate locally)
 experiments/regime_comprehensive/
 experiments/regime_comprehensive_smoke/
+
+# Large regime mapping outputs (regenerate with scripts/map_regime*.py)
+experiments/regime_map/regime_results.json
