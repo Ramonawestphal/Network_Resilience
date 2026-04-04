@@ -13,7 +13,6 @@ from cascading_rl.reproducibility import REPO_ROOT
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
-    LEGACY_FEATURE_NAMES,
     GlobalReadout,
     GraphStateEncoder,
     GraphTensor,
@@ -58,6 +57,26 @@ class QNetworkConfig:
             if not self.active_global_features:
                 object.__setattr__(self, "use_global_features", False)
 
+    @property
+    def active_node_feature_names(self) -> tuple[str, ...]:
+        if self.active_node_features is not None:
+            return self.active_node_features
+        return resolve_feature_names(self.input_dim)
+
+    @property
+    def active_global_feature_names(self) -> tuple[str, ...]:
+        if not self.use_global_features:
+            return ()
+        if self.active_global_features is not None:
+            return self.active_global_features
+        if self.active_node_features is not None:
+            return GLOBAL_FEATURE_NAMES
+        return resolve_global_feature_names(self.input_dim)
+
+    @property
+    def num_active_global_features(self) -> int:
+        return len(self.active_global_feature_names)
+
     @classmethod
     def from_dict(cls, values: dict) -> "QNetworkConfig":
         config_values = dict(values)
@@ -70,16 +89,8 @@ class RecoveryQNetwork(nn.Module):
     def __init__(self, config: QNetworkConfig | None = None) -> None:
         super().__init__()
         self.config = config or QNetworkConfig()
-        self.feature_names = (
-            self.config.active_node_features
-            if self.config.active_node_features is not None
-            else resolve_feature_names(self.config.input_dim)
-        )
-        self.global_feature_names = (
-            self.config.active_global_features
-            if self.config.active_global_features is not None
-            else resolve_global_feature_names(self.config.input_dim)
-        )
+        self.feature_names = self.config.active_node_feature_names
+        self.global_feature_names = self.config.active_global_feature_names
         self.encoder = GraphStateEncoder(
             input_dim=self.config.input_dim,
             hidden_dim=self.config.hidden_dim,
@@ -92,7 +103,7 @@ class RecoveryQNetwork(nn.Module):
         if self.config.use_global_features:
             self.global_readout = GlobalReadout(
                 embed_dim=self.config.embed_dim,
-                global_feat_dim=len(self.global_feature_names),
+                global_feat_dim=self.config.num_active_global_features,
                 out_dim=global_out_dim,
             )
         self.q_head = nn.Sequential(
