@@ -33,3 +33,9 @@ Thumbs.db
 
 # Derived ablation rollup (per-run JSONs under experiments/ablation/ are canonical)
 experiments/ablation/ablation_comparison.json
+
+# Large regime mapping outputs (regenerate with scripts/map_regime*.py)
+experiments/regime_comprehensive/graph_variance.json
+experiments/regime_comprehensive/regime_cells.json
+experiments/regime_comprehensive/checkpoint.json
+experiments/regime_map/regime_results.json

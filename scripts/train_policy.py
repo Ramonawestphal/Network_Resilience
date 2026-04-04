@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from cascading_rl.reproducibility import portable_artifact_path
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 from scripts.reproducibility import write_run_metadata
 
@@ -185,7 +186,7 @@ def main() -> None:
     recent_anc = training_state.episode_final_anc[-10:]
     recent_losses = training_state.losses[-10:]
     summary = {
-        "checkpoint_path": str(checkpoint_path),
+        "checkpoint_path": portable_artifact_path(checkpoint_path),
         "training_config": asdict(training_config),
         "num_episodes": training_config.num_episodes,
         "alpha_values": list(training_config.alpha_values or (training_config.alpha,)),
@@ -213,8 +214,8 @@ def main() -> None:
         argv=sys.argv,
         config_path=args.config,
         extra={
-            "checkpoint_path": str(checkpoint_path),
-            "summary_path": str(summary_path),
+            "checkpoint_path": portable_artifact_path(checkpoint_path),
+            "summary_path": portable_artifact_path(summary_path),
         },
     )
 

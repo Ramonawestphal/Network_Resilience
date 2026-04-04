@@ -320,14 +320,10 @@ This helper:
 3. computes the spread in `final_anc` across policies
 4. keeps only graphs whose spread exceeds `spread_threshold`
 
-This is intentionally lightweight:
-
-- no environment changes
-- no new benchmark format
-- no special-case RL logic
-
 It reuses the same policy-factory evaluation path as the rest of the regime
-tools.
+tools, including optional ``env_kwargs``, ``scale_budget``, and ``reference_n`` so
+pre-filtering matches downstream ``build_regime_cells`` when those are passed (for
+example from ``scripts/evaluate_policy.py``).
 
 ### 5.2 Where filtering is applied
 

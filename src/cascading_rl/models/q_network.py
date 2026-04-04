@@ -9,6 +9,7 @@ import torch
 from torch import nn
 
 from cascading_rl.envs.recovery import RecoveryObservation
+from cascading_rl.reproducibility import REPO_ROOT
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
@@ -186,8 +187,15 @@ def load_q_network(
     *,
     map_location: str | torch.device = "cpu",
 ) -> tuple[RecoveryQNetwork, dict]:
-    """Load a saved learner checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location=map_location)
+    """Load a saved learner checkpoint.
+
+    Relative paths are resolved against the repository root (parent of ``src/``),
+    matching portable ``checkpoint_path`` values stored in artifact JSON.
+    """
+    path = Path(checkpoint_path)
+    if not path.is_absolute():
+        path = (REPO_ROOT / path).resolve()
+    checkpoint = torch.load(path, map_location=map_location)
     model_config = QNetworkConfig.from_dict(checkpoint["model_config"])
     model = RecoveryQNetwork(model_config)
     model.load_state_dict(checkpoint["model_state"])

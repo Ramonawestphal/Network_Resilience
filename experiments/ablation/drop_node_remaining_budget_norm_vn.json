@@ -17,7 +17,7 @@
   ],
   "use_virtual_node": true,
   "training_episodes": 10,
-  "checkpoint_path": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\experiments\\ablation\\drop_node_remaining_budget_norm_vn.pt",
+  "checkpoint_path": "experiments/ablation/drop_node_remaining_budget_norm_vn.pt",
   "results": {
     "final_anc": {
       "mean": 0.23488841090285936,

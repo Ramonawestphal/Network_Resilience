@@ -224,3 +224,71 @@ def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypa
 
     assert grid_payload == regime_payload
     assert grid_payload["policies"] == ["rl", "degree"]
+
+
+def test_evaluate_policy_skips_interest_filter_when_only_one_policy(tmp_path: Path, monkeypatch):
+    """Single policy ⇒ zero spread; filtering would drop every graph unless skipped."""
+    config = make_config()
+    config["training"].update(
+        {
+            "benchmark_dir": "unused",
+            "benchmark_graphs": 1,
+            "benchmark_seeds": [0],
+        }
+    )
+    config["training"]["regime"].update(
+        {
+            "capacity_noise": 0.0,
+            "failure_bias": "uniform",
+            "action_space": "failed",
+            "obs_hops": None,
+        }
+    )
+    config["regime_mapping"].update(
+        {
+            "alpha_values": [0.2],
+            "pfail_values": [0.1],
+            "budgets": [2],
+            "num_graphs": 1,
+            "seeds": [0],
+            "max_rounds": 5,
+            "spread_threshold": 0.05,
+        }
+    )
+
+    config_path = tmp_path / "config.yaml"
+    with config_path.open("w", encoding="utf-8") as file:
+        yaml.safe_dump(config, file)
+
+    checkpoint_path = save_checkpoint(
+        RecoveryQNetwork(),
+        TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub.pt"),
+        TrainingState(),
+        tmp_path / "stub.pt",
+        episode=0,
+    )
+
+    output_dir = tmp_path / "eval_single_policy"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_policy.py",
+            "--config",
+            str(config_path),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--output-dir",
+            str(output_dir),
+            "--policies",
+            "rl",
+        ],
+    )
+    evaluate_policy.main()
+
+    grid_path = output_dir / "evaluation_grid_summary.json"
+    assert grid_path.exists()
+    with grid_path.open("r", encoding="utf-8") as file:
+        grid_payload = json.load(file)
+    assert grid_payload["policies"] == ["rl"]
+    assert grid_payload["num_graphs"] == 1

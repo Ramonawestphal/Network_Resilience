@@ -1,16 +1,16 @@
 {
   "generated_at": "2026-04-02T17:59:12.816672+00:00",
-  "script": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\scripts\\evaluate_policy.py",
+  "script": "scripts/evaluate_policy.py",
   "argv": [
-    "scripts\\evaluate_policy.py"
+    "scripts/evaluate_policy.py"
   ],
-  "config_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\config\\default.yaml",
+  "config_path": "config/default.yaml",
   "config_sha256": "fbbf8399f99413db08cbe0754f428ba358e2363f9043402bba68937b097bcfe0",
   "git_commit": "c6525baa178f065008ee8c4be0e69161bef704d0",
   "python_version": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
   "platform": "Windows-11-10.0.26200-SP0",
   "torch_version": "2.11.0+cpu",
-  "output_dir": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\learner_benchmark",
+  "output_dir": "experiments/learner_benchmark",
   "policy_names": [
     "rl",
     "random",

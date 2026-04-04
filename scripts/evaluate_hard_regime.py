@@ -24,6 +24,7 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
+from cascading_rl.reproducibility import portable_artifact_path
 from scripts.reproducibility import write_run_metadata
 
 
@@ -185,7 +186,7 @@ def main() -> None:
         argv=sys.argv,
         config_path=args.config,
         extra={
-            "output_dir": str(output_dir),
+            "output_dir": portable_artifact_path(output_dir),
             "env": env_kwargs,
             "scaling": {
                 "scale_budget": bool(budget_scaling.get("enabled", False)),

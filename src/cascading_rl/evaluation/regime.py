@@ -6,6 +6,7 @@ from random import Random
 
 import networkx as nx
 
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N
 from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     AggregateMetric,
@@ -108,9 +109,13 @@ def filter_interesting_graphs(
     seeds: Iterable[int],
     tau: float,
     spread_threshold: float = 0.05,
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    reference_n: int = DEFAULT_REFERENCE_N,
 ) -> list[nx.Graph]:
     """Keep only graphs whose per-policy final-ANC spread exceeds the threshold."""
     filtered_graphs: list[nx.Graph] = []
+    seeds_materialized: tuple[int, ...] = tuple(seeds)
 
     for graph in graphs:
         policy_summaries = evaluate_policy_factories_on_graphs(
@@ -120,8 +125,11 @@ def filter_interesting_graphs(
             pfail=pfail,
             budget=budget,
             max_rounds=max_rounds,
-            seeds=seeds,
+            seeds=seeds_materialized,
             tau=tau,
+            env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            reference_n=reference_n,
         )
         final_anc_values = [
             summary.final_anc.mean for summary in policy_summaries.values()

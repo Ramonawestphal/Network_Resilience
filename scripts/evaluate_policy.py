@@ -23,7 +23,7 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
-from cascading_rl.reproducibility import write_run_metadata
+from cascading_rl.reproducibility import portable_artifact_path, write_run_metadata
 
 SUPPORTED_POLICIES = ("rl", "random", "degree", "risk", "greedy", "betweenness")
 
@@ -345,18 +345,24 @@ def main() -> None:
         m=grid_spec["m"],
         seed=grid_spec["graph_seed"],
     )
-    graphs = filter_interesting_graphs(
-        graphs,
-        policy_factories,
-        alpha=grid_spec["primary_alpha"],
-        pfail=grid_spec["primary_pfail"],
-        budget=grid_spec["primary_budget"],
-        max_rounds=grid_spec["primary_max_rounds"],
-        seeds=grid_spec["seeds"],
-        tau=tau,
-        spread_threshold=float(config["regime_mapping"]["spread_threshold"]),
-    )
-    filtered_out = grid_spec["num_graphs"] - len(graphs)
+    if len(policy_factories) > 1:
+        graphs = filter_interesting_graphs(
+            graphs,
+            policy_factories,
+            alpha=grid_spec["primary_alpha"],
+            pfail=grid_spec["primary_pfail"],
+            budget=grid_spec["primary_budget"],
+            max_rounds=grid_spec["primary_max_rounds"],
+            seeds=grid_spec["seeds"],
+            tau=tau,
+            spread_threshold=float(config["regime_mapping"]["spread_threshold"]),
+            env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            reference_n=reference_n,
+        )
+        filtered_out = grid_spec["num_graphs"] - len(graphs)
+    else:
+        filtered_out = 0
     print(f"Kept {len(graphs)} benchmark graphs ({filtered_out} filtered out as non-interesting).")
     if not graphs:
         raise ValueError("No benchmark graphs remained after interest filtering.")
@@ -402,8 +408,8 @@ def main() -> None:
 
     legacy_summary = serialize_legacy_summary(primary_cell, representative_budgets)
     detailed_output = {
-        "config_path": str(args.config),
-        "checkpoint_path": str(args.checkpoint),
+        "config_path": portable_artifact_path(args.config),
+        "checkpoint_path": portable_artifact_path(args.checkpoint),
         "grid_source": args.grid_source,
         "policies": selected_policies,
         "tau": tau,
@@ -449,7 +455,7 @@ def main() -> None:
         argv=sys.argv,
         config_path=args.config,
         extra={
-            "output_dir": str(output_dir),
+            "output_dir": portable_artifact_path(output_dir),
             "policy_names": selected_policies,
             "env": env_kwargs,
             "scaling": {

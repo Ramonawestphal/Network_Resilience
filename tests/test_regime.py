@@ -214,6 +214,9 @@ def test_filter_interesting_graphs_keeps_only_graphs_above_spread_threshold(monk
         max_rounds=None,
         seeds,
         tau,
+        env_kwargs=None,
+        scale_budget=False,
+        reference_n=40,
     ):
         assert len(graphs) == 1
         graph = graphs[0]
@@ -239,3 +242,61 @@ def test_filter_interesting_graphs_keeps_only_graphs_above_spread_threshold(monk
     )
 
     assert filtered == [graphs[1]]
+
+
+def test_filter_interesting_graphs_materializes_seeds_for_multi_graph(monkeypatch: pytest.MonkeyPatch):
+    """Generators must not be exhausted after the first graph."""
+    graphs = [nx.path_graph(3), nx.star_graph(3)]
+    captured: list[list[int]] = []
+
+    def summary(value: float) -> PolicyEvaluationSummary:
+        metric = AggregateMetric(mean=value, stderr=0.0)
+        return PolicyEvaluationSummary(
+            final_anc=metric,
+            total_reward=metric,
+            steps=metric,
+            rounds=metric,
+            solved_fraction=metric,
+            threshold_hit_fraction=metric,
+            threshold_step=metric,
+            threshold_round=metric,
+        )
+
+    def fake_evaluate_policy_factories_on_graphs(
+        graphs,
+        policy_factories,
+        *,
+        alpha,
+        pfail,
+        budget,
+        max_rounds=None,
+        seeds,
+        tau,
+        env_kwargs=None,
+        scale_budget=False,
+        reference_n=40,
+    ):
+        captured.append(list(seeds))
+        graph = graphs[0]
+        if graph.number_of_edges() == 2:
+            return {"a": summary(0.60), "b": summary(0.62)}
+        return {"a": summary(0.40), "b": summary(0.55)}
+
+    monkeypatch.setattr(
+        "cascading_rl.evaluation.regime.evaluate_policy_factories_on_graphs",
+        fake_evaluate_policy_factories_on_graphs,
+    )
+
+    filter_interesting_graphs(
+        graphs,
+        {"a": object(), "b": object()},
+        alpha=0.2,
+        pfail=0.05,
+        budget=2,
+        max_rounds=5,
+        seeds=(x for x in (0, 1)),
+        tau=0.8,
+        spread_threshold=0.05,
+    )
+
+    assert captured == [[0, 1], [0, 1]]

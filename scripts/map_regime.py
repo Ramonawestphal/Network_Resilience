@@ -24,6 +24,7 @@ from cascading_rl.evaluation import (
     summarize_regime_buckets,
 )
 from cascading_rl.graph.generation import make_graph_batch
+from cascading_rl.reproducibility import portable_artifact_path
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
 from scripts.reproducibility import write_run_metadata
 
@@ -309,7 +310,7 @@ def main() -> None:
         argv=sys.argv,
         config_path=args.config,
         extra={
-            "output_dir": str(output_dir),
+            "output_dir": portable_artifact_path(output_dir),
             "policy_names": selected_policies,
             "env": env_kwargs,
             "scaling": {

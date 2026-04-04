@@ -1,6 +1,6 @@
 {
-  "checkpoint_path": "experiments\\learner\\recovery_q.pt",
-  "config_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\config\\default.yaml",
+  "checkpoint_path": "experiments/learner/recovery_q.pt",
+  "config_path": "config/default.yaml",
   "policies": [
     "rl",
     "random",

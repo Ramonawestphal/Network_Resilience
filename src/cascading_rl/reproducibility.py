@@ -12,6 +12,33 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def portable_artifact_path(path: str | Path) -> str:
+    """Return a POSIX path relative to ``REPO_ROOT`` for portable JSON artifacts.
+
+    If the path is not under the repository root, returns the resolved absolute path.
+    """
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _portable_argv(argv: list[str]) -> list[str]:
+    """Best-effort: rewrite argv entries that are existing paths under the repo as relative POSIX."""
+    out: list[str] = []
+    for arg in argv:
+        try:
+            candidate = Path(arg)
+            if candidate.exists():
+                out.append(portable_artifact_path(candidate))
+            else:
+                out.append(arg)
+        except OSError:
+            out.append(arg)
+    return out
+
+
 def _read_config_hash(config_path: Path | None) -> str | None:
     if config_path is None or not config_path.exists():
         return None
@@ -49,9 +76,9 @@ def build_run_metadata(
 ) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "script": str(script_path),
-        "argv": list(argv),
-        "config_path": str(config_path) if config_path is not None else None,
+        "script": portable_artifact_path(script_path),
+        "argv": _portable_argv(list(argv)),
+        "config_path": portable_artifact_path(config_path) if config_path is not None else None,
         "config_sha256": _read_config_hash(config_path),
         "git_commit": _resolve_git_commit(),
         "python_version": sys.version,

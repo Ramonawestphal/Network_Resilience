@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-04-01T19:31:49.957679+00:00",
-  "script": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\scripts\\map_regime_comprehensive.py",
+  "script": "scripts/map_regime_comprehensive.py",
   "argv": [
     "scripts/map_regime_comprehensive.py",
     "--config",
@@ -12,7 +12,7 @@
   "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
   "platform": "Windows-10-10.0.26200-SP0",
   "torch_version": "2.9.1+cpu",
-  "output_dir": "C:\\Users\\BXand\\OneDrive\\Bureaublad\\Github Local Repos\\01_School\\Cascade-RL\\Cascading-RL\\experiments\\regime_comprehensive",
+  "output_dir": "experiments/regime_comprehensive",
   "cell_count": 64,
   "policy_names": [
     "random",

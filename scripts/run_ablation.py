@@ -18,6 +18,7 @@ if str(SRC) not in sys.path:
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import FEATURE_NAMES, GLOBAL_FEATURE_NAMES, build_greedy_policy
+from cascading_rl.reproducibility import portable_artifact_path
 from cascading_rl.training import TrainingConfig, train_recovery_agent
 
 
@@ -279,7 +280,7 @@ def main() -> None:
             "active_global_features": list(ablation_config["active_global_features"]),
             "use_virtual_node": ablation_config["use_virtual_node"],
             "training_episodes": training_config.num_episodes,
-            "checkpoint_path": str(checkpoint_path),
+            "checkpoint_path": portable_artifact_path(checkpoint_path),
             "results": results,
         }
         comparison_results.append(run_payload)

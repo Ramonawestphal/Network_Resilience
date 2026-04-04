@@ -18,7 +18,7 @@
   ],
   "use_virtual_node": false,
   "training_episodes": 10,
-  "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_load_norm.pt",
+  "checkpoint_path": "experiments/ablation/drop_node_load_norm.pt",
   "results": {
     "final_anc": {
       "mean": 0.23166146790845382,

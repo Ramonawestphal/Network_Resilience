@@ -1,5 +1,5 @@
 {
-  "checkpoint_path": "experiments\\learner\\recovery_q.pt",
+  "checkpoint_path": "experiments/learner/recovery_q.pt",
   "num_episodes": 100,
   "final_reward_mean_last_10": 0.23204605988943738,
   "final_anc_mean_last_10": 0.6021724072534562,

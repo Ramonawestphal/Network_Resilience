@@ -9,11 +9,17 @@ from cascading_rl.models import (
     GLOBAL_FEATURE_NAMES,
     QNetworkConfig,
     RecoveryQNetwork,
+    load_q_network,
     observation_to_global_features,
     observation_to_graph_tensor,
 )
 from cascading_rl.models.gnn import VIRTUAL_NODE
-from cascading_rl.training import TrainingConfig, train_recovery_agent
+from cascading_rl.training import (
+    TrainingConfig,
+    TrainingState,
+    save_checkpoint,
+    train_recovery_agent,
+)
 
 
 def _make_test_observation():
@@ -98,6 +104,14 @@ def test_observation_to_graph_tensor_supports_feature_subsets_in_canonical_order
     assert graph_tensor.node_features[0].tolist() == pytest.approx([0.4, 0.5])
 
 
+def test_observation_to_global_features_include_frontier_fraction():
+    observation = _make_test_observation()
+    tensor = observation_to_global_features(observation)
+    assert tuple(tensor.shape) == (len(GLOBAL_FEATURE_NAMES),)
+    by_name = dict(zip(GLOBAL_FEATURE_NAMES, tensor.tolist(), strict=True))
+    assert by_name["frontier_fraction"] == pytest.approx(1.0 / 4.0)
+
+
 def test_observation_to_global_features_supports_feature_subsets_in_canonical_order():
     observation = _make_test_observation()
 
@@ -126,6 +140,26 @@ def test_q_network_supports_ablation_flags():
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
     assert q_values[1].item() < -1e8
+
+
+def test_load_q_network_resolves_paths_relative_to_repo_root(tmp_path, monkeypatch):
+    import cascading_rl.models.q_network as q_network_mod
+
+    fake_root = tmp_path / "repo"
+    fake_root.mkdir()
+    monkeypatch.setattr(q_network_mod, "REPO_ROOT", fake_root)
+
+    out = fake_root / "experiments" / "learner" / "rel.pt"
+    cfg = TrainingConfig(checkpoint_dir=str(out.parent), checkpoint_name="rel.pt")
+    save_checkpoint(
+        RecoveryQNetwork(),
+        cfg,
+        TrainingState(),
+        out,
+        episode=0,
+    )
+    loaded, _ = load_q_network("experiments/learner/rel.pt")
+    assert isinstance(loaded, RecoveryQNetwork)
 
 
 def test_q_network_supports_legacy_checkpoint_feature_width():

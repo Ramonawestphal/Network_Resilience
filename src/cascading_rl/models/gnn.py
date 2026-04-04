@@ -31,6 +31,7 @@ GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
+    "frontier_fraction",
 )
 
 
@@ -94,6 +95,7 @@ def observation_to_global_features(
         "failed_fraction": len(failed) / max(num_nodes, 1),
         "mean_load_capacity_ratio": sum(ratios) / len(ratios),
         "max_load_capacity_ratio": max(ratios),
+        "frontier_fraction": len(observation.frontier) / max(num_nodes, 1),
     }
     global_features = torch.tensor(
         [feature_values[name] for name in GLOBAL_FEATURE_NAMES],

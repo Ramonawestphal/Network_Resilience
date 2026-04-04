@@ -25,6 +25,7 @@ from cascading_rl.evaluation import (
     serialize_regime_cell,
 )
 from cascading_rl.graph.generation import make_graph_batch
+from cascading_rl.reproducibility import portable_artifact_path
 from scripts.map_regime import build_recommendation, write_csv
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
 from scripts.reproducibility import build_run_metadata
@@ -367,7 +368,7 @@ def run_analysis(
         script_path=Path(__file__).resolve(),
         argv=sys.argv,
         extra={
-            "output_dir": str(resolved_output_dir),
+            "output_dir": portable_artifact_path(resolved_output_dir),
             "cell_count": len(cells),
             "policy_names": list(POLICY_NAMES),
             "env": config.env_kwargs,
