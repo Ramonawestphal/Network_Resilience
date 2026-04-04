@@ -1,11 +1,11 @@
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
-    GraphStateEncoder,
-    GraphTensor,
-    observation_to_graph_tensor,
     GLOBAL_FEATURE_NAMES,
     GlobalReadout,
+    GraphStateEncoder,
+    GraphTensor,
     observation_to_global_features,
+    observation_to_graph_tensor,
 )
 from cascading_rl.models.q_network import (
     QNetworkConfig,
@@ -26,8 +26,8 @@ __all__ = [
     "RecoveryQNetwork",
     "build_greedy_policy",
     "load_q_network",
-    "observation_to_graph_tensor",
     "observation_to_global_features",
+    "observation_to_graph_tensor",
     "select_action",
     "select_top_b",
 ]

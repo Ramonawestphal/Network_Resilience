@@ -19,6 +19,8 @@ This project uses the following round structure for cascading failure and recove
 - In each recovery round, the agent may reactivate up to `B` failed nodes.
 - These `B` repairs are modeled as sequential single-node decisions.
 - Repaired nodes re-enter with their original capacity and zero load.
+- The per-graph `B` used by the environment is the scaled budget derived from the
+  configured reference budget and `reference_n`.
 
 ## Round Order
 
@@ -35,6 +37,7 @@ This means there is only one exogenous failure round, but potentially many endog
 
 ## Reward Semantics
 
-- Each repair action is rewarded by the ANC improvement immediately after that repair.
-- Intermediate repairs inside a round do not trigger a cascade.
-- When a repair exhausts the round budget, the cascade wave happens after the reward is computed and affects the next observation rather than the current action reward.
+- Each action is rewarded by the ANC improvement immediately after that repair.
+- Intermediate repairs inside a round do **not** trigger a cascade.
+- If the repair exhausts the round budget, the cascade wave happens after the reward
+  is computed and only affects the next observation.

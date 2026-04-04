@@ -5,7 +5,6 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -25,29 +24,14 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
-from scripts.reproducibility import write_run_metadata
 
 
-def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
-    regime = config["training"]["regime"]
-    obs_hops = regime.get("obs_hops")
-    return {
-        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
-        "failure_bias": str(regime.get("failure_bias", "uniform")),
-        "action_space": str(regime.get("action_space", "failed")),
-        "obs_hops": int(obs_hops) if obs_hops is not None else None,
-    }
-
-
-def load_config(path: Path) -> dict[str, Any]:
+def load_config(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-    if not isinstance(data, dict):
-        raise ValueError("Config root must be a mapping.")
-    return data
+        return yaml.safe_load(file)
 
 
-def write_csv(rows: list[dict[str, Any]], output_path: Path, policies: list[str]) -> None:
+def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
     fieldnames = [
         "alpha",
         "pfail",
@@ -81,24 +65,23 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path, policies: list[str]
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
-            diagnostics = row["diagnostics"]
             csv_row = {
                 "alpha": row["alpha"],
                 "pfail": row["pfail"],
                 "budget": row["budget"],
-                "regime_label": diagnostics["regime_label"],
-                "interestingness_score": diagnostics["interestingness_score"],
-                "final_anc_spread": diagnostics["final_anc_spread"],
-                "threshold_hit_spread": diagnostics["threshold_hit_spread"],
-                "rounds_spread": diagnostics["rounds_spread"],
-                "mean_final_anc": diagnostics["mean_final_anc"],
-                "mean_threshold_hit": diagnostics["mean_threshold_hit"],
-                "budget_sensitivity": diagnostics["budget_sensitivity"],
-                "best_policy": diagnostics["best_policy"],
-                "worst_policy": diagnostics["worst_policy"],
-                "best_heuristic": diagnostics["best_heuristic"],
-                "best_heuristic_final_anc": diagnostics["best_heuristic_final_anc"],
-                "rl_vs_best_heuristic_gap": diagnostics["rl_vs_best_heuristic_gap"],
+                "regime_label": row["diagnostics"]["regime_label"],
+                "interestingness_score": row["diagnostics"]["interestingness_score"],
+                "final_anc_spread": row["diagnostics"]["final_anc_spread"],
+                "threshold_hit_spread": row["diagnostics"]["threshold_hit_spread"],
+                "rounds_spread": row["diagnostics"]["rounds_spread"],
+                "mean_final_anc": row["diagnostics"]["mean_final_anc"],
+                "mean_threshold_hit": row["diagnostics"]["mean_threshold_hit"],
+                "budget_sensitivity": row["diagnostics"]["budget_sensitivity"],
+                "best_policy": row["diagnostics"]["best_policy"],
+                "worst_policy": row["diagnostics"]["worst_policy"],
+                "best_heuristic": row["diagnostics"]["best_heuristic"],
+                "best_heuristic_final_anc": row["diagnostics"]["best_heuristic_final_anc"],
+                "rl_vs_best_heuristic_gap": row["diagnostics"]["rl_vs_best_heuristic_gap"],
             }
             for policy_name in policies:
                 policy_summary = row["policy_summaries"][policy_name]
@@ -111,53 +94,50 @@ def write_csv(rows: list[dict[str, Any]], output_path: Path, policies: list[str]
             writer.writerow(csv_row)
 
 
-def build_recommendation(serialized_cells: list[dict[str, Any]]) -> dict[str, Any] | None:
-    if not serialized_cells:
-        return None
-
+def build_recommendation(serialized_cells: list[dict]) -> dict | None:
     spread_cells = [
         cell
         for cell in serialized_cells
         if cell["diagnostics"]["final_anc_spread"] > 0.0
         or cell["diagnostics"]["threshold_hit_spread"] > 0.0
     ]
-    decision_sensitive = [
-        cell for cell in spread_cells if cell["diagnostics"]["regime_label"] == "decision-sensitive"
+    interesting_cells = [
+        cell
+        for cell in spread_cells
+        if cell["diagnostics"]["interesting_for_rl"]
     ]
-    candidate_cells = decision_sensitive or spread_cells or serialized_cells
+    candidate_cells = interesting_cells or spread_cells or serialized_cells
+    if not candidate_cells:
+        return None
     best_cell = max(
         candidate_cells,
         key=lambda cell: (
-            cell["diagnostics"]["interestingness_score"],
             cell["diagnostics"]["final_anc_spread"],
             cell["diagnostics"]["threshold_hit_spread"],
             cell["diagnostics"]["budget_sensitivity"] or 0.0,
+            cell["diagnostics"]["interestingness_score"],
         ),
     )
-    diagnostics = best_cell["diagnostics"]
     return {
         "alpha": best_cell["alpha"],
         "pfail": best_cell["pfail"],
         "budget": best_cell["budget"],
-        "regime_label": diagnostics["regime_label"],
-        "interestingness_score": diagnostics["interestingness_score"],
-        "best_policy": diagnostics["best_policy"],
-        "worst_policy": diagnostics["worst_policy"],
-        "best_heuristic": diagnostics["best_heuristic"],
-        "best_heuristic_final_anc": diagnostics["best_heuristic_final_anc"],
-        "rl_vs_best_heuristic_gap": diagnostics["rl_vs_best_heuristic_gap"],
-        "final_anc_spread": diagnostics["final_anc_spread"],
-        "threshold_hit_spread": diagnostics["threshold_hit_spread"],
-        "budget_sensitivity": diagnostics["budget_sensitivity"],
+        "regime_label": best_cell["diagnostics"]["regime_label"],
+        "interestingness_score": best_cell["diagnostics"]["interestingness_score"],
+        "best_policy": best_cell["diagnostics"]["best_policy"],
+        "worst_policy": best_cell["diagnostics"]["worst_policy"],
+        "final_anc_spread": best_cell["diagnostics"]["final_anc_spread"],
+        "threshold_hit_spread": best_cell["diagnostics"]["threshold_hit_spread"],
+        "budget_sensitivity": best_cell["diagnostics"]["budget_sensitivity"],
         "limited_spread": (
-            diagnostics["final_anc_spread"] < 0.05
-            and diagnostics["threshold_hit_spread"] < 0.05
+            best_cell["diagnostics"]["final_anc_spread"] < 0.05
+            and best_cell["diagnostics"]["threshold_hit_spread"] < 0.05
         ),
     }
 
 
 def write_note(
-    recommendation: dict[str, Any] | None,
+    recommendation: dict | None,
     output_path: Path,
     *,
     tau: float,
@@ -186,10 +166,10 @@ def write_note(
             f"- interestingness score: `{recommendation['interestingness_score']:.3f}`\n"
         )
         file.write(
-            f"- final ANC spread across policies: `{recommendation['final_anc_spread']:.3f}`\n"
+            f"- final ANC spread across heuristics: `{recommendation['final_anc_spread']:.3f}`\n"
         )
         file.write(
-            f"- threshold-hit spread across policies: "
+            f"- threshold-hit spread across heuristics: "
             f"`{recommendation['threshold_hit_spread']:.3f}`\n"
         )
         if recommendation["budget_sensitivity"] is not None:
@@ -197,23 +177,19 @@ def write_note(
                 f"- budget sensitivity at this `(alpha, pfail)`: "
                 f"`{recommendation['budget_sensitivity']:.3f}`\n"
             )
-        if recommendation["best_heuristic"] is not None:
-            file.write(
-                f"- best heuristic in this cell: `{recommendation['best_heuristic']}`\n"
-            )
-        if recommendation["rl_vs_best_heuristic_gap"] is not None:
-            file.write(
-                f"- RL vs best heuristic final-ANC gap: "
-                f"`{recommendation['rl_vs_best_heuristic_gap']:.3f}`\n"
-            )
-        file.write(f"- best overall policy in this cell: `{recommendation['best_policy']}`\n")
-        file.write(f"- weakest overall policy in this cell: `{recommendation['worst_policy']}`\n")
+        file.write(
+            f"- current best heuristic in this cell: `{recommendation['best_policy']}`\n"
+        )
+        file.write(
+            f"- current weakest heuristic in this cell: `{recommendation['worst_policy']}`\n"
+        )
         if recommendation["limited_spread"]:
             file.write(
                 "\n## Caveat\n\n"
-                "The coarse sweep found only a small spread between policies in this cell. "
-                "This is still the best candidate found, but it suggests the regime map should "
-                "be refined further before assuming there is large headroom for RL.\n"
+                "The coarse sweep found only a small spread between heuristic baselines in this "
+                "cell. This still marks the strongest policy-sensitive setting observed so far, "
+                "but it suggests the regime map should be refined further before assuming there "
+                "is large headroom for RL.\n"
             )
 
 
@@ -235,9 +211,6 @@ def main() -> None:
     graph_config = config["graph"]
     evaluation_config = config["evaluation"]
     budget_scaling = config.get("budget_scaling", {})
-    env_kwargs = resolve_env_kwargs(config)
-    scale_budget = bool(budget_scaling.get("enabled", False))
-    reference_n = int(budget_scaling.get("reference_n", 40))
 
     output_dir = ROOT / regime_config["output_dir"]
     tau = float(evaluation_config["tau"])
@@ -250,7 +223,7 @@ def main() -> None:
     )
 
     policy_factories = build_policy_factories(base_seed=int(regime_config["graph_seed"]))
-    selected_policies = list(regime_config["policies"])
+    selected_policies = regime_config["policies"]
     policy_factories = {
         policy_name: policy_factories[policy_name] for policy_name in selected_policies
     }
@@ -267,9 +240,8 @@ def main() -> None:
         hopeless_threshold=float(regime_config["hopeless_threshold"]),
         trivial_threshold=float(regime_config["trivial_threshold"]),
         spread_threshold=float(regime_config["spread_threshold"]),
-        env_kwargs=env_kwargs,
-        scale_budget=scale_budget,
-        reference_n=reference_n,
+        scale_budget=bool(budget_scaling.get("enabled", True)),
+        reference_n=int(budget_scaling.get("reference_n", 40)),
     )
 
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
@@ -281,11 +253,6 @@ def main() -> None:
         "tau": tau,
         "seeds": seeds,
         "num_graphs": len(graphs),
-        "env": env_kwargs,
-        "scaling": {
-            "scale_budget": scale_budget,
-            "reference_n": reference_n,
-        },
         "cells": serialized_cells,
         "bucket_summary": bucket_summary,
         "recommendation": recommendation,
@@ -301,27 +268,26 @@ def main() -> None:
         json.dump(results, file, indent=2)
     write_csv(serialized_cells, csv_path, selected_policies)
     write_note(recommendation, note_path, tau=tau, num_graphs=len(graphs), seeds=seeds)
+    with metadata_path.open("w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "script": "scripts/map_regime.py",
+                "config_path": str(args.config),
+                "output_dir": str(output_dir),
+                "num_graphs": len(graphs),
+                "policies": selected_policies,
+                "tau": tau,
+            },
+            file,
+            indent=2,
+        )
     plot_interestingness_heatmaps(results, output_dir / "interestingness_heatmap.png")
     plot_budget_curves(results, output_dir / "budget_curves.png")
-    write_run_metadata(
-        metadata_path,
-        script_path=Path(__file__).resolve(),
-        argv=sys.argv,
-        config_path=args.config,
-        extra={
-            "output_dir": str(output_dir),
-            "policy_names": selected_policies,
-            "env": env_kwargs,
-            "scaling": {
-                "scale_budget": scale_budget,
-                "reference_n": reference_n,
-            },
-        },
-    )
 
     print(f"Saved regime map to {json_path}")
     print(f"Saved summary table to {csv_path}")
     print(f"Saved recommendation note to {note_path}")
+    print(f"Saved run metadata to {metadata_path}")
 
 
 if __name__ == "__main__":

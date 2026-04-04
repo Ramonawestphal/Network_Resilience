@@ -5,7 +5,7 @@ from collections.abc import Hashable
 from dataclasses import dataclass
 from random import Random
 
-import networkx as nx
+import networkx as nx  # type: ignore[import-untyped]
 
 from cascading_rl.dynamics.cascade import (
     advance_cascade_round,
@@ -20,24 +20,24 @@ Node = Hashable
 
 
 def _nodes_within_hops_of_failed(graph: nx.Graph, failed: frozenset[Node], hops: int) -> set[Node]:
-    """Nodes whose shortest-path distance to a failed node is within the observation radius."""
-    if hops < 1 or not failed:
+    """Nodes whose shortest-path distance to some failed node is <= hops (failed nodes included)."""
+    if hops < 1:
         return set(graph.nodes())
-
+    if not failed:
+        return set(graph.nodes())
     dist: dict[Node, int] = {}
     queue: deque[Node] = deque()
     for node in failed:
         dist[node] = 0
         queue.append(node)
-
     while queue:
         current = queue.popleft()
-        current_dist = dist[current]
-        if current_dist == hops:
+        d = dist[current]
+        if d == hops:
             continue
         for neighbor in graph.neighbors(current):
             if neighbor not in dist:
-                dist[neighbor] = current_dist + 1
+                dist[neighbor] = d + 1
                 queue.append(neighbor)
     return set(dist.keys())
 
@@ -57,6 +57,7 @@ def _apply_obs_hops_mask(
             masked_loads[node] = 0.0
             masked_capacities[node] = 0.0
     return masked_loads, masked_capacities
+
 
 @dataclass(frozen=True)
 class RecoveryObservation:
@@ -97,7 +98,14 @@ class RecoveryObservation:
 
 
 class RecoveryEnv:
-    """Budget-constrained recovery environment with post-action cascades."""
+    """Budget-constrained recovery environment with batch-per-round cascade waves.
+
+    ``step`` exposes intra-round single-node repairs, while ``step_batch`` performs a
+    full round decision of up to ``B`` repairs followed by one cascade wave. Both use
+    the same reward: net PR/ANC change from the state at the start of the transition to
+    after any repairs in that transition and after the cascade wave (if the round ends
+    and a wave runs). Intra-round steps omit the wave, so reward equals repair-only gain.
+    """
 
     def __init__(
         self,
@@ -137,6 +145,9 @@ class RecoveryEnv:
         self.current_round = 1
 
     def reset(self, seed: int | None = None) -> RecoveryObservation:
+        # When ``seed`` is given, the environment RNG is fully re-seeded before
+        # ``build_initial_state``; the constructor ``seed=`` does not affect
+        # failure sampling after such a reset (only ``reset(seed=...)`` matters).
         if seed is not None:
             self._rng.seed(seed)
         self.state = build_initial_state(
@@ -160,11 +171,7 @@ class RecoveryEnv:
         failed_set = frozenset(self.state.failed)
         if self.obs_hops is not None:
             loads, capacities = _apply_obs_hops_mask(
-                self.state.graph,
-                loads,
-                capacities,
-                failed_set,
-                self.obs_hops,
+                self.state.graph, loads, capacities, failed_set, self.obs_hops
             )
         return RecoveryObservation(
             graph=self.state.graph,
@@ -186,7 +193,7 @@ class RecoveryEnv:
             raise RuntimeError("Environment must be reset before use.")
         return accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
-    def step(self, action: Node) -> tuple[RecoveryObservation, float, bool, dict[str, float | int]]:
+    def step(self, action: Node) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
         if self.state is None:
             raise RuntimeError("Environment must be reset before use.")
         if self.remaining_budget <= 0:
@@ -198,16 +205,20 @@ class RecoveryEnv:
         action_index_in_round = self.budget - self.remaining_budget + 1
         previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
-        repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.remaining_budget -= 1
 
-        round_complete = self.remaining_budget == 0
+        anc_after_reactivation = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+
         newly_failed: list[Node] = []
-        if round_complete and self.state.failed:
+        cascade_executed = False
+        round_complete = self.remaining_budget == 0
+        if round_complete and self.state.frontier and self.state.failed:
+            cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
-        reward = repaired_anc - previous_anc
-        post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        anc_after_cascade = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = anc_after_cascade - previous_anc
+
         exhausted_rounds = action_round >= self.max_rounds
         if not self.state.failed:
             done = True
@@ -221,9 +232,9 @@ class RecoveryEnv:
             self.remaining_budget = self.budget
 
         info = {
-            "anc": post_cascade_anc,
-            "anc_after_cascade": post_cascade_anc,
-            "anc_after_reactivation": repaired_anc,
+            "anc": anc_after_cascade,
+            "anc_after_cascade": anc_after_cascade,
+            "anc_after_reactivation": anc_after_reactivation,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
             "frontier_nodes": len(self.state.frontier),
@@ -235,18 +246,19 @@ class RecoveryEnv:
             "max_rounds_reached": round_complete and exhausted_rounds,
             "reactivated_node": action,
             "newly_failed_nodes": newly_failed,
-            "cascade_executed": round_complete,
+            "cascade_executed": cascade_executed,
         }
         return self.observe(), reward, done, info
 
-    def step_batch(self, actions: list[Node]) -> tuple[RecoveryObservation, float, bool, dict]:
-        """Reactivate up to B nodes at once, then fire one cascade."""
+    def step_batch(self, actions: list[Node]) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
+        """Reactivate up to the remaining budget at once, then fire one cascade wave."""
         if self.state is None:
             raise RuntimeError("Environment must be reset before use.")
-        if len(actions) > self.budget:
-            raise ValueError(f"Cannot reactivate more than {self.budget} nodes per round.")
+        if len(actions) > self.remaining_budget:
+            raise ValueError(f"Cannot reactivate more than {self.remaining_budget} nodes this round.")
         if len(set(actions)) != len(actions):
             raise ValueError("Duplicate actions in batch.")
+
         valid_actions = set(self.observe().valid_actions)
         invalid_actions = [action for action in actions if action not in valid_actions]
         if invalid_actions:
@@ -260,11 +272,13 @@ class RecoveryEnv:
         repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
         newly_failed: list[Node] = []
-        if self.state.failed:
+        cascade_executed = False
+        if self.state.frontier and self.state.failed:
+            cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
-        reward = repaired_anc - previous_anc
         post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        reward = post_cascade_anc - previous_anc
 
         exhausted_rounds = self.current_round >= self.max_rounds
         done = not self.state.failed or exhausted_rounds
@@ -272,6 +286,8 @@ class RecoveryEnv:
         if not done:
             self.current_round += 1
             self.remaining_budget = self.budget
+        else:
+            self.remaining_budget = max(0, self.remaining_budget - len(actions))
 
         info = {
             "anc": post_cascade_anc,
@@ -284,7 +300,8 @@ class RecoveryEnv:
             "action_round": action_round,
             "actions": list(actions),
             "remaining_budget": self.remaining_budget,
+            "round_complete": True,
             "max_rounds_reached": exhausted_rounds,
-            "cascade_executed": True,
+            "cascade_executed": cascade_executed,
         }
         return self.observe(), reward, done, info

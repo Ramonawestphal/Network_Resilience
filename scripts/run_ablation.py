@@ -5,7 +5,6 @@ import json
 import sys
 from dataclasses import replace
 from pathlib import Path
-from random import Random
 
 import yaml
 
@@ -18,7 +17,12 @@ if str(SRC) not in sys.path:
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy
-from cascading_rl.training import TrainingConfig, train_recovery_agent
+from cascading_rl.training import (
+    FREEZE_GRAPH_SPECS_SEED_OFFSET,
+    TrainingConfig,
+    generate_episode_graph_specs,
+    train_recovery_agent,
+)
 
 
 ABLATION_CONFIGS = [
@@ -29,7 +33,6 @@ ABLATION_CONFIGS = [
 ]
 ABLATION_OUTPUT_DIR = ROOT / "experiments" / "ablation"
 ABLATION_OUTPUT_PATH = ABLATION_OUTPUT_DIR / "ablation_comparison.json"
-TRAIN_GRAPH_SPEC_SEED_OFFSET = 20_000
 EVAL_GRAPH_SEED_OFFSET = 30_000
 
 
@@ -69,22 +72,12 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         validation_every=int(training["validation_every"]),
         checkpoint_dir=str(ABLATION_OUTPUT_DIR),
         checkpoint_name="placeholder.pt",
-    )
-
-
-def generate_episode_graph_specs(config: TrainingConfig, *, seed: int) -> tuple[tuple[int, int], ...]:
-    rng = Random(seed)
-    return tuple(
-        (
-            rng.randint(config.n_range[0], config.n_range[1]),
-            rng.randint(0, 10**9),
-        )
-        for _ in range(config.num_episodes)
+        freeze_graphs=bool(training.get("freeze_graphs", False)),
     )
 
 
 def evaluate_config(model, training_config: TrainingConfig, eval_graphs: list, eval_seeds: list[int], tau: float) -> dict:
-    rl_policy = build_greedy_policy(model, device=training_config.device)
+    rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
     summaries = evaluate_policy_factories_on_graphs(
         eval_graphs,
         {"rl": lambda graph_index, seed: rl_policy},
@@ -157,7 +150,7 @@ def main() -> None:
     eval_seeds = list(training["benchmark_seeds"])
     frozen_episode_graph_specs = generate_episode_graph_specs(
         base_training_config,
-        seed=base_training_config.seed + TRAIN_GRAPH_SPEC_SEED_OFFSET,
+        seed=base_training_config.seed + FREEZE_GRAPH_SPECS_SEED_OFFSET,
     )
     eval_graphs = make_graph_batch(
         num_graphs=int(training["benchmark_graphs"]),

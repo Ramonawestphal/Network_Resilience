@@ -19,29 +19,8 @@ def test_environment_step_rewards_connectivity_gain():
     assert reward > 0.0
     assert 0 in observation.active
     assert info["anc"] == 9 / 16
+    assert info["cascade_executed"] is False
     assert done is False
-
-
-def test_environment_starts_new_round_when_budget_is_exhausted():
-    graph = nx.path_graph(4)
-    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=1, max_rounds=3)
-
-    env.reset()
-    env.state.active = {0}
-    env.state.failed = {1, 2, 3}
-    env.state.frontier = set()
-    env.state.loads = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0}
-    env.state.capacities = {0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0}
-    env.remaining_budget = 1
-    env.current_round = 1
-
-    observation, _, done, info = env.step(1)
-
-    assert done is False
-    assert info["round_complete"] is True
-    assert info["action_round"] == 1
-    assert observation.current_round == 2
-    assert observation.remaining_budget == 1
 
 
 def test_environment_waits_until_round_end_before_cascade():
@@ -78,33 +57,50 @@ def test_environment_waits_until_round_end_before_cascade():
     assert 0 in obs_after_second.failed
 
 
-def test_obs_hops_masks_loads_beyond_one_hop_and_preserves_valid_actions():
+def test_environment_starts_new_round_when_budget_is_exhausted():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=1, max_rounds=3)
+
+    env.reset()
+    env.state.active = {0}
+    env.state.failed = {1, 2, 3}
+    env.state.frontier = set()
+    env.state.loads = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 2.0, 3: 2.0}
+    env.remaining_budget = 1
+    env.current_round = 1
+
+    observation, _, done, info = env.step(1)
+
+    assert done is False
+    assert info["round_complete"] is True
+    assert info["cascade_executed"] is False
+    assert info["action_round"] == 1
+    assert observation.current_round == 2
+    assert observation.remaining_budget == 1
+
+
+def test_obs_hops_masks_loads_beyond_one_hop_and_step_preserves_valid_actions():
     graph = nx.path_graph(7)
-    env = RecoveryEnv(
-        graph,
-        alpha=1.0,
-        pfail=0.0,
-        budget=2,
-        max_rounds=5,
-        obs_hops=1,
-        action_space="frontier",
-    )
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=5, obs_hops=1)
     env.reset(seed=0)
     env.state.active = {0, 2, 3, 4, 6}
     env.state.failed = {1, 5}
-    env.state.frontier = {1}
+    env.state.frontier = set()
     for node in graph.nodes():
         env.state.loads[node] = 1.0
         env.state.capacities[node] = 2.0
 
-    observation = env.observe()
-
-    assert observation.valid_actions == (1,)
+    obs_before = env.observe()
+    assert obs_before.valid_actions
     for node in graph.nodes():
-        dist = min(nx.shortest_path_length(graph, node, failed) for failed in observation.failed)
+        dist = min(nx.shortest_path_length(graph, node, f) for f in obs_before.failed)
         if dist > 1:
-            assert observation.loads[node] == 0.0
-            assert observation.capacities[node] == 0.0
+            assert obs_before.loads[node] == 0.0
+            assert obs_before.capacities[node] == 0.0
+
+    obs_after, _, _, _ = env.step(1)
+    assert obs_after.valid_actions
 
 
 def test_environment_stops_when_max_rounds_are_reached():
@@ -124,3 +120,49 @@ def test_environment_stops_when_max_rounds_are_reached():
 
     assert done is True
     assert info["max_rounds_reached"] is True
+
+
+def test_environment_step_batch_repairs_full_round_before_cascade():
+    graph = nx.star_graph(4)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=3)
+
+    env.reset()
+    env.state.active = {0, 2}
+    env.state.failed = {1, 3, 4}
+    env.state.frontier = {1}
+    env.state.loads = {0: 0.0, 1: 3.0, 2: 0.0, 3: 0.0, 4: 0.0}
+    env.state.capacities = {0: 2.0, 1: 3.0, 2: 2.0, 3: 2.0, 4: 2.0}
+    env.remaining_budget = 2
+    env.current_round = 1
+
+    prev_anc = env.current_anc()
+    observation, reward, done, info = env.step_batch([3, 4])
+
+    assert reward == info["anc_after_cascade"] - prev_anc
+    assert done is False
+    assert info["cascade_executed"] is True
+    assert info["actions"] == [3, 4]
+    assert observation.current_round == 2
+    assert observation.remaining_budget == 2
+
+
+def test_recovery_env_reset_reseeds_rng_independent_of_constructor_seed():
+    """``reset(seed=...)`` fully controls failure sampling; constructor seed must not leak."""
+    graph = nx.barabasi_albert_graph(28, 2, seed=0)
+    env_low = RecoveryEnv(graph, alpha=0.2, pfail=0.35, budget=3, max_rounds=6, seed=0)
+    env_high = RecoveryEnv(graph, alpha=0.2, pfail=0.35, budget=3, max_rounds=6, seed=9_999_999)
+
+    failure_seed = 50_001
+    f_low = frozenset(env_low.reset(seed=failure_seed).failed)
+    f_high = frozenset(env_high.reset(seed=failure_seed).failed)
+    assert f_low == f_high
+
+    same_again = frozenset(env_low.reset(seed=failure_seed).failed)
+    assert same_again == f_low
+
+    diff_found = False
+    for s in range(50_002, 50_400):
+        if frozenset(env_low.reset(seed=s).failed) != f_low:
+            diff_found = True
+            break
+    assert diff_found, "expected different failure_seed to change the initial failure set"

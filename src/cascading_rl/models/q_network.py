@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
@@ -31,7 +31,7 @@ class QNetworkConfig:
     hidden_dim: int = 64
     embed_dim: int = 64
     num_layers: int = 2
-    use_global_features: bool = True
+    use_global_features: bool = False
     use_virtual_node: bool = False
 
 
@@ -53,10 +53,9 @@ class RecoveryQNetwork(nn.Module):
         global_out_dim = self.config.embed_dim // 2 if self.config.use_global_features else 0
         self.global_readout = None
         if self.config.use_global_features:
-            global_feat_dim = len(self.global_feature_names)
             self.global_readout = GlobalReadout(
                 embed_dim=self.config.embed_dim,
-                global_feat_dim=global_feat_dim,
+                global_feat_dim=len(self.global_feature_names),
                 out_dim=global_out_dim,
             )
         self.q_head = nn.Sequential(
@@ -72,20 +71,24 @@ class RecoveryQNetwork(nn.Module):
     ) -> torch.Tensor:
         node_embeddings = self.encoder(graph_tensor)
         num_real_nodes = len(graph_tensor.node_ids)
-        if self.config.use_virtual_node:
-            node_embeddings = node_embeddings[:num_real_nodes]
+        readout_embeddings = node_embeddings[:num_real_nodes] if self.config.use_virtual_node else node_embeddings
 
         if self.config.use_global_features:
             if global_features is None:
                 raise ValueError("global_features are required when use_global_features=True.")
-            global_vec = self.global_readout(node_embeddings, global_features)
-            global_expanded = global_vec.unsqueeze(0).expand(node_embeddings.size(0), -1)
-            node_input = torch.cat([node_embeddings, global_expanded], dim=1)
+            assert self.global_readout is not None
+            global_vec = self.global_readout(readout_embeddings, global_features)
+            global_expanded = global_vec.unsqueeze(0).expand(readout_embeddings.size(0), -1)
+            node_input = torch.cat([readout_embeddings, global_expanded], dim=1)
         else:
-            node_input = node_embeddings
+            node_input = readout_embeddings
 
         q_values = self.q_head(node_input).squeeze(-1)
-        valid_mask = graph_tensor.valid_mask[:num_real_nodes] if self.config.use_virtual_node else graph_tensor.valid_mask
+        valid_mask = (
+            graph_tensor.valid_mask[:num_real_nodes]
+            if self.config.use_virtual_node
+            else graph_tensor.valid_mask
+        )
         return q_values.masked_fill(~valid_mask, -1e9)
 
     def score_observation(
@@ -134,33 +137,6 @@ def select_action(
     return graph_tensor.node_ids[best_index]
 
 
-def build_greedy_policy(
-    model: RecoveryQNetwork,
-    *,
-    device: torch.device | str | None = None,
-) -> Callable[[RecoveryObservation], Node]:
-    """Wrap the Q-network as a greedy policy compatible with evaluation helpers."""
-
-    def policy(observation: RecoveryObservation) -> Node:
-        return select_action(model, observation, epsilon=0.0, device=device)
-
-    return policy
-
-
-def load_q_network(
-    checkpoint_path: str | Path,
-    *,
-    map_location: str | torch.device = "cpu",
-) -> tuple[RecoveryQNetwork, dict]:
-    """Load a saved learner checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location=map_location)
-    model_config = QNetworkConfig(**checkpoint["model_config"])
-    model = RecoveryQNetwork(model_config)
-    model.load_state_dict(checkpoint["model_state"])
-    model.to(map_location)
-    model.eval()
-    return model, checkpoint
-
 def select_top_b(
     model: RecoveryQNetwork,
     observation: RecoveryObservation,
@@ -177,7 +153,6 @@ def select_top_b(
 
     rng = rng or Random()
     b = min(budget, len(valid_actions))
-
     if rng.random() < epsilon:
         return rng.sample(list(valid_actions), b)
 
@@ -200,7 +175,43 @@ def select_top_b(
         q_values = model(graph_tensor, global_features)
 
     valid_indices = [graph_tensor.node_to_index[node] for node in valid_actions]
-    valid_q = [(q_values[i].item(), graph_tensor.node_ids[i]) for i in valid_indices]
-    valid_q.sort(key=lambda x: x[0], reverse=True)
-
+    valid_q = [(q_values[index].item(), graph_tensor.node_ids[index]) for index in valid_indices]
+    valid_q.sort(key=lambda item: item[0], reverse=True)
     return [node for _, node in valid_q[:b]]
+
+
+def build_greedy_policy(
+    model: RecoveryQNetwork,
+    *,
+    device: torch.device | str | None = None,
+    batch_actions: bool = False,
+) -> Callable[[RecoveryObservation], Node | list[Node]]:
+    """Wrap the Q-network as a greedy policy compatible with evaluation helpers."""
+
+    def policy(observation: RecoveryObservation) -> Node | list[Node]:
+        if batch_actions:
+            return select_top_b(
+                model,
+                observation,
+                budget=observation.remaining_budget,
+                epsilon=0.0,
+                device=device,
+            )
+        return select_action(model, observation, epsilon=0.0, device=device)
+
+    return policy
+
+
+def load_q_network(
+    checkpoint_path: str | Path,
+    *,
+    map_location: str | torch.device = "cpu",
+) -> tuple[RecoveryQNetwork, dict]:
+    """Load a saved learner checkpoint."""
+    checkpoint = torch.load(checkpoint_path, map_location=map_location)
+    model_config = QNetworkConfig(**checkpoint["model_config"])
+    model = RecoveryQNetwork(model_config)
+    model.load_state_dict(checkpoint["model_state"])
+    model.to(map_location)
+    model.eval()
+    return model, checkpoint

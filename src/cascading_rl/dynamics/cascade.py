@@ -77,7 +77,12 @@ def sample_initial_failures(
     *,
     weights: dict[Node, float] | None = None,
 ) -> set[Node]:
-    """Sample initial failures across active nodes."""
+    """Sample initial failures across active nodes.
+
+    When `weights` is provided, failures are still independent Bernoulli draws but
+    the per-node probability is tilted proportional to `weights[node]` while
+    preserving the expected failure rate (approximately) at `pfail`.
+    """
     if not 0.0 <= pfail <= 1.0:
         raise ValueError("pfail must lie in [0, 1].")
 
@@ -186,7 +191,7 @@ def propagate_cascade(
     frontier: Iterable[Node] | None = None,
 ) -> list[Node]:
     """Apply overload failures wave by wave until the cascade settles."""
-    failed_nodes = set() if failed is None else set(failed)
+    failed_nodes = failed if failed is not None else set(graph.nodes()) - set(active)
 
     state = CascadeState(
         graph=graph,

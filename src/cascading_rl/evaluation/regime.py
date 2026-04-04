@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 from random import Random
 
 import networkx as nx
 
-from cascading_rl.envs.recovery import RecoveryObservation
+from cascading_rl.budgeting import compute_scaled_budget
+from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
-    AggregateMetric,
     PolicyEvaluationSummary,
-    evaluate_policy_factories_on_graphs as evaluate_policy_factories_on_graphs_base,
+    rollout_policy,
+    summarize_episode_results,
 )
 from cascading_rl.policies import (
     choose_greedy_anc_node,
@@ -49,6 +51,7 @@ class RegimeCellResult:
     budget: int
     diagnostics: RegimeDiagnostics
     policy_summaries: dict[str, PolicyEvaluationSummary]
+    scaling: dict[str, Any] | None = None
 
 
 def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
@@ -82,19 +85,36 @@ def evaluate_policy_factories_on_graphs(
     reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policies across fixed graph instances and matched seeds."""
-    return evaluate_policy_factories_on_graphs_base(
-        graphs,
-        policy_factories,
-        alpha=alpha,
-        pfail=pfail,
-        budget=budget,
-        max_rounds=max_rounds,
-        seeds=seeds,
-        tau=tau,
-        env_kwargs=env_kwargs,
-        scale_budget=scale_budget,
-        reference_n=reference_n,
-    )
+    episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
+    resolved_env_kwargs = dict(env_kwargs or {})
+    seeds_seq = tuple(seeds)
+
+    for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
+        for seed in seeds_seq:
+            for policy_name, policy_factory in policy_factories.items():
+                env = RecoveryEnv(
+                    graph,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=resolved_budget,
+                    max_rounds=max_rounds,
+                    seed=seed,
+                    **resolved_env_kwargs,
+                )
+                policy = policy_factory(graph_index, seed)
+                result = rollout_policy(env, policy, seed=seed, tau=tau)
+                episode_results_by_policy[policy_name].append(result)
+
+    return {
+        policy_name: summarize_episode_results(episode_results)
+        for policy_name, episode_results in episode_results_by_policy.items()
+    }
 
 
 def compute_regime_diagnostics(
@@ -105,7 +125,7 @@ def compute_regime_diagnostics(
     spread_threshold: float = 0.05,
     budget_sensitivity: float | None = None,
 ) -> RegimeDiagnostics:
-    """Summarize whether a parameter cell is trivial, hopeless, or decision-sensitive."""
+    """Summarize whether a parameter cell is trivial, hopeless, ambiguous, or DS."""
     final_anc_by_policy = {
         policy_name: summary.final_anc.mean
         for policy_name, summary in policy_summaries.items()
@@ -137,21 +157,18 @@ def compute_regime_diagnostics(
 
     middle_final_anc = max(0.0, 1.0 - 2.0 * abs(mean_final_anc - 0.5))
     middle_threshold_hit = max(0.0, 1.0 - 2.0 * abs(mean_threshold_hit - 0.5))
-    budget_weight = 0.20 if budget_sensitivity is not None else 0.0
-    base_score = (
+    interestingness_score = (
         0.35 * final_anc_spread
         + 0.25 * threshold_hit_spread
         + 0.20 * middle_final_anc
         + 0.20 * middle_threshold_hit
     )
-    if budget_weight > 0.0 and budget_sensitivity is not None:
-        interestingness_score = (1.0 - budget_weight) * base_score + budget_weight * budget_sensitivity
-    else:
-        interestingness_score = base_score
+    if budget_sensitivity is not None:
+        interestingness_score += 0.20 * budget_sensitivity
 
     best_final_anc = max(final_anc_by_policy.values())
-    best_threshold_hit = max(threshold_hit_by_policy.values())
     worst_final_anc = min(final_anc_by_policy.values())
+    best_threshold_hit = max(threshold_hit_by_policy.values())
     worst_threshold_hit = min(threshold_hit_by_policy.values())
     if heuristic_final_anc:
         best_heuristic = max(heuristic_final_anc, key=heuristic_final_anc.get)
@@ -166,18 +183,17 @@ def compute_regime_diagnostics(
         else None
     )
 
-    has_decision_spread = (
-        final_anc_spread >= spread_threshold or threshold_hit_spread >= spread_threshold
-    )
-
     if best_final_anc <= hopeless_threshold and best_threshold_hit <= hopeless_threshold:
         regime_label = "hopeless"
     elif worst_final_anc >= trivial_threshold and worst_threshold_hit >= trivial_threshold:
         regime_label = "trivial"
-    elif has_decision_spread:
+    elif (
+        final_anc_spread > spread_threshold
+        or threshold_hit_spread > spread_threshold
+    ):
         regime_label = "decision-sensitive"
     else:
-        regime_label = "recoverable"
+        regime_label = "ambiguous"
 
     return RegimeDiagnostics(
         regime_label=regime_label,
@@ -215,10 +231,10 @@ def build_regime_cells(
     reference_n: int = 40,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
-    seeds_materialized: tuple[int, ...] = tuple(seeds)
     cells: list[RegimeCellResult] = []
     grouped_best_anc: dict[tuple[float, float], list[float]] = {}
     grouped_cells: dict[tuple[float, float], list[tuple[int, dict[str, PolicyEvaluationSummary]]]] = {}
+    seeds_seq = tuple(seeds)
 
     for alpha in alpha_values:
         for pfail in pfail_values:
@@ -230,7 +246,7 @@ def build_regime_cells(
                     pfail=pfail,
                     budget=budget,
                     max_rounds=max_rounds,
-                    seeds=seeds_materialized,
+                    seeds=seeds_seq,
                     tau=tau,
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,
@@ -265,15 +281,17 @@ def build_regime_cells(
     return sorted(cells, key=lambda cell: (cell.alpha, cell.pfail, cell.budget))
 
 
-def serialize_metric(metric: AggregateMetric | None) -> dict[str, float] | None:
+def serialize_metric(metric: object | None) -> dict[str, float] | None:
     if metric is None:
         return None
-    return {"mean": metric.mean, "stderr": metric.stderr}
+    typed_metric = metric
+    return {
+        "mean": typed_metric.mean,
+        "stderr": typed_metric.stderr,
+    }
 
 
-def serialize_policy_summary(
-    summary: PolicyEvaluationSummary,
-) -> dict[str, dict[str, float] | None]:
+def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, dict[str, float] | None]:
     return {
         "final_anc": serialize_metric(summary.final_anc),
         "total_reward": serialize_metric(summary.total_reward),
@@ -288,7 +306,7 @@ def serialize_policy_summary(
 
 def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
     diagnostics = cell.diagnostics
-    return {
+    payload: dict[str, object] = {
         "alpha": cell.alpha,
         "pfail": cell.pfail,
         "budget": cell.budget,
@@ -313,15 +331,18 @@ def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
             for policy_name, summary in cell.policy_summaries.items()
         },
     }
+    if cell.scaling is not None:
+        payload["scaling"] = cell.scaling
+    return payload
 
 
 def _mean(values: Sequence[float]) -> float:
-    if not values:
-        return 0.0
     return sum(values) / len(values)
 
 
-def summarize_regime_buckets(cells: Sequence[RegimeCellResult]) -> dict[str, dict[str, object]]:
+def summarize_regime_buckets(
+    cells: Sequence[RegimeCellResult],
+) -> dict[str, dict[str, object]]:
     bucket_names = ["overall"] + sorted({cell.diagnostics.regime_label for cell in cells})
     summaries: dict[str, dict[str, object]] = {}
 
@@ -362,7 +383,9 @@ def summarize_regime_buckets(cells: Sequence[RegimeCellResult]) -> dict[str, dic
                 "threshold_hit_mean": _mean(
                     [summary.threshold_hit_fraction.mean for summary in matching_summaries]
                 ),
-                "rounds_mean": _mean([summary.rounds.mean for summary in matching_summaries]),
+                "rounds_mean": _mean(
+                    [summary.rounds.mean for summary in matching_summaries]
+                ),
                 "solved_fraction_mean": _mean(
                     [summary.solved_fraction.mean for summary in matching_summaries]
                 ),
@@ -370,7 +393,9 @@ def summarize_regime_buckets(cells: Sequence[RegimeCellResult]) -> dict[str, dic
 
         rl_gaps = [
             gap
-            for gap in (cell.diagnostics.rl_vs_best_heuristic_gap for cell in bucket_cells)
+            for gap in (
+                cell.diagnostics.rl_vs_best_heuristic_gap for cell in bucket_cells
+            )
             if gap is not None
         ]
         summaries[bucket_name] = {
@@ -379,7 +404,10 @@ def summarize_regime_buckets(cells: Sequence[RegimeCellResult]) -> dict[str, dic
                 [cell.diagnostics.interestingness_score for cell in bucket_cells]
             ),
             "mean_budget_sensitivity": _mean(
-                [cell.diagnostics.budget_sensitivity or 0.0 for cell in bucket_cells]
+                [
+                    cell.diagnostics.budget_sensitivity or 0.0
+                    for cell in bucket_cells
+                ]
             ),
             "winner_counts": winner_counts,
             "policy_means": policy_means,

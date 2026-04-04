@@ -1,107 +1,82 @@
 # Cascading-RL
 
-Controlled research codebase for **budget-constrained recovery** on networks under **cascading failures**. It couples explicit cascade dynamics (loads, capacities, failure spread) with a **graph observation** for learning: a **GNN-based DQN** trains recovery policies, while **heuristic baselines** support benchmarking and regime characterization.
+This project studies reinforcement learning for recovery from cascading failures on Barabasi-Albert graphs. The current codebase has been reset to the intended environment semantics: each recovery round allows up to `B` single-node repairs, and the cascade advances by exactly one wave only after the round ends.
 
-The repo is structured for **reproducible experiments**: YAML config, scripted entry points, checkpoints, JSON artifacts, and `run_metadata.json` manifests under `experiments/`.
+## Current Baseline
 
-## Features
+All experiment artifacts from the old interleaved semantics were deleted. Only post-reset results should be treated as valid.
 
-- **Recovery environment** (`RecoveryEnv`): round-based reactivations, post-action cascades, optional observation masking and action-space variants.
-- **Learning**: `RecoveryQNetwork` with optional global readout and virtual node; replay buffer, target updates, epsilon schedule (`scripts/train_policy.py`).
-- **Evaluation**: matched-seed rollouts, regime grids, hard-regime sweeps, scaling and budget search scripts.
-- **Analysis**: regime maps (coarse and resumable comprehensive), plots, CSV/JSON outputs.
+The fresh heuristic-only regime analysis under the corrected semantics currently shows:
 
-## Requirements
+- regime map grid: `alpha in {0.10, 0.15, 0.20, 0.25}`, `pfail in {0.05, 0.08, 0.10, 0.15}`, `budget in {1, 2, 3, 4}`
+- bucket counts: `41` `decision-sensitive`, `22` `trivial`, `1` `hopeless`
+- recommended training cell: `alpha=0.10`, `pfail=0.15`, `budget=4`
+- strongest baseline heuristic: usually `degree`, with `betweenness` winning some harder cells
 
-- **Python** 3.9+
-- **PyTorch** 2.6+ (see `pyproject.toml`)
-- **NetworkX**, **PyYAML** (core); **matplotlib** / **seaborn** for plotting scripts; **pandas** useful for tabular outputs
+Fresh artifacts:
 
-GPU is optional; set `device` in training config to `cuda` when available.
+- `experiments/regime_map/regime_results.json`
+- `experiments/regime_map/regime_results.csv`
+- `experiments/regime_map/recommended_regime.md`
+- `experiments/hard_regime/hard_regime_summary.json`
+- `experiments/reference_regime/evaluation_summary.json`
+- `experiments/reference_regime/evaluation_grid_summary.json`
 
-## Installation
+## Environment Semantics
 
-From the repository root:
+The environment lives in `src/cascading_rl/envs/recovery.py`.
 
-```bash
-pip install -e ".[dev,plot]"
-```
+Current step order:
 
-This installs the `cascading_rl` package from `src/`, development tools (`pytest`), and plotting extras.
+1. Sample one exogenous failure event at `t=0`.
+2. Within a round, choose up to `B` failed nodes sequentially.
+3. After the round budget is exhausted, run exactly one cascade wave from the current failed frontier.
+4. Repeat until there are no failed nodes left or `max_rounds` is reached.
 
-Alternatively:
+Reward is always the ANC gain immediately after the chosen repair and before any round-end cascade wave. That keeps credit assignment local to the repair decision while still letting the next state reflect cascade consequences.
 
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
+## Canonical Budget Rule
 
-(Use `pip install -e .[dev]` if you only need tests, without plot dependencies.)
+Budget scaling is now canonical everywhere through `config/default.yaml`.
 
-## Quick start
+- `budget` is interpreted as a reference budget
+- `reference_n=40`
+- actual per-graph budget is `round(budget * n / reference_n)`, clipped to at least `1`
 
-1. **Train** a Q-network checkpoint (paths and hyperparameters come from `config/default.yaml` → `training` section):
+That same rule is used in training, validation, regime mapping, and evaluation scripts.
 
-   ```bash
-   python scripts/train_policy.py --config config/default.yaml
-   ```
+## Current Default Training Setup
 
-2. **Evaluate** the trained policy against baselines (adjust `--checkpoint` to your saved `.pt`):
+The default training entry point is `scripts/train_policy.py`, backed by `src/cascading_rl/training/trainer.py`.
 
-   ```bash
-   python scripts/evaluate_policy.py --config config/default.yaml --checkpoint experiments/learner/recovery_q.pt
-   ```
+Current defaults:
 
-3. **Run tests**:
+- reference regime: `alpha=0.10`, `pfail=0.15`
+- mixed training grid: `alpha_values=(0.10, 0.15, 0.20)`, `pfail_values=(0.10, 0.15, 0.20)`
+- reference budget: `4`
+- `max_rounds=5`
+- `num_episodes=8000`
+- `warmup_transitions=500`
+- `batch_size=64`
+- `use_monte_carlo_returns=True`
+- fixed validation graphs via `validation_seed`
+- stratified cycling over `(alpha, pfail)` combinations
 
-   ```bash
-   pytest
-   ```
+The model uses the GNN in `src/cascading_rl/models/gnn.py` with a virtual global node for one-step access to global context.
 
-## Scripts
+## Main Entry Points
 
-| Script | Purpose |
-|--------|--------|
-| `scripts/train_policy.py` | Train the recovery Q-network; writes checkpoint and run metadata. |
-| `scripts/evaluate_policy.py` | Benchmark learned vs heuristic policies on configured graphs/regimes. |
-| `scripts/map_regime.py` | Coarse regime sweep and recommendations. |
-| `scripts/map_regime_comprehensive.py` | Larger, **resumable** regime sweep (checkpoint fingerprint avoids mismatched resumes). |
-| `scripts/evaluate_hard_regime.py` | Focused evaluation on “hard” (alpha, pfail) grids. |
-| `scripts/run_budget_search.py` | Budget sensitivity search for a fixed checkpoint. |
-| `scripts/evaluate_scaling.py` | Scaling-related evaluation experiments. |
-| `scripts/run_ablation.py` | Model / feature ablations. |
-| `scripts/action_comparison.py` | Compare action-selection behavior. |
-| `scripts/visualize_cascade.py` | Visualize cascade dynamics. |
-| `scripts/plot_regime.py` | Plotting helpers used by mapping scripts. |
+- `python scripts/map_regime.py`
+  - heuristic-only regime map under the corrected semantics
+- `python scripts/evaluate_hard_regime.py`
+  - focused heuristic or RL-vs-heuristic sweep on the `hard_regime` config grid
+- `python scripts/train_policy.py`
+  - train a fresh RL checkpoint under the corrected environment
+- `python scripts/evaluate_policy.py`
+  - canonical checkpoint evaluation path
+- `python -m pytest tests/ -x -q`
+  - full verification suite
 
-Most scripts accept `--config` pointing at a YAML file. Override output locations via the config (e.g. `regime_mapping.output_dir`) or script-specific CLI flags where provided.
+## Notes
 
-## Configuration
-
-- **Default stack**: `config/default.yaml` — graph generator (`n_range`, `m`), cascade (`alpha`, `pfail`), recovery budget and `max_rounds`, evaluation budgets/seeds, training block, regime mapping, and artifact directories.
-- **Variants**: `config/sensitivity/` and other trees for study-specific settings; see nested READMEs where present.
-
-Training reads the `training:` section; mapping scripts use `regime_mapping`, `graph`, `evaluation`, and related keys. Keeping a single YAML per “paper figure” or experiment reduces drift between commands.
-
-## Project layout
-
-- `src/cascading_rl/` — library code: graph generation, cascade dynamics, envs, metrics, GNN Q-network, policies, replay, training, evaluation.
-- `config/` — YAML defaults and experiment configs.
-- `scripts/` — CLI entry points (all intended to be run from repo root or with `PYTHONPATH` set via editable install).
-- `tests/` — unit and smoke tests.
-- `experiments/` — generated results; maintained folders and reproduction commands are described in [`experiments/README.md`](experiments/README.md).
-- `docs/` — design notes (e.g. architecture, dynamics interpretation).
-- `notebooks/` — exploratory analysis (see `notebooks/README.md`).
-
-## Documentation
-
-- [`docs/architecture.md`](docs/architecture.md) — observation features, `step` vs `step_batch`, and training/eval alignment.
-- [`docs/dynamics_interpretation.md`](docs/dynamics_interpretation.md) — short interpretation notes for cascade dynamics.
-
-## Reproducibility
-
-Scripts record **`run_metadata.json`** (command line, environment, config-relevant fields) alongside outputs where implemented. For a full regeneration checklist and canonical artifact folders (`learner/`, `regime_map/`, `regime_comprehensive/`, etc.), see [`experiments/README.md`](experiments/README.md).
-
-## License
-
-This project is released under the **MIT License** — see [`LICENSE`](LICENSE).
+`README_RESEARCH.md` is the running experiment log. It now documents only the post-reset baseline and the next clean training steps from this corrected starting point.

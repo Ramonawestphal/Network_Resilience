@@ -1,41 +1,21 @@
-import math
-
 import networkx as nx
+import pytest
 
+import cascading_rl.evaluation.regime as regime_module
 from cascading_rl.evaluation import (
     AggregateMetric,
+    EpisodeResult,
     PolicyEvaluationSummary,
+    RegimeCellResult,
     build_policy_factories,
-    serialize_regime_cell,
-    summarize_regime_buckets,
 )
 from cascading_rl.evaluation.regime import (
-    RegimeCellResult,
-    RegimeDiagnostics,
     build_regime_cells,
     compute_regime_diagnostics,
     evaluate_policy_factories_on_graphs,
+    serialize_regime_cell,
+    summarize_regime_buckets,
 )
-
-
-def make_summary(
-    *,
-    final_anc: float,
-    threshold_hit: float,
-    rounds: float,
-    solved_fraction: float | None = None,
-) -> PolicyEvaluationSummary:
-    solved = final_anc if solved_fraction is None else solved_fraction
-    return PolicyEvaluationSummary(
-        final_anc=AggregateMetric(mean=final_anc, stderr=0.0),
-        total_reward=AggregateMetric(mean=final_anc, stderr=0.0),
-        steps=AggregateMetric(mean=rounds, stderr=0.0),
-        rounds=AggregateMetric(mean=rounds, stderr=0.0),
-        solved_fraction=AggregateMetric(mean=solved, stderr=0.0),
-        threshold_hit_fraction=AggregateMetric(mean=threshold_hit, stderr=0.0),
-        threshold_step=AggregateMetric(mean=rounds, stderr=0.0),
-        threshold_round=AggregateMetric(mean=rounds, stderr=0.0),
-    )
 
 
 def test_evaluate_policy_factories_on_graphs_returns_all_selected_policies():
@@ -75,37 +55,6 @@ def test_compute_regime_diagnostics_marks_trivial_when_all_policies_succeed():
     assert diagnostics.interesting_for_rl is False
 
 
-def test_compute_regime_diagnostics_reports_best_heuristic_and_rl_gap():
-    diagnostics = compute_regime_diagnostics(
-        {
-            "rl": make_summary(final_anc=0.65, threshold_hit=0.60, rounds=3.0),
-            "greedy": make_summary(final_anc=0.55, threshold_hit=0.50, rounds=3.0),
-            "random": make_summary(final_anc=0.40, threshold_hit=0.20, rounds=4.0),
-        }
-    )
-
-    assert diagnostics.regime_label == "decision-sensitive"
-    assert diagnostics.interesting_for_rl is True
-    assert diagnostics.best_policy == "rl"
-    assert diagnostics.best_heuristic == "greedy"
-    assert diagnostics.best_heuristic_final_anc == 0.55
-    assert math.isclose(diagnostics.rl_vs_best_heuristic_gap or 0.0, 0.10)
-
-
-def test_compute_regime_diagnostics_respects_spread_threshold():
-    diagnostics = compute_regime_diagnostics(
-        {
-            "rl": make_summary(final_anc=0.61, threshold_hit=0.54, rounds=3.0),
-            "greedy": make_summary(final_anc=0.59, threshold_hit=0.52, rounds=3.1),
-            "random": make_summary(final_anc=0.58, threshold_hit=0.51, rounds=3.2),
-        },
-        spread_threshold=0.05,
-    )
-
-    assert diagnostics.regime_label == "recoverable"
-    assert diagnostics.interesting_for_rl is False
-
-
 def test_build_regime_cells_produces_budget_sensitivity_for_same_alpha_pfail():
     graphs = [nx.star_graph(4)]
     policy_factories = build_policy_factories()
@@ -124,56 +73,152 @@ def test_build_regime_cells_produces_budget_sensitivity_for_same_alpha_pfail():
     assert all(cell.diagnostics.budget_sensitivity is not None for cell in cells)
 
 
-def test_serialize_regime_cell_and_bucket_summary_include_rl_gap():
+def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch):
+    graphs = [nx.path_graph(40), nx.path_graph(100)]
+    budgets_seen: list[tuple[int, int]] = []
+
+    class DummyEnv:
+        def __init__(
+            self,
+            graph,
+            alpha,
+            pfail,
+            budget,
+            max_rounds=None,
+            seed=None,
+            **kwargs,
+        ):
+            self.graph = graph
+            self.budget = budget
+            budgets_seen.append((graph.number_of_nodes(), budget))
+
+    def fake_rollout_policy(env, policy, seed=None, tau=None):
+        return EpisodeResult(
+            total_reward=0.0,
+            final_anc=float(env.budget),
+            steps=0,
+            rounds=0,
+            remaining_failed_nodes=0,
+            threshold_step=None,
+            threshold_round=None,
+        )
+
+    monkeypatch.setattr(regime_module, "RecoveryEnv", DummyEnv)
+    monkeypatch.setattr(regime_module, "rollout_policy", fake_rollout_policy)
+
+    summaries = evaluate_policy_factories_on_graphs(
+        graphs,
+        {"degree": lambda _graph_index, _seed: lambda _observation: 0},
+        alpha=0.2,
+        pfail=0.1,
+        budget=2,
+        seeds=[0],
+        tau=0.5,
+        scale_budget=True,
+        reference_n=40,
+    )
+
+    assert budgets_seen == [(40, 2), (100, 5)]
+    assert summaries["degree"].final_anc.mean == pytest.approx(3.5)
+
+
+def _summary(
+    *,
+    final_anc: float,
+    threshold_hit: float,
+    rounds: float,
+    solved_fraction: float,
+) -> PolicyEvaluationSummary:
+    metric = lambda value: AggregateMetric(mean=value, stderr=0.0)
+    return PolicyEvaluationSummary(
+        final_anc=metric(final_anc),
+        total_reward=metric(final_anc),
+        steps=metric(1.0),
+        rounds=metric(rounds),
+        solved_fraction=metric(solved_fraction),
+        threshold_hit_fraction=metric(threshold_hit),
+        threshold_step=metric(1.0),
+        threshold_round=metric(1.0),
+    )
+
+
+def test_compute_regime_diagnostics_marks_ambiguous_when_spread_below_threshold():
+    summaries = {
+        "greedy": _summary(
+            final_anc=0.52, threshold_hit=0.51, rounds=2.0, solved_fraction=0.40
+        ),
+        "degree": _summary(
+            final_anc=0.50, threshold_hit=0.50, rounds=2.0, solved_fraction=0.40
+        ),
+    }
+    diagnostics = compute_regime_diagnostics(summaries, spread_threshold=0.05)
+    assert diagnostics.regime_label == "ambiguous"
+    assert diagnostics.interesting_for_rl is False
+    assert diagnostics.final_anc_spread == pytest.approx(0.02)
+    assert diagnostics.threshold_hit_spread == pytest.approx(0.01)
+
+
+def test_compute_regime_diagnostics_tracks_best_heuristic_gap():
+    summaries = {
+        "rl": _summary(final_anc=0.68, threshold_hit=0.70, rounds=2.0, solved_fraction=0.60),
+        "greedy": _summary(
+            final_anc=0.61, threshold_hit=0.58, rounds=2.5, solved_fraction=0.50
+        ),
+        "degree": _summary(
+            final_anc=0.55, threshold_hit=0.52, rounds=2.8, solved_fraction=0.40
+        ),
+    }
+
+    diagnostics = compute_regime_diagnostics(summaries)
+
+    assert diagnostics.regime_label == "decision-sensitive"
+    assert diagnostics.interesting_for_rl is True
+    assert diagnostics.best_heuristic == "greedy"
+    assert diagnostics.best_heuristic_final_anc == 0.61
+    assert diagnostics.rl_vs_best_heuristic_gap == pytest.approx(0.07)
+
+
+def test_summarize_regime_buckets_reports_rl_gap():
+    trivial = RegimeCellResult(
+        alpha=0.1,
+        pfail=0.05,
+        budget=2,
+        diagnostics=compute_regime_diagnostics(
+            {
+                "rl": _summary(
+                    final_anc=0.95, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+                ),
+                "greedy": _summary(
+                    final_anc=0.92, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+                ),
+            }
+        ),
+        policy_summaries={
+            "rl": _summary(final_anc=0.95, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0),
+            "greedy": _summary(
+                final_anc=0.92, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+            ),
+        },
+    )
     decision_sensitive = RegimeCellResult(
         alpha=0.2,
         pfail=0.1,
         budget=2,
-        diagnostics=RegimeDiagnostics(
-            regime_label="decision-sensitive",
-            interesting_for_rl=True,
-            interestingness_score=0.42,
-            final_anc_spread=0.20,
-            threshold_hit_spread=0.30,
-            rounds_spread=1.0,
-            mean_final_anc=0.53,
-            mean_threshold_hit=0.43,
-            budget_sensitivity=0.11,
-            best_policy="rl",
-            worst_policy="random",
-            best_heuristic="greedy",
-            best_heuristic_final_anc=0.55,
-            rl_vs_best_heuristic_gap=0.10,
+        diagnostics=compute_regime_diagnostics(
+            {
+                "rl": _summary(
+                    final_anc=0.66, threshold_hit=0.64, rounds=2.0, solved_fraction=0.50
+                ),
+                "greedy": _summary(
+                    final_anc=0.58, threshold_hit=0.55, rounds=2.5, solved_fraction=0.45
+                ),
+            }
         ),
         policy_summaries={
-            "rl": make_summary(final_anc=0.65, threshold_hit=0.60, rounds=3.0),
-            "greedy": make_summary(final_anc=0.55, threshold_hit=0.50, rounds=3.0),
-            "random": make_summary(final_anc=0.40, threshold_hit=0.20, rounds=4.0),
-        },
-    )
-    trivial = RegimeCellResult(
-        alpha=0.4,
-        pfail=0.05,
-        budget=2,
-        diagnostics=RegimeDiagnostics(
-            regime_label="trivial",
-            interesting_for_rl=False,
-            interestingness_score=0.05,
-            final_anc_spread=0.01,
-            threshold_hit_spread=0.00,
-            rounds_spread=0.25,
-            mean_final_anc=0.95,
-            mean_threshold_hit=1.0,
-            budget_sensitivity=0.0,
-            best_policy="greedy",
-            worst_policy="random",
-            best_heuristic="greedy",
-            best_heuristic_final_anc=0.95,
-            rl_vs_best_heuristic_gap=None,
-        ),
-        policy_summaries={
-            "greedy": make_summary(final_anc=0.95, threshold_hit=1.0, rounds=1.0),
-            "random": make_summary(final_anc=0.94, threshold_hit=1.0, rounds=1.2),
+            "rl": _summary(final_anc=0.66, threshold_hit=0.64, rounds=2.0, solved_fraction=0.50),
+            "greedy": _summary(
+                final_anc=0.58, threshold_hit=0.55, rounds=2.5, solved_fraction=0.45
+            ),
         },
     )
 

@@ -10,9 +10,6 @@ from cascading_rl.envs.recovery import RecoveryObservation
 
 Node = Hashable
 
-# Sentinel graph node id for the virtual MPNN node. Using a unique object avoids
-# colliding with a real node whose id is the string "__virtual__" (or any other
-# hashable env graph uses).
 VIRTUAL_NODE: Hashable = object()
 
 FEATURE_NAMES = (
@@ -63,16 +60,19 @@ def observation_to_global_features(
     failed = observation.failed
 
     ratios = [
-        observation.loads[v] / observation.capacities[v]
-        if observation.capacities[v] > 0 else 0.0
-        for v in active
+        observation.loads[node] / observation.capacities[node]
+        if observation.capacities[node] > 0
+        else 0.0
+        for node in active
     ] or [0.0]
 
     feature_values = {
         "failed_fraction": len(failed) / max(num_nodes, 1),
         "mean_load_capacity_ratio": sum(ratios) / len(ratios),
         "max_load_capacity_ratio": max(ratios),
-        "current_round_norm": float(observation.current_round) / max(1.0, float(observation.max_rounds)),
+        "current_round_norm": float(observation.current_round) / max(
+            1.0, float(observation.max_rounds)
+        ),
     }
     return torch.tensor(
         [feature_values[name] for name in global_feature_names],
@@ -99,20 +99,17 @@ def resolve_global_feature_names(input_dim: int) -> tuple[str, ...]:
 class GlobalReadout(nn.Module):
     def __init__(self, embed_dim: int, global_feat_dim: int, out_dim: int) -> None:
         super().__init__()
-        # mean + max pool → 2*embed_dim, plus explicit global features
         self.proj = nn.Linear(2 * embed_dim + global_feat_dim, out_dim)
 
-    def forward(
-        self,
-        node_embeddings: torch.Tensor,   # (N, embed_dim)
-        global_features: torch.Tensor,   # (global_feat_dim,)
-    ) -> torch.Tensor:
-        pooled = torch.cat([
-            node_embeddings.mean(dim=0),
-            node_embeddings.max(dim=0).values,
-            global_features,
-        ])  # (2*embed_dim + global_feat_dim,)
-        return torch.relu(self.proj(pooled))  # (out_dim,)
+    def forward(self, node_embeddings: torch.Tensor, global_features: torch.Tensor) -> torch.Tensor:
+        pooled = torch.cat(
+            [
+                node_embeddings.mean(dim=0),
+                node_embeddings.max(dim=0).values,
+                global_features,
+            ]
+        )
+        return torch.relu(self.proj(pooled))
 
 
 @dataclass(frozen=True)
@@ -140,7 +137,7 @@ def observation_to_graph_tensor(
     feature_names: tuple[str, ...] | None = None,
     device: torch.device | str | None = None,
 ) -> GraphTensor:
-    """Convert a RecoveryObservation into tensors for the learner."""
+    """Convert a recovery observation into graph tensors."""
     feature_names = feature_names or FEATURE_NAMES
     node_ids = tuple(observation.graph.nodes())
     node_to_index = {node: index for index, node in enumerate(node_ids)}
@@ -164,10 +161,6 @@ def observation_to_graph_tensor(
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
         canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
-        # LEGACY_FEATURE_NAMES / old checkpoints used remaining_budget_norm and current_round_norm
-        # scaled by num_nodes (including the virtual row when use_virtual_node). Keep that division
-        # so loaded weights still see the training-time feature scale; canonical budget_coverage
-        # above uses num_real_nodes.
         legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
         legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
         feature_values = {

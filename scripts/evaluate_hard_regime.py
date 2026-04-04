@@ -11,8 +11,6 @@ import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
@@ -24,7 +22,6 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
-from scripts.reproducibility import write_run_metadata
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -33,17 +30,6 @@ def load_config(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("Config root must be a mapping.")
     return data
-
-
-def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
-    regime = config["training"]["regime"]
-    obs_hops = regime.get("obs_hops")
-    return {
-        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
-        "failure_bias": str(regime.get("failure_bias", "uniform")),
-        "action_space": str(regime.get("action_space", "failed")),
-        "obs_hops": int(obs_hops) if obs_hops is not None else None,
-    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -97,7 +83,6 @@ def main() -> None:
     evaluation = config["evaluation"]
     threshold_cfg = config["regime_mapping"]
     budget_scaling = config.get("budget_scaling", {})
-    env_kwargs = resolve_env_kwargs(config)
 
     tau = float(evaluation["tau"])
     alpha_values = list(args.alpha_values) if args.alpha_values is not None else list(
@@ -130,7 +115,7 @@ def main() -> None:
     if args.checkpoint.exists():
         device = torch.device("cpu")
         model, _ = load_q_network(args.checkpoint, map_location=device)
-        rl_policy = build_greedy_policy(model, device=device)
+        rl_policy = build_greedy_policy(model, device=device, batch_actions=True)
         policy_factories = {"rl": lambda _gi, _se: rl_policy, **policy_factories}
 
     cells = build_regime_cells(
@@ -145,8 +130,7 @@ def main() -> None:
         hopeless_threshold=float(threshold_cfg["hopeless_threshold"]),
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
-        env_kwargs=env_kwargs,
-        scale_budget=bool(budget_scaling.get("enabled", False)),
+        scale_budget=bool(budget_scaling.get("enabled", True)),
         reference_n=int(budget_scaling.get("reference_n", 40)),
     )
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
@@ -158,41 +142,25 @@ def main() -> None:
             json.dump(cell, file, indent=2)
 
     summary_path = output_dir / "hard_regime_summary.json"
-    metadata_path = output_dir / "run_metadata.json"
     with summary_path.open("w", encoding="utf-8") as file:
         json.dump(
             {
                 "checkpoint": str(args.checkpoint) if args.checkpoint.exists() else None,
                 "tau": tau,
                 "budget": budget,
-                "scale_budget": bool(budget_scaling.get("enabled", False)),
+                "scale_budget": bool(budget_scaling.get("enabled", True)),
                 "budget_reference_n": int(budget_scaling.get("reference_n", 40)),
                 "max_rounds": max_rounds,
                 "num_graphs": num_graphs,
                 "seeds": seeds,
                 "alpha_values": alpha_values,
                 "pfail_values": pfail_values,
-                "env": env_kwargs,
                 "cells": serialized_cells,
                 "bucket_summary": bucket_summary,
             },
             file,
             indent=2,
         )
-    write_run_metadata(
-        metadata_path,
-        script_path=Path(__file__).resolve(),
-        argv=sys.argv,
-        config_path=args.config,
-        extra={
-            "output_dir": str(output_dir),
-            "env": env_kwargs,
-            "scaling": {
-                "scale_budget": bool(budget_scaling.get("enabled", False)),
-                "reference_n": int(budget_scaling.get("reference_n", 40)),
-            },
-        },
-    )
 
     all_policies = sorted(
         {

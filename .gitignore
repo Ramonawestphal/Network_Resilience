@@ -27,3 +27,7 @@ Thumbs.db
 *.ckpt
 *.log
 *.tmp
+
+# Regime comprehensive runs (large JSON/Parquet/CSVs and plots — regenerate locally)
+experiments/regime_comprehensive/
+experiments/regime_comprehensive_smoke/

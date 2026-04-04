@@ -34,7 +34,7 @@ def estimate_minimum_budget(
 
     results: dict[int, tuple[float, float]] = {}
     minimum_budget: int | None = None
-    env_kwargs = dict(env_kwargs or {})
+    resolved_env_kwargs = dict(env_kwargs or {})
 
     for budget in budgets:
         anc_values = []
@@ -52,7 +52,7 @@ def estimate_minimum_budget(
                 budget=resolved_budget,
                 max_rounds=max_rounds,
                 seed=seed,
-                **env_kwargs,
+                **resolved_env_kwargs,
             )
             episode = rollout_policy(env, policy, seed=seed, tau=tau)
             anc_values.append(episode.final_anc)
