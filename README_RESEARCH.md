@@ -101,6 +101,8 @@ Interpretation:
 
 ## Retained Outputs
 
+The directories below are **not** tracked in git (outputs are large). After a clone, run `scripts/map_regime_comprehensive.py` (with your chosen config/output directory) to populate them locally; the file layout is unchanged.
+
 ### Smoke Outputs
 
 `experiments/regime_comprehensive_smoke` contains:
@@ -245,4 +247,4 @@ The full extensive evaluation supports the following conclusions:
 
 ## Next Step
 
-Use `experiments/regime_comprehensive/training_recommendation.json` as the reference for the next RL training design, and compare RL primarily inside the `decision_sensitive` cells from the retained full evaluation.
+Use the `training_recommendation.json` from your local full comprehensive run (under `experiments/regime_comprehensive/` by convention) as the reference for the next RL training design, and compare RL primarily inside the `decision_sensitive` cells from that evaluation.
