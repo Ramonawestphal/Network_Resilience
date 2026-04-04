@@ -114,18 +114,6 @@ def observation_to_global_features(
     return global_features[feature_mask]
 
 
-def resolve_feature_names(input_dim: int) -> tuple[str, ...]:
-    if input_dim == len(FEATURE_NAMES):
-        return FEATURE_NAMES
-    raise ValueError(f"Unsupported node-feature width: {input_dim}")
-
-
-def resolve_global_feature_names(input_dim: int) -> tuple[str, ...]:
-    if input_dim == len(FEATURE_NAMES):
-        return GLOBAL_FEATURE_NAMES
-    raise ValueError(f"Unsupported node-feature width: {input_dim}")
-
-
 class GlobalReadout(nn.Module):
     def __init__(self, embed_dim: int, global_feat_dim: int, out_dim: int) -> None:
         super().__init__()

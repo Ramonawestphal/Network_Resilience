@@ -15,13 +15,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def portable_artifact_path(path: str | Path) -> str:
     """Return a POSIX path relative to ``REPO_ROOT`` for portable JSON artifacts.
 
-    If the path is not under the repository root, returns the resolved absolute path.
+    If the path is not under the repository root, returns the resolved absolute path
+    as a normalized POSIX string (forward slashes on all platforms).
     """
     resolved = Path(path).resolve()
     try:
         return resolved.relative_to(REPO_ROOT.resolve()).as_posix()
     except ValueError:
-        return str(resolved)
+        return resolved.as_posix()
 
 
 def _portable_argv(argv: list[str]) -> list[str]:
