@@ -70,6 +70,11 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         validation_graphs=int(training["validation_graphs"]),
         validation_seeds=tuple(training["validation_seeds"]),
         validation_every=int(training["validation_every"]),
+        validation_eval_set_path=(
+            str(training["validation_eval_set_path"]).strip()
+            if training.get("validation_eval_set_path")
+            else None
+        ),
         checkpoint_dir=str(ABLATION_OUTPUT_DIR),
         checkpoint_name="placeholder.pt",
         freeze_graphs=bool(training.get("freeze_graphs", False)),
@@ -145,6 +150,13 @@ def main() -> None:
     config = load_config(args.config)
     base_training_config = build_training_config(config, episodes_override=args.episodes)
     training = config["training"]
+    if base_training_config.validation_eval_set_path:
+        ves = Path(base_training_config.validation_eval_set_path)
+        if not ves.is_absolute():
+            ves = ROOT / ves
+        base_training_config = replace(
+            base_training_config, validation_eval_set_path=str(ves.resolve())
+        )
     graph = training["graph"]
     eval_tau = float(config["evaluation"]["tau"])
     eval_seeds = list(training["benchmark_seeds"])

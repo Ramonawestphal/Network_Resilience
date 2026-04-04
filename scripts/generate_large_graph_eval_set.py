@@ -17,7 +17,6 @@ from cascading_rl.evaluation.regime import build_policy_factories
 from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.evaluation.saved_eval_sets import (
     DIAGNOSTIC_POLICY_NAMES,
-    EVAL_SPREAD_FILTER_DEGREE_RANDOM,
     regime_label_from_heuristic_rollouts,
     rollout_final_anc_on_instance,
     save_eval_instances,
@@ -31,6 +30,8 @@ N_REF = 40
 NUM_GRAPHS = 20
 SEEDS_PER_GRAPH = 5
 KEEP_FRACTION_WARN = 0.3
+# Exclude instances where the degree heuristic already achieves very high recovery (not hard enough).
+EVAL_DS_MAX_PR_DEGREE = 0.90
 
 SETS = (
     ("large_graph_medium.pkl", (100, 150), 60_000),
@@ -69,6 +70,7 @@ def build_filtered_instances(
     p_fail: float,
 ) -> tuple[list[dict], int, list[float]]:
     rng = Random(master_seed)
+    spread_threshold = float(regime_mapping["spread_threshold"])
     graphs_meta: list[tuple[object, int, int]] = []
     for _ in range(NUM_GRAPHS):
         n = rng.randint(n_range[0], n_range[1])
@@ -130,7 +132,8 @@ def build_filtered_instances(
                 tau=tau,
             )
             spread = pr_degree - pr_random
-            if spread <= EVAL_SPREAD_FILTER_DEGREE_RANDOM:
+            is_ds = (spread > spread_threshold) and (pr_degree < EVAL_DS_MAX_PR_DEGREE)
+            if not is_ds:
                 continue
 
             spreads.append(spread)
@@ -145,7 +148,7 @@ def build_filtered_instances(
                 tau=tau,
                 hopeless_threshold=float(regime_mapping["hopeless_threshold"]),
                 trivial_threshold=float(regime_mapping["trivial_threshold"]),
-                spread_threshold=float(regime_mapping["spread_threshold"]),
+                spread_threshold=spread_threshold,
                 base_seed=master_seed,
                 graph_index=gi,
             )

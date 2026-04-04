@@ -282,6 +282,41 @@ def test_run_eval_set_mode_warns_when_no_decision_sensitive_instances(tmp_path: 
     ), f"expected UserWarning, got: {[w.message for w in caught]}"
 
 
+def test_run_eval_set_mode_writes_eval_set_log(tmp_path: Path):
+    checkpoint_path = save_checkpoint(
+        RecoveryQNetwork(),
+        TrainingConfig(checkpoint_dir=str(tmp_path), checkpoint_name="stub_log.pt"),
+        TrainingState(),
+        tmp_path / "stub_log.pt",
+        episode=0,
+    )
+    inst = {
+        "graph": nx.path_graph(8),
+        "alpha": 0.2,
+        "p_fail": 0.4,
+        "budget": 2,
+        "max_rounds": 4,
+        "failure_seed": 3,
+        "regime_label": "decision-sensitive",
+    }
+    pkl = tmp_path / "with_ds.pkl"
+    with pkl.open("wb") as file:
+        pickle.dump([inst], file, protocol=4)
+
+    log_path = tmp_path / "subdir" / "eval_report.txt"
+    args = Namespace(
+        eval_set=pkl,
+        checkpoint=checkpoint_path,
+        policies=["degree"],
+        eval_set_log=log_path,
+    )
+    evaluate_policy.run_eval_set_mode(args, _minimal_eval_set_config())
+    assert log_path.is_file()
+    text = log_path.read_text(encoding="utf-8")
+    assert "=== Saved eval set:" in text
+    assert "degree:" in text
+
+
 def test_run_eval_set_mode_scaled_pickle_requires_b_scaled_on_all_instances(tmp_path: Path):
     checkpoint_path = save_checkpoint(
         RecoveryQNetwork(),

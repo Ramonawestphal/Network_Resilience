@@ -8,6 +8,7 @@ from pathlib import Path
 from random import Random
 from typing import Any
 import sys
+import warnings
 
 import torch
 from torch.nn import functional as F
@@ -51,7 +52,7 @@ class TrainingConfig:
     obs_hops: int | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
-    num_episodes: int = 8000
+    num_episodes: int = 10000
     replay_capacity: int = 10000
     warmup_transitions: int = 500
     batch_size: int = 64
@@ -60,7 +61,7 @@ class TrainingConfig:
     learning_rate: float = 3e-4
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
-    epsilon_decay_episodes: int = 6000
+    epsilon_decay_episodes: int = 10000
     target_update_interval: int = 200
     hidden_dim: int = 128
     embed_dim: int = 128
@@ -80,7 +81,7 @@ class TrainingConfig:
     checkpoint_name: str = "recovery_q.pt"
     freeze_graphs: bool = False
     episode_graph_specs: tuple[tuple[int, int], ...] | None = None
-    # Diagnostics: log PR(degree)-PR(random) per episode; validate on a pickle eval set.
+    # Diagnostics: log PR(degree)-PR(random) per episode; optional JSON/YAML eval set path.
     log_episode_spread: bool = False
     log_grad_norm: bool = False
     validation_eval_set_path: str | None = None
@@ -243,7 +244,7 @@ def _print_validation_update(validation: dict[str, Any]) -> None:
     )
     tag = (
         "[validation:eval_set]"
-        if validation.get("validation_source") == "eval_set_pickle"
+        if validation.get("validation_source") == "eval_set_file"
         else "[validation]"
     )
     print(
@@ -494,7 +495,7 @@ def validate_policy_on_eval_set(
     device: torch.device,
     instances: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Run greedy RL on a saved eval pickle (same protocol as ``--eval-set``)."""
+    """Run greedy RL on a saved eval set file (same protocol as ``--eval-set``)."""
     from cascading_rl.evaluation.saved_eval_sets import evaluate_policies_on_saved_instances
 
     env_kwargs = _env_kwargs_from_config(config)
@@ -541,7 +542,7 @@ def validate_policy_on_eval_set(
             "cells": [],
         },
         "env": env_kwargs,
-        "validation_source": "eval_set_pickle",
+        "validation_source": "eval_set_file",
     }
 
 
@@ -678,9 +679,6 @@ def save_checkpoint(
 
 
 def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, TrainingState, Path]:
-    assert epsilon_for_episode(config, 100) > 0.5, "epsilon decays too fast"
-    assert epsilon_for_episode(config, 6000) < 0.1, "epsilon decays too slow"
-
     device = resolve_device(config.device)
     rng = Random(config.seed)
     torch.manual_seed(config.seed)
@@ -712,6 +710,18 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 f"validation_eval_set_path is not a file: {eval_path.resolve()}"
             )
         eval_set_instances = load_eval_instances(eval_path)
+
+    if (
+        eval_set_instances is None
+        and config.num_episodes >= config.validation_every >= 1
+    ):
+        warnings.warn(
+            "Validating on synthetic graphs. Results will be noisy and not "
+            "comparable across runs. Use --validation-eval-set with a fixed eval set (e.g. "
+            "eval_sets/ds_validation.json) instead.",
+            UserWarning,
+            stacklevel=1,
+        )
 
     regime_combinations = [(float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values]
 

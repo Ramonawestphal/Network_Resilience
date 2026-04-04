@@ -156,6 +156,15 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Load fixed eval instances from a pickle file (e.g. eval_sets/ds_validation.pkl).",
     )
+    parser.add_argument(
+        "--eval-set-log",
+        type=Path,
+        default=None,
+        help=(
+            "With --eval-set only: write the same report lines to this UTF-8 file "
+            "(directories are created; still prints to stdout)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -603,162 +612,190 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
         mean_final_anc_from_summaries,
     )
 
-    eval_path = args.eval_set
-    assert eval_path is not None
-    if not eval_path.is_absolute():
-        eval_path = ROOT / eval_path
-    if not eval_path.exists():
-        raise FileNotFoundError(f"Eval set not found: {eval_path}")
+    log_path = getattr(args, "eval_set_log", None)
+    log_file = None
+    resolved_log: Path | None = None
+    if log_path is not None:
+        resolved_log = log_path if log_path.is_absolute() else ROOT / log_path
+        resolved_log.parent.mkdir(parents=True, exist_ok=True)
+        log_file = resolved_log.open("w", encoding="utf-8")
 
-    instances = load_eval_instances(eval_path)
+    def p(*a: object, **kw: Any) -> None:
+        print(*a, **kw)
+        if log_file is not None:
+            kw_log = dict(kw)
+            kw_log["file"] = log_file
+            kw_log["flush"] = True
+            print(*a, **kw_log)
 
-    scaled_eval_set = any(inst.get("b_scaled") is not None for inst in instances)
-    if scaled_eval_set:
-        bad_indices: list[int] = []
-        for i, inst in enumerate(instances):
-            raw = inst.get("b_scaled")
-            if raw is None:
-                bad_indices.append(i)
-                continue
-            try:
-                if int(raw) < 1:
+    try:
+        eval_path = args.eval_set
+        assert eval_path is not None
+        if not eval_path.is_absolute():
+            eval_path = ROOT / eval_path
+        if not eval_path.exists():
+            raise FileNotFoundError(f"Eval set not found: {eval_path}")
+
+        instances = load_eval_instances(eval_path)
+
+        scaled_eval_set = any(inst.get("b_scaled") is not None for inst in instances)
+        if scaled_eval_set:
+            bad_indices: list[int] = []
+            for i, inst in enumerate(instances):
+                raw = inst.get("b_scaled")
+                if raw is None:
                     bad_indices.append(i)
-            except (TypeError, ValueError):
-                bad_indices.append(i)
-        if bad_indices:
-            raise ValueError(
-                f"{eval_path.name}: when any instance defines 'b_scaled', every instance must "
-                f"include a valid positive integer 'b_scaled'. "
-                f"Invalid or missing at indices {bad_indices[:10]!r}"
-                f"{'...' if len(bad_indices) > 10 else ''}."
+                    continue
+                try:
+                    if int(raw) < 1:
+                        bad_indices.append(i)
+                except (TypeError, ValueError):
+                    bad_indices.append(i)
+            if bad_indices:
+                raise ValueError(
+                    f"{eval_path.name}: when any instance defines 'b_scaled', every instance must "
+                    f"include a valid positive integer 'b_scaled'. "
+                    f"Invalid or missing at indices {bad_indices[:10]!r}"
+                    f"{'...' if len(bad_indices) > 10 else ''}."
+                )
+
+        ds_instances = [
+            inst for inst in instances if inst.get("regime_label") == "decision-sensitive"
+        ]
+        if not ds_instances:
+            warnings.warn(
+                "Eval set contains no decision-sensitive instances — results are not meaningful "
+                "for DS-focused analysis.",
+                UserWarning,
+                stacklevel=1,
             )
 
-    ds_instances = [
-        inst for inst in instances if inst.get("regime_label") == "decision-sensitive"
-    ]
-    if not ds_instances:
-        warnings.warn(
-            "Eval set contains no decision-sensitive instances — results are not meaningful "
-            "for DS-focused analysis.",
-            UserWarning,
-            stacklevel=1,
-        )
-
-    training = config["training"]
-    evaluation = config["evaluation"]
-    tau = float(evaluation["tau"])
-    env_kwargs = resolve_env_kwargs(config)
-    selected = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
-    if "rl" in selected and not args.checkpoint.exists():
-        print(f"Warning: checkpoint missing at {args.checkpoint}; skipping rl policy.")
-        selected = [policy for policy in selected if policy != "rl"]
-    if not selected:
-        raise ValueError("No policies left to evaluate on saved eval set.")
-    factories = build_eval_policy_factories(
-        args.checkpoint,
-        base_seed=int(training["seed"]),
-        selected_policies=selected,
-    )
-    overall, per_bucket = evaluate_policies_on_saved_instances(
-        instances,
-        factories,
-        env_kwargs=env_kwargs,
-        tau=tau,
-        policy_names=selected,
-    )
-
-    print(f"=== Saved eval set: {eval_path}")
-    print(f"instances={len(instances)}")
-    per_budget = sorted(
-        {
-            int(inst["b_scaled"])
-            if "b_scaled" in inst
-            else int(inst["budget"])
-            for inst in instances
-        }
-    )
-    print(f"per-instance budgets used (unique, sorted): {per_budget}")
-    for name in selected:
-        if name not in overall:
-            continue
-        summary = overall[name]
-        print(
-            f"{name}: final_anc={summary.final_anc.mean:.3f}±{summary.final_anc.stderr:.3f} "
-            f"threshold_hit={summary.threshold_hit_fraction.mean:.3f} "
-            f"rounds={summary.rounds.mean:.3f} "
-            f"solved={summary.solved_fraction.mean:.3f}"
-        )
-
-    for label in sorted(per_bucket.keys()):
-        n_label = sum(1 for inst in instances if str(inst.get("regime_label")) == label)
-        print(f"\n[bucket: {label}] instances={n_label}")
-        for name in selected:
-            if name not in per_bucket[label]:
-                continue
-            s = per_bucket[label][name]
-            print(
-                f"  {name}: final_anc_mean={s.final_anc.mean:.3f} "
-                f"threshold_hit_mean={s.threshold_hit_fraction.mean:.3f}"
-            )
-
-    large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
-    has_b_scaled = bool(instances) and any(inst.get("b_scaled") is not None for inst in instances)
-    if eval_path.name in large_names or has_b_scaled:
-        transfer_policies: list[str] = ["degree", "random"]
-        if args.checkpoint.exists():
-            transfer_policies = ["rl", "degree", "random"]
-        t_factories = build_eval_policy_factories(
+        training = config["training"]
+        evaluation = config["evaluation"]
+        tau = float(evaluation["tau"])
+        env_kwargs = resolve_env_kwargs(config)
+        selected = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
+        if "rl" in selected and not args.checkpoint.exists():
+            p(f"Warning: checkpoint missing at {args.checkpoint}; skipping rl policy.")
+            selected = [policy for policy in selected if policy != "rl"]
+        if not selected:
+            raise ValueError("No policies left to evaluate on saved eval set.")
+        factories = build_eval_policy_factories(
             args.checkpoint,
-            base_seed=int(training["seed"]) + 1,
-            selected_policies=transfer_policies,
+            base_seed=int(training["seed"]),
+            selected_policies=selected,
         )
-        t_names = list(t_factories.keys())
+        overall, per_bucket = evaluate_policies_on_saved_instances(
+            instances,
+            factories,
+            env_kwargs=env_kwargs,
+            tau=tau,
+            policy_names=selected,
+        )
 
-        baseline_path = ROOT / "eval_sets" / "ds_validation.pkl"
-        table_rows: list[tuple[str, dict[str, float]]] = []
-        if baseline_path.exists():
-            base_instances = load_eval_instances(baseline_path)
-            base_overall, _ = evaluate_policies_on_saved_instances(
-                base_instances,
+        p(f"=== Saved eval set: {eval_path}")
+        p(f"instances={len(instances)}")
+        per_budget = sorted(
+            {
+                int(inst["b_scaled"])
+                if "b_scaled" in inst
+                else int(inst["budget"])
+                for inst in instances
+            }
+        )
+        p(f"per-instance budgets used (unique, sorted): {per_budget}")
+        for name in selected:
+            if name not in overall:
+                continue
+            summary = overall[name]
+            p(
+                f"{name}: final_anc={summary.final_anc.mean:.3f}±{summary.final_anc.stderr:.3f} "
+                f"threshold_hit={summary.threshold_hit_fraction.mean:.3f} "
+                f"rounds={summary.rounds.mean:.3f} "
+                f"solved={summary.solved_fraction.mean:.3f}"
+            )
+
+        for label in sorted(per_bucket.keys()):
+            n_label = sum(1 for inst in instances if str(inst.get("regime_label")) == label)
+            p(f"\n[bucket: {label}] instances={n_label}")
+            for name in selected:
+                if name not in per_bucket[label]:
+                    continue
+                s = per_bucket[label][name]
+                p(
+                    f"  {name}: final_anc_mean={s.final_anc.mean:.3f} "
+                    f"threshold_hit_mean={s.threshold_hit_fraction.mean:.3f}"
+                )
+
+        large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
+        has_b_scaled = bool(instances) and any(
+            inst.get("b_scaled") is not None for inst in instances
+        )
+        if eval_path.name in large_names or has_b_scaled:
+            transfer_policies: list[str] = ["degree", "random"]
+            if args.checkpoint.exists():
+                transfer_policies = ["rl", "degree", "random"]
+            t_factories = build_eval_policy_factories(
+                args.checkpoint,
+                base_seed=int(training["seed"]) + 1,
+                selected_policies=transfer_policies,
+            )
+            t_names = list(t_factories.keys())
+
+            baseline_path = ROOT / "eval_sets" / "ds_validation.pkl"
+            table_rows: list[tuple[str, dict[str, float]]] = []
+            if baseline_path.exists():
+                base_instances = load_eval_instances(baseline_path)
+                base_overall, _ = evaluate_policies_on_saved_instances(
+                    base_instances,
+                    t_factories,
+                    env_kwargs=env_kwargs,
+                    tau=tau,
+                    policy_names=t_names,
+                )
+                table_rows.append(
+                    (
+                        "validation (n~30-50)",
+                        mean_final_anc_from_summaries(base_overall, t_names),
+                    )
+                )
+            else:
+                p(
+                    "\nNote: eval_sets/ds_validation.pkl not found; transfer table has only "
+                    "the current set."
+                )
+
+            cur_overall, _ = evaluate_policies_on_saved_instances(
+                instances,
                 t_factories,
                 env_kwargs=env_kwargs,
                 tau=tau,
                 policy_names=t_names,
             )
+            if eval_path.name == "large_graph_medium.pkl":
+                row_label = "medium (n~100-150)"
+            elif eval_path.name == "large_graph_large.pkl":
+                row_label = "large (n~300-500)"
+            else:
+                row_label = f"current ({eval_path.name})"
             table_rows.append(
-                (
-                    "validation (n≈30-50)",
-                    mean_final_anc_from_summaries(base_overall, t_names),
+                (row_label, mean_final_anc_from_summaries(cur_overall, t_names)),
+            )
+
+            p("\n=== Zero-shot transfer (mean final_anc / PR)")
+            header = "bucket\t" + "\t".join(t_names)
+            p(header)
+            for row_label, means in table_rows:
+                vals = "\t".join(
+                    f"{means.get(pol, float('nan')):.3f}" for pol in t_names
                 )
-            )
-        else:
-            print(
-                "\nNote: eval_sets/ds_validation.pkl not found; transfer table has only the current set."
-            )
+                p(f"{row_label}\t{vals}")
 
-        cur_overall, _ = evaluate_policies_on_saved_instances(
-            instances,
-            t_factories,
-            env_kwargs=env_kwargs,
-            tau=tau,
-            policy_names=t_names,
-        )
-        if eval_path.name == "large_graph_medium.pkl":
-            row_label = "medium (n≈100-150)"
-        elif eval_path.name == "large_graph_large.pkl":
-            row_label = "large (n≈300-500)"
-        else:
-            row_label = f"current ({eval_path.name})"
-        table_rows.append(
-            (row_label, mean_final_anc_from_summaries(cur_overall, t_names)),
-        )
-
-        print("\n=== Zero-shot transfer (mean final_anc / PR)")
-        header = "bucket\t" + "\t".join(t_names)
-        print(header)
-        for row_label, means in table_rows:
-            vals = "\t".join(f"{means.get(p, float('nan')):.3f}" for p in t_names)
-            print(f"{row_label}\t{vals}")
+        if resolved_log is not None:
+            print(f"Saved eval-set report to {resolved_log}", flush=True)
+    finally:
+        if log_file is not None:
+            log_file.close()
 
 
 def main() -> None:

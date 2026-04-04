@@ -169,7 +169,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hard-regime",
         action="store_true",
-        help="Use hard-regime grids and 8000 episodes (overridden by --episodes if set).",
+        help="Use hard-regime grids and 10000 episodes (overridden by --episodes if set).",
     )
     parser.add_argument(
         "--checkpoint-dir",
@@ -191,7 +191,10 @@ def parse_args() -> argparse.Namespace:
         "--validation-eval-set",
         type=Path,
         default=None,
-        help="If set, run periodic validation on this pickle (e.g. eval_sets/ds_validation.pkl).",
+        help=(
+            "Periodic validation on this JSON/YAML eval set (default: training.validation_eval_set_path "
+            "from config, e.g. eval_sets/ds_validation.json). Overrides the config path when set."
+        ),
     )
     parser.add_argument(
         "--validation-every",
@@ -222,7 +225,7 @@ def main() -> None:
             pfail=0.15,
             alpha_values=(0.10, 0.15, 0.20),
             pfail_values=(0.10, 0.15, 0.20),
-            num_episodes=8000,
+            num_episodes=10000,
         )
     if args.episodes is not None:
         training_config = replace(training_config, num_episodes=args.episodes)
@@ -243,6 +246,14 @@ def main() -> None:
         )
     if args.checkpoint_dir is not None:
         training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
+
+    if training_config.validation_eval_set_path:
+        ves = Path(training_config.validation_eval_set_path)
+        if not ves.is_absolute():
+            ves = ROOT / ves
+        training_config = replace(
+            training_config, validation_eval_set_path=str(ves.resolve())
+        )
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
 
