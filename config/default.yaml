@@ -100,9 +100,7 @@ training:
     # Remove (or leave as single-element lists) to fix alpha/pfail to the values above.
     alpha_values: [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
     pfail_values: [0.12, 0.15, 0.18, 0.20]
-    # Number of node recovery actions available per episode step.
-    budget: 3
-    # Maximum cascade simulation rounds before the episode is forced to terminate.
+    budget: 2
     max_rounds: 20
     # Std of Gaussian noise added to node capacities at episode start.
     # 0.0 = deterministic capacities; increase for robustness training.

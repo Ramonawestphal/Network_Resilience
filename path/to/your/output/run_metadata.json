@@ -1,0 +1,53 @@
+{
+  "generated_by": "map_regime_comprehensive.py",
+  "master_seed": 2026,
+  "timestamp": "2026-04-05T21:19:23.360986+00:00",
+  "n_graphs": 100,
+  "n_seeds": 5,
+  "total_instances": 945000,
+  "grid": {
+    "alpha_values": [
+      0.05,
+      0.08,
+      0.1,
+      0.12,
+      0.15,
+      0.18,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "pfail_values": [
+      0.05,
+      0.08,
+      0.1,
+      0.12,
+      0.15,
+      0.18,
+      0.2
+    ],
+    "budget_values": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "graph_n_range": [
+      30,
+      50
+    ],
+    "graph_m": 2,
+    "max_rounds": 20,
+    "reference_n": 40,
+    "n_graphs": 100,
+    "n_seeds": 5
+  },
+  "thresholds": {
+    "delta_h": 0.3,
+    "delta_t": 0.8,
+    "delta_s": 0.15,
+    "min_ds_frac": 0.5
+  }
+}
