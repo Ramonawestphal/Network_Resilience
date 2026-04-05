@@ -6,7 +6,6 @@ import math
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from itertools import product
 from pathlib import Path
 from random import Random
 from typing import Any

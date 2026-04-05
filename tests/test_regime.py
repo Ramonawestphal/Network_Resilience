@@ -124,6 +124,9 @@ def _summary(
     fully_restored_count: int = 10,
     episode_count: int = 10,
     rounds_when_solved_mean: float | None = None,
+    unsolved_low_final_anc_count: int = 0,
+    unsolved_low_final_anc_fraction: float = 0.0,
+    final_anc_failure_threshold_used: float | None = None,
 ) -> PolicyEvaluationSummary:
     metric = lambda value: AggregateMetric(mean=value, stderr=0.0)
     rws = (
@@ -140,6 +143,9 @@ def _summary(
         rounds_when_solved=rws,
         fully_restored_count=fully_restored_count,
         episode_count=episode_count,
+        unsolved_low_final_anc_count=unsolved_low_final_anc_count,
+        unsolved_low_final_anc_fraction=unsolved_low_final_anc_fraction,
+        final_anc_failure_threshold_used=final_anc_failure_threshold_used,
     )
 
 

@@ -17,6 +17,7 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     EpisodeResult,
     PolicyEvaluationSummary,
+    final_anc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
@@ -107,7 +108,10 @@ def regime_label_from_heuristic_rollouts(
             **dict(env_kwargs),
         )
         result = rollout_policy(env, policy, seed=failure_seed)
-        summaries[name] = summarize_episode_results([result])
+        summaries[name] = summarize_episode_results(
+            [result],
+            final_anc_failure_threshold=thr,
+        )
     diagnostics = compute_regime_diagnostics(
         summaries,
         hopeless_threshold=hopeless_threshold,
@@ -252,9 +256,18 @@ def evaluate_policies_on_saved_instances(
             result = rollout_policy(env, policy, seed=seed_i)
             by_policy[name].append(result)
             by_regime[label][name].append(result)
-    overall = {n: summarize_episode_results(rs) for n, rs in by_policy.items() if rs}
+    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
+    overall = {
+        n: summarize_episode_results(rs, final_anc_failure_threshold=thr)
+        for n, rs in by_policy.items()
+        if rs
+    }
     per_bucket = {
-        lbl: {n: summarize_episode_results(rs) for n, rs in pmap.items() if rs}
+        lbl: {
+            n: summarize_episode_results(rs, final_anc_failure_threshold=thr)
+            for n, rs in pmap.items()
+            if rs
+        }
         for lbl, pmap in by_regime.items()
     }
     return overall, per_bucket

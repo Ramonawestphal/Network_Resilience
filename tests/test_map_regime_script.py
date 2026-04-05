@@ -53,8 +53,11 @@ def test_map_regime_writes_expected_outputs(tmp_path: Path, monkeypatch):
         output_dir / "regime_results.json",
         output_dir / "regime_results.csv",
         output_dir / "recommended_regime.md",
+        output_dir / "regime_heuristic_summary.md",
         output_dir / "interestingness_heatmap.png",
         output_dir / "budget_curves.png",
+        output_dir / "solved_fraction_heatmaps.png",
+        output_dir / "unsolved_low_anc_heatmaps.png",
         output_dir / "run_metadata.json",
     ]
     for path in expected_paths:

@@ -25,7 +25,11 @@ from cascading_rl.evaluation import (
 )
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.reproducibility import portable_artifact_path
-from scripts.plot_regime import plot_budget_curves, plot_interestingness_heatmaps
+from scripts.plot_regime import (
+    plot_budget_curves,
+    plot_interestingness_heatmaps,
+    plot_policy_metric_heatmaps,
+)
 from scripts.reproducibility import write_run_metadata
 
 
@@ -75,7 +79,11 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                 f"{policy_name}_final_anc_stderr",
                 f"{policy_name}_solved_fraction_mean",
                 f"{policy_name}_fully_restored_count",
+                f"{policy_name}_fully_restored_fraction",
                 f"{policy_name}_episode_count",
+                f"{policy_name}_unsolved_low_anc_count",
+                f"{policy_name}_unsolved_low_anc_fraction",
+                f"{policy_name}_final_anc_failure_threshold_used",
                 f"{policy_name}_rounds_when_solved_mean",
                 f"{policy_name}_rounds_mean",
             ]
@@ -114,7 +122,25 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                 csv_row[f"{policy_name}_fully_restored_count"] = policy_summary[
                     "fully_restored_count"
                 ]
+                csv_row[f"{policy_name}_fully_restored_fraction"] = policy_summary.get(
+                    "fully_restored_fraction",
+                    (
+                        policy_summary["fully_restored_count"] / policy_summary["episode_count"]
+                        if policy_summary["episode_count"]
+                        else 0.0
+                    ),
+                )
                 csv_row[f"{policy_name}_episode_count"] = policy_summary["episode_count"]
+                csv_row[f"{policy_name}_unsolved_low_anc_count"] = policy_summary.get(
+                    "unsolved_low_final_anc_count", 0
+                )
+                csv_row[f"{policy_name}_unsolved_low_anc_fraction"] = policy_summary.get(
+                    "unsolved_low_final_anc_fraction", 0.0
+                )
+                thr_used = policy_summary.get("final_anc_failure_threshold_used")
+                csv_row[f"{policy_name}_final_anc_failure_threshold_used"] = (
+                    thr_used if thr_used is not None else ""
+                )
                 rws = policy_summary.get("rounds_when_solved")
                 csv_row[f"{policy_name}_rounds_when_solved_mean"] = (
                     rws["mean"] if isinstance(rws, dict) else ""
@@ -163,6 +189,50 @@ def build_recommendation(serialized_cells: list[dict]) -> dict | None:
             and best_cell["diagnostics"]["solved_fraction_spread"] < 0.05
         ),
     }
+
+
+def write_regime_heuristic_summary(
+    serialized_cells: list[dict[str, Any]],
+    policies: list[str],
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    thr_note = ""
+    if serialized_cells and policies:
+        ps0 = serialized_cells[0]["policy_summaries"][policies[0]]
+        t_raw = ps0.get("final_anc_failure_threshold_used")
+        if t_raw is not None:
+            thr = float(t_raw)
+            thr_note = (
+                f"“Unsolved low-ANC” counts episodes with remaining failed nodes and final ANC "
+                f"strictly below **{thr:g}** (from `abandonment_anc_threshold` when set in config, "
+                f"else 0.3).\n\n"
+            )
+
+    lines = [
+        "# Regime heuristic rollup",
+        "",
+        "Per-policy means over all grid cells (alpha × p_fail × budget).",
+        "",
+        thr_note,
+        "| policy | mean solved fraction | mean unsolved low-ANC fraction |",
+        "| --- | ---: | ---: |",
+    ]
+    n_cells = len(serialized_cells)
+    for policy in policies:
+        if not n_cells:
+            lines.append(f"| {policy} | — | — |")
+            continue
+        solved_acc = 0.0
+        low_acc = 0.0
+        for cell in serialized_cells:
+            ps = cell["policy_summaries"][policy]
+            solved_acc += float(ps["solved_fraction"]["mean"])
+            low_acc += float(ps.get("unsolved_low_final_anc_fraction", 0.0))
+        lines.append(
+            f"| {policy} | {solved_acc / n_cells:.4f} | {low_acc / n_cells:.4f} |"
+        )
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_note(
@@ -332,6 +402,27 @@ def main() -> None:
     )
     plot_interestingness_heatmaps(results, output_dir / "interestingness_heatmap.png")
     plot_budget_curves(results, output_dir / "budget_curves.png")
+    plot_policy_metric_heatmaps(
+        results,
+        output_dir / "solved_fraction_heatmaps.png",
+        suptitle="Mean solved fraction (heuristic rollouts)",
+        colorbar_label="solved fraction",
+        value_fn=lambda cell, pol: float(
+            cell["policy_summaries"][pol]["solved_fraction"]["mean"]
+        ),
+    )
+    plot_policy_metric_heatmaps(
+        results,
+        output_dir / "unsolved_low_anc_heatmaps.png",
+        suptitle="Unsolved low-final-ANC fraction (failed & final ANC < threshold)",
+        colorbar_label="fraction of episodes",
+        value_fn=lambda cell, pol: float(
+            cell["policy_summaries"][pol].get("unsolved_low_final_anc_fraction", 0.0)
+        ),
+    )
+    write_regime_heuristic_summary(
+        serialized_cells, selected_policies, output_dir / "regime_heuristic_summary.md"
+    )
 
     print(f"Saved regime map to {json_path}")
     print(f"Saved summary table to {csv_path}")

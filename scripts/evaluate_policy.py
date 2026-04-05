@@ -28,6 +28,7 @@ from cascading_rl.evaluation import (
     summarize_episode_results,
     summarize_regime_buckets,
 )
+from cascading_rl.evaluation.benchmarks import final_anc_failure_threshold_for_reporting
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.reproducibility import portable_artifact_path, write_run_metadata
@@ -494,8 +495,12 @@ def evaluate_policy_factories_with_optional_scaling(
                 result = rollout_policy(env, policy, seed=seed)
                 episode_results_by_policy[policy_name].append(result)
 
+    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
     return {
-        policy_name: summarize_episode_results(episode_results)
+        policy_name: summarize_episode_results(
+            episode_results,
+            final_anc_failure_threshold=thr,
+        )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
 

@@ -118,7 +118,15 @@ def serialize_policy_summary(summary) -> dict[str, object]:
             "stderr": summary.solved_fraction.stderr,
         },
         "fully_restored_count": summary.fully_restored_count,
+        "fully_restored_fraction": (
+            summary.fully_restored_count / summary.episode_count
+            if summary.episode_count
+            else 0.0
+        ),
         "episode_count": summary.episode_count,
+        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
+        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
+        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
         "rounds_when_solved": (
             {"mean": rws.mean, "stderr": rws.stderr} if rws is not None else None
         ),

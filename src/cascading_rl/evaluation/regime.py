@@ -11,6 +11,7 @@ from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget, c
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     PolicyEvaluationSummary,
+    final_anc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
@@ -88,6 +89,7 @@ def evaluate_policy_factories_on_graphs(
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
     resolved_env_kwargs = dict(env_kwargs or {})
     seeds_seq = tuple(seeds)
+    thr = final_anc_failure_threshold_for_reporting(resolved_env_kwargs)
 
     for graph_index, graph in enumerate(graphs):
         resolved_budget = compute_scaled_budget(
@@ -122,7 +124,10 @@ def evaluate_policy_factories_on_graphs(
                 episode_results_by_policy[policy_name].append(result)
 
     return {
-        policy_name: summarize_episode_results(episode_results)
+        policy_name: summarize_episode_results(
+            episode_results,
+            final_anc_failure_threshold=thr,
+        )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
 
@@ -344,6 +349,8 @@ def serialize_metric(metric: object | None) -> dict[str, float] | None:
 
 
 def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, object]:
+    ep = summary.episode_count
+    fully_frac = summary.fully_restored_count / ep if ep else 0.0
     return {
         "final_anc": serialize_metric(summary.final_anc),
         "total_reward": serialize_metric(summary.total_reward),
@@ -352,7 +359,11 @@ def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, obje
         "solved_fraction": serialize_metric(summary.solved_fraction),
         "rounds_when_solved": serialize_metric(summary.rounds_when_solved),
         "fully_restored_count": summary.fully_restored_count,
+        "fully_restored_fraction": fully_frac,
         "episode_count": summary.episode_count,
+        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
+        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
+        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
     }
 
 
