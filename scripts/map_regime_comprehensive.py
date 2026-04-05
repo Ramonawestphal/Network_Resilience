@@ -6,6 +6,7 @@ import math
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from itertools import product
 from pathlib import Path
 from random import Random
 from typing import Any
@@ -33,22 +34,22 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from cascading_rl.budgeting import compute_scaled_budget
-from cascading_rl.dynamics.cascade import CascadeState, advance_cascade_round
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_ba_graph
-from cascading_rl.metrics.connectivity import accumulated_normalized_connectivity
 from cascading_rl.policies.betweenness_policy import choose_highest_betweenness_failed_node
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
+from cascading_rl.policies.greedy_policy import choose_greedy_anc_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
+from cascading_rl.policies.risk_policy import choose_highest_overload_risk_node
 
 ALPHA_VALUES = [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
 PFAIL_VALUES = [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
 BUDGET_VALUES = [1, 2, 3, 4, 5, 6]
 N_GRAPHS = 100
-N_SEEDS = 10
+N_SEEDS = 5
 GRAPH_N_RANGE = (30, 50)
 GRAPH_M = 2
-MAX_ROUNDS = 5
+MAX_ROUNDS = 20
 REFERENCE_N = 40
 MASTER_SEED = 2026
 
@@ -64,7 +65,8 @@ SENS_DELTA_T = [0.70, 0.75, 0.80, 0.85]
 SENS_DELTA_S = [0.05, 0.10, 0.15, 0.20, 0.25]
 SENS_MIN_DS = [0.30, 0.40, 0.50, 0.60]
 
-POLICY_NAMES = ("degree", "random", "betweenness")
+# Greedy uses combinatorial search per round; cost grows with |failed| and max_rounds.
+POLICY_NAMES = ("degree", "random", "betweenness", "greedy", "risk")
 POLICY_ROW_COLUMNS = [
     "graph_id",
     "graph_seed",
@@ -78,25 +80,19 @@ POLICY_ROW_COLUMNS = [
     "seed_index",
     "env_seed",
     "policy",
-    "n_failed_at_start",
-    "pr_post_cascade",
-    "feasibility_ratio",
     "final_pr",
     "n_active_final",
     "solved",
+    "rounds_when_solved",
     "spread_vs_random",
     "instance_label",
 ]
 PNG_FILENAMES = (
     "spread_distribution_by_alpha.png",
     "pr_degree_distribution_by_alpha.png",
-    "cascade_amplification_heatmap.png",
-    "pr_post_cascade_heatmap.png",
     "ds_fraction_heatmap.png",
     "interestingness_heatmap.png",
     "budget_comparison.png",
-    "feasibility_heatmap.png",
-    "threshold_sensitivity_heatmap.png",
     "graph_vs_seed_variance.png",
 )
 
@@ -319,7 +315,7 @@ def completed_cells_from_checkpoint(
 ) -> tuple[set[tuple[float, float, int]], pd.DataFrame]:
     """Return completed cells and strip any incomplete cell rows from the checkpoint.
 
-    A cell is complete only when it contains exactly `N_GRAPHS * N_SEEDS * 3` policy rows.
+    A cell is complete only when it contains exactly `n_graphs * n_seeds * len(POLICY_NAMES)` rows.
     Incomplete cell rows are dropped so a restarted run recomputes the cell from scratch
     and does not accumulate duplicates.
     """
@@ -351,30 +347,29 @@ def completed_cells_from_checkpoint(
     return complete, cleaned.reset_index(drop=True)
 
 
-def preview_post_cascade_metrics(state: CascadeState) -> tuple[int, float]:
-    """Simulate the preview cascade to full settlement on a cloned state.
+def instance_label_from_heuristic_outcomes(policy_solved: dict[str, bool]) -> str:
+    """Decision-sensitive: random fails, at least one non-random heuristic fully recovers."""
 
-    The real environment starts recovery immediately after the exogenous failure event.
-    For this analysis, we additionally record the severity after the entire preview
-    cascade settles on a cloned copy of the reset state so the exported diagnostics
-    reflect the full cascade consequences without altering the actual episode rollout.
-    """
-
-    preview = state.copy()
-    while preview.frontier and preview.failed:
-        advance_cascade_round(preview)
-    failed_count = len(preview.failed)
-    post_cascade_pr = accumulated_normalized_connectivity(preview.graph, preview.active)
-    return failed_count, float(post_cascade_pr)
+    random_solved = policy_solved["random"]
+    others_solved = any(policy_solved[p] for p in POLICY_NAMES if p != "random")
+    if random_solved:
+        return "random_recovers"
+    if others_solved:
+        return "decision_sensitive"
+    return "all_fail"
 
 
 def policy_action(observation: RecoveryObservation, policy_name: str, *, rng: Random | None) -> Any:
-    """Select an action for one of the three supported evaluation policies."""
+    """Select an action for one of the supported evaluation policies."""
 
     if policy_name == "degree":
         return choose_highest_degree_failed_node(observation)
     if policy_name == "betweenness":
         return choose_highest_betweenness_failed_node(observation)
+    if policy_name == "greedy":
+        return choose_greedy_anc_node(observation)
+    if policy_name == "risk":
+        return choose_highest_overload_risk_node(observation)
     if policy_name == "random":
         assert rng is not None
         return choose_random_failed_node(observation, rng=rng)
@@ -404,31 +399,34 @@ def run_policy_episode(
     observation = env.reset(seed=env_seed)
     failed_at_reset = frozenset(observation.failed)
     active_at_reset = frozenset(observation.active)
+    if not observation.failed:
+        return {
+            "failed_at_reset": failed_at_reset,
+            "active_at_reset": active_at_reset,
+            "final_pr": float(env.current_anc()),
+            "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
+            "solved": True,
+            "rounds_when_solved": 0,
+        }
     action_rng = Random(env_seed) if policy_name == "random" else None
     while observation.failed:
         action = policy_action(observation, policy_name, rng=action_rng)
-        observation, _reward, done, _info = env.step(action)
+        if isinstance(action, (list, tuple)):
+            observation, _reward, done, _info = env.step_batch(list(action))
+        else:
+            observation, _reward, done, _info = env.step(action)
         if done:
             break
+    solved = bool(env.state is not None and not env.state.failed)
+    rounds_when_solved: int | None = int(env.current_round) if solved else None
     return {
         "failed_at_reset": failed_at_reset,
         "active_at_reset": active_at_reset,
         "final_pr": float(env.current_anc()),
         "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
-        "solved": bool(env.state is not None and not env.state.failed),
+        "solved": solved,
+        "rounds_when_solved": rounds_when_solved,
     }
-
-
-def classify_instance_label(pr_degree: float, pr_random: float, spread: float, config: MappingConfig) -> str:
-    """Apply the requested hopeless/trivial/decision-sensitive/ambiguous label logic."""
-
-    if pr_degree < config.delta_h:
-        return "hopeless"
-    if pr_random > config.delta_t:
-        return "trivial"
-    if spread >= config.delta_s:
-        return "decision_sensitive"
-    return "ambiguous"
 
 
 def evaluate_instance_rows(
@@ -441,11 +439,11 @@ def evaluate_instance_rows(
     seed_index: int,
     config: MappingConfig,
 ) -> list[dict[str, Any]]:
-    """Evaluate all three policies on one matched instance and return policy rows.
+    """Evaluate all policies on one matched instance and return policy rows.
 
     All policies share the same graph, `(alpha, pfail, budget_ref)`, and the exact same
     `env_seed`. The function verifies that every policy sees the same reset state, then
-    records a shared instance label and shared diagnostic fields across the three rows.
+    records a shared instance label across the rows.
     """
 
     graph_id = int(graph_meta["graph_id"])
@@ -465,8 +463,6 @@ def evaluate_instance_rows(
         seed=env_seed,
     )
     baseline_obs = baseline_env.reset(seed=env_seed)
-    n_failed_at_start, pr_post_cascade = preview_post_cascade_metrics(baseline_env.state)
-    feasibility_ratio = n_failed_at_start / float(scaled_budget * config.max_rounds)
 
     policy_results: dict[str, dict[str, Any]] = {}
     for policy_name in POLICY_NAMES:
@@ -483,9 +479,10 @@ def evaluate_instance_rows(
         assert result["active_at_reset"] == frozenset(baseline_obs.active)
         policy_results[policy_name] = result
 
-    pr_degree = float(policy_results["degree"]["final_pr"])
+    instance_label = instance_label_from_heuristic_outcomes(
+        {p: bool(policy_results[p]["solved"]) for p in POLICY_NAMES}
+    )
     pr_random = float(policy_results["random"]["final_pr"])
-    instance_label = classify_instance_label(pr_degree, pr_random, pr_degree - pr_random, config)
 
     rows: list[dict[str, Any]] = []
     for policy_name in POLICY_NAMES:
@@ -504,12 +501,10 @@ def evaluate_instance_rows(
                 "seed_index": int(seed_index),
                 "env_seed": int(env_seed),
                 "policy": policy_name,
-                "n_failed_at_start": int(n_failed_at_start),
-                "pr_post_cascade": float(pr_post_cascade),
-                "feasibility_ratio": float(feasibility_ratio),
                 "final_pr": float(policy_results[policy_name]["final_pr"]),
                 "n_active_final": int(policy_results[policy_name]["n_active_final"]),
                 "solved": bool(policy_results[policy_name]["solved"]),
+                "rounds_when_solved": policy_results[policy_name]["rounds_when_solved"],
                 "spread_vs_random": float(spread_vs_random),
                 "instance_label": instance_label,
             }
@@ -616,15 +611,12 @@ def build_instance_summary(policy_rows: pd.DataFrame) -> pd.DataFrame:
         "scaled_budget",
         "seed_index",
         "env_seed",
-        "n_failed_at_start",
-        "pr_post_cascade",
-        "feasibility_ratio",
         "instance_label",
     ]
     pivot = policy_rows.pivot_table(
         index=index_columns,
         columns="policy",
-        values=["final_pr", "n_active_final", "solved", "spread_vs_random"],
+        values=["final_pr", "n_active_final", "solved", "spread_vs_random", "rounds_when_solved"],
         aggfunc="first",
     )
     pivot.columns = [f"{left}_{right}" for left, right in pivot.columns]
@@ -637,6 +629,10 @@ def build_instance_summary(policy_rows: pd.DataFrame) -> pd.DataFrame:
     instance_summary["spread_betweenness_random"] = (
         instance_summary["final_pr_betweenness"] - instance_summary["final_pr_random"]
     )
+    non_random = [p for p in POLICY_NAMES if p != "random"]
+    instance_summary["n_non_random_success"] = instance_summary[
+        [f"solved_{p}" for p in non_random]
+    ].sum(axis=1)
     return instance_summary.reset_index(drop=True)
 
 
@@ -666,17 +662,12 @@ def aggregate_single_cell(
         "pfail": float(cell_instances["pfail"].iloc[0]),
         "budget_ref": int(cell_instances["budget_ref"].iloc[0]),
     }
-    record.update(quantile_metrics(cell_instances["n_failed_at_start"], "n_failed"))
-    record.update(quantile_metrics(cell_instances["pr_post_cascade"], "pr_post_cascade"))
-    record["feasibility_ratio_mean"] = float(cell_instances["feasibility_ratio"].mean())
-    record["feasibility_ratio_std"] = float(cell_instances["feasibility_ratio"].std(ddof=0))
-    record["frac_infeasible"] = float((cell_instances["feasibility_ratio"] > 1.0).mean())
 
     label_fractions = cell_instances["instance_label"].value_counts(normalize=True)
-    record["f_hopeless"] = float(label_fractions.get("hopeless", 0.0))
-    record["f_trivial"] = float(label_fractions.get("trivial", 0.0))
+    record["f_hopeless"] = float(label_fractions.get("all_fail", 0.0))
+    record["f_trivial"] = float(label_fractions.get("random_recovers", 0.0))
     record["f_ds"] = float(label_fractions.get("decision_sensitive", 0.0))
-    record["f_ambiguous"] = float(label_fractions.get("ambiguous", 0.0))
+    record["f_ambiguous"] = 0.0
 
     for policy_name in POLICY_NAMES:
         prefix = f"final_pr_{policy_name}"
@@ -705,7 +696,7 @@ def aggregate_single_cell(
 
     ds_instances = cell_instances.loc[cell_instances["instance_label"] == "decision_sensitive"]
     record["interestingness_degree"] = float(
-        record["f_ds"] * ds_instances["spread_degree_random"].mean()
+        record["f_ds"] * ds_instances["n_non_random_success"].mean()
     ) if not ds_instances.empty else 0.0
     record["interestingness_betweenness"] = float(
         record["f_ds"] * ds_instances["spread_betweenness_random"].mean()
@@ -717,11 +708,6 @@ def aggregate_single_cell(
         .agg(
             graph_mean_pr_degree=("final_pr", "mean"),
             graph_std_pr_degree=("final_pr", lambda s: float(s.std(ddof=0)) if len(s) > 1 else 0.0),
-            graph_mean_nfailed=("n_failed_at_start", "mean"),
-            graph_std_nfailed=(
-                "n_failed_at_start",
-                lambda s: float(s.std(ddof=0)) if len(s) > 1 else 0.0,
-            ),
         )
         .reset_index()
         .sort_values("graph_id")
@@ -732,14 +718,10 @@ def aggregate_single_cell(
         "budget_ref": record["budget_ref"],
         "across_graph_std_pr_degree": float(per_graph["graph_mean_pr_degree"].std(ddof=0)),
         "within_graph_std_pr_degree": float(per_graph["graph_std_pr_degree"].mean()),
-        "across_graph_std_nfailed": float(per_graph["graph_mean_nfailed"].std(ddof=0)),
-        "within_graph_std_nfailed": float(per_graph["graph_std_nfailed"].mean()),
         "per_graph_stats": per_graph.to_dict(orient="records"),
     }
     record["across_graph_std_pr_degree"] = variance_payload["across_graph_std_pr_degree"]
     record["within_graph_std_pr_degree"] = variance_payload["within_graph_std_pr_degree"]
-    record["across_graph_std_nfailed"] = variance_payload["across_graph_std_nfailed"]
-    record["within_graph_std_nfailed"] = variance_payload["within_graph_std_nfailed"]
     return record, variance_payload
 
 
@@ -786,195 +768,10 @@ def aggregate_budget_summary(cell_frame: pd.DataFrame) -> pd.DataFrame:
                 "std_interestingness": float(group["interestingness_degree"].std(ddof=0))
                 if len(group) > 1
                 else 0.0,
-                "mean_feasibility_ratio": float(group["feasibility_ratio_mean"].mean()),
-                "frac_infeasible_cells": float((group["feasibility_ratio_mean"] > 1.0).mean()),
+                "mean_random_solved_frac": float(group["solved_frac_random"].mean()),
             }
         )
     return pd.DataFrame(rows).sort_values("budget_ref").reset_index(drop=True)
-
-
-def relabel_instances(
-    instance_summary: pd.DataFrame,
-    *,
-    delta_h: float,
-    delta_t: float,
-    delta_s: float,
-) -> pd.Series:
-    """Recompute instance labels for one threshold combination."""
-
-    labels: list[str] = []
-    for row in instance_summary.itertuples(index=False):
-        labels.append(
-            classify_instance_label(
-                float(row.final_pr_degree),
-                float(row.final_pr_random),
-                float(row.spread_degree_random),
-                default_config()
-                if (
-                    math.isclose(delta_h, DELTA_H)
-                    and math.isclose(delta_t, DELTA_T)
-                    and math.isclose(delta_s, DELTA_S)
-                )
-                else MappingConfig(
-                    alpha_values=(),
-                    pfail_values=(),
-                    budget_values=(),
-                    n_graphs=0,
-                    n_seeds=0,
-                    graph_n_range=(0, 0),
-                    graph_m=0,
-                    max_rounds=0,
-                    reference_n=0,
-                    master_seed=0,
-                    delta_h=delta_h,
-                    delta_t=delta_t,
-                    delta_s=delta_s,
-                    min_ds_frac=0.0,
-                    sens_delta_h=(),
-                    sens_delta_t=(),
-                    sens_delta_s=(),
-                    sens_min_ds=(),
-                    output_dir="",
-                ),
-            )
-        )
-    return pd.Series(labels, index=instance_summary.index, dtype="object")
-
-
-def sensitivity_label(
-    pr_degree: float,
-    pr_random: float,
-    spread: float,
-    *,
-    delta_h: float,
-    delta_t: float,
-    delta_s: float,
-) -> str:
-    """Apply sensitivity-threshold labeling without building a full config object."""
-
-    if pr_degree < delta_h:
-        return "hopeless"
-    if pr_random > delta_t:
-        return "trivial"
-    if spread >= delta_s:
-        return "decision_sensitive"
-    return "ambiguous"
-
-
-def threshold_sensitivity_analysis(
-    instance_summary: pd.DataFrame,
-    config: MappingConfig,
-) -> tuple[pd.DataFrame, tuple[float, float], dict[str, Any], dict[str, Any], list[list[int]]]:
-    """Evaluate all threshold combinations and derive stability reports."""
-
-    rows: list[dict[str, Any]] = []
-    for delta_h, delta_t, delta_s, min_ds in product(
-        config.sens_delta_h,
-        config.sens_delta_t,
-        config.sens_delta_s,
-        config.sens_min_ds,
-    ):
-        relabeled = instance_summary.copy()
-        relabeled["sens_label"] = relabeled.apply(
-            lambda row: sensitivity_label(
-                float(row["final_pr_degree"]),
-                float(row["final_pr_random"]),
-                float(row["spread_degree_random"]),
-                delta_h=delta_h,
-                delta_t=delta_t,
-                delta_s=delta_s,
-            ),
-            axis=1,
-        )
-        cell_rows: list[dict[str, Any]] = []
-        for (alpha, pfail, budget_ref), group in relabeled.groupby(
-            ["alpha", "pfail", "budget_ref"], sort=True
-        ):
-            fractions = group["sens_label"].value_counts(normalize=True)
-            f_ds = float(fractions.get("decision_sensitive", 0.0))
-            if float(fractions.get("hopeless", 0.0)) > 0.50:
-                cell_label = "hopeless"
-            elif float(fractions.get("trivial", 0.0)) > 0.50:
-                cell_label = "trivial"
-            elif f_ds >= min_ds:
-                cell_label = "decision_sensitive"
-            else:
-                cell_label = "mixed"
-            ds_group = group.loc[group["sens_label"] == "decision_sensitive", "spread_degree_random"]
-            cell_rows.append(
-                {
-                    "alpha": alpha,
-                    "pfail": pfail,
-                    "budget_ref": budget_ref,
-                    "cell_label": cell_label,
-                    "f_ds": f_ds,
-                    "interestingness": float(f_ds * ds_group.mean()) if not ds_group.empty else 0.0,
-                }
-            )
-        cell_frame = pd.DataFrame(cell_rows)
-        counts = cell_frame["cell_label"].value_counts()
-        rows.append(
-            {
-                "delta_h": float(delta_h),
-                "delta_t": float(delta_t),
-                "delta_s": float(delta_s),
-                "min_ds_frac": float(min_ds),
-                "n_cells_ds": int(counts.get("decision_sensitive", 0)),
-                "n_cells_trivial": int(counts.get("trivial", 0)),
-                "n_cells_hopeless": int(counts.get("hopeless", 0)),
-                "n_cells_mixed": int(counts.get("mixed", 0)),
-                "mean_f_ds_across_cells": float(cell_frame["f_ds"].mean()),
-                "mean_interestingness_across_cells": float(cell_frame["interestingness"].mean()),
-            }
-        )
-
-    sensitivity_frame = pd.DataFrame(rows).sort_values(
-        by=["delta_h", "delta_t", "delta_s", "min_ds_frac"]
-    ).reset_index(drop=True)
-    proposed_subset = sensitivity_frame[
-        (sensitivity_frame["delta_t"] == config.delta_t)
-        & (sensitivity_frame["min_ds_frac"] == config.min_ds_frac)
-    ]
-    ds_by_delta_s = (
-        proposed_subset[proposed_subset["delta_h"] == config.delta_h]
-        .sort_values("delta_s")[["delta_s", "n_cells_ds"]]
-        .reset_index(drop=True)
-    )
-    stable_values = [float(ds_by_delta_s.loc[0, "delta_s"])] if not ds_by_delta_s.empty else []
-    for index in range(1, len(ds_by_delta_s)):
-        if abs(int(ds_by_delta_s.loc[index, "n_cells_ds"]) - int(ds_by_delta_s.loc[index - 1, "n_cells_ds"])) < 5:
-            stable_values.append(float(ds_by_delta_s.loc[index, "delta_s"]))
-    stable_range = (min(stable_values), max(stable_values)) if stable_values else (math.nan, math.nan)
-
-    most_permissive = (
-        sensitivity_frame.sort_values(
-            by=["n_cells_ds", "mean_f_ds_across_cells", "mean_interestingness_across_cells"],
-            ascending=[False, False, False],
-        )
-        .iloc[0]
-        .to_dict()
-    )
-    proposed_entry = sensitivity_frame[
-        (sensitivity_frame["delta_h"] == config.delta_h)
-        & (sensitivity_frame["delta_t"] == config.delta_t)
-        & (sensitivity_frame["delta_s"] == config.delta_s)
-        & (sensitivity_frame["min_ds_frac"] == config.min_ds_frac)
-    ].iloc[0].to_dict()
-
-    matrix: list[list[int]] = []
-    fixed_subset = sensitivity_frame[
-        (sensitivity_frame["delta_t"] == config.delta_t)
-        & (sensitivity_frame["min_ds_frac"] == config.min_ds_frac)
-    ]
-    for delta_h in config.sens_delta_h:
-        row: list[int] = []
-        for delta_s in config.sens_delta_s:
-            match = fixed_subset[
-                (fixed_subset["delta_h"] == delta_h) & (fixed_subset["delta_s"] == delta_s)
-            ]
-            row.append(int(match.iloc[0]["n_cells_ds"]))
-        matrix.append(row)
-    return sensitivity_frame, stable_range, most_permissive, proposed_entry, matrix
 
 
 def flatten_cell_frame_for_csv(cell_frame: pd.DataFrame) -> pd.DataFrame:
@@ -1166,7 +963,7 @@ def plot_budget_panel_heatmaps(
 
 
 def plot_budget_comparison(budget_frame: pd.DataFrame, config: MappingConfig) -> None:
-    """Render the grouped budget comparison bars with feasibility overlay."""
+    """Render grouped budget bars with mean random baseline recovery rate overlay."""
 
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, axis = plt.subplots(figsize=(14, 8))
@@ -1183,46 +980,22 @@ def plot_budget_comparison(budget_frame: pd.DataFrame, config: MappingConfig) ->
     axis.set_xticks(x_values, [str(int(value)) for value in budget_frame["budget_ref"]])
     axis.set_xlabel("budget_ref")
     axis.set_ylabel("Cell count / percentage")
-    axis.set_title("Budget Comparison: Decision-Sensitivity vs Feasibility")
+    axis.set_title("Budget comparison: DS cells, f_DS, interestingness, random solved fraction")
     axis.legend(loc="upper left")
 
     second_axis = axis.twinx()
     second_axis.plot(
         x_values,
-        budget_frame["mean_feasibility_ratio"],
+        budget_frame["mean_random_solved_frac"],
         color="red",
         marker="o",
         linewidth=2,
-        label="mean_feasibility_ratio",
+        label="mean_random_solved_frac",
     )
-    second_axis.axhline(1.0, color="red", linestyle="--", linewidth=1.0)
-    second_axis.set_ylabel("Mean feasibility ratio")
+    second_axis.set_ylabel("Mean random policy solve rate (per cell)")
+    second_axis.set_ylim(0.0, 1.0)
     second_axis.legend(loc="upper right")
     save_figure(fig, Path(config.output_dir) / "plots" / "budget_comparison.png")
-
-
-def plot_threshold_sensitivity_heatmap(
-    matrix: list[list[int]],
-    config: MappingConfig,
-) -> None:
-    """Create the `(delta_h, delta_s)` threshold sensitivity heatmap at fixed defaults."""
-
-    plt.style.use("seaborn-v0_8-whitegrid")
-    fig, axis = plt.subplots(figsize=(10, 6))
-    image = axis.imshow(matrix, cmap="Purples", aspect="auto")
-    for row_idx, row in enumerate(matrix):
-        for col_idx, value in enumerate(row):
-            axis.text(col_idx, row_idx, str(value), ha="center", va="center", color="black")
-    proposed_row = list(config.sens_delta_h).index(config.delta_h)
-    proposed_col = list(config.sens_delta_s).index(config.delta_s)
-    axis.add_patch(Rectangle((proposed_col - 0.5, proposed_row - 0.5), 1, 1, fill=False, edgecolor="red", linewidth=2))
-    axis.set_xticks(range(len(config.sens_delta_s)), [f"{v:.2f}" for v in config.sens_delta_s])
-    axis.set_yticks(range(len(config.sens_delta_h)), [f"{v:.2f}" for v in config.sens_delta_h])
-    axis.set_xlabel("delta_s")
-    axis.set_ylabel("delta_h")
-    axis.set_title("Threshold Sensitivity: n_cells_DS (fixed delta_t=0.80, min_ds=0.50)")
-    fig.colorbar(image, ax=axis)
-    save_figure(fig, Path(config.output_dir) / "plots" / "threshold_sensitivity_heatmap.png")
 
 
 def plot_graph_vs_seed_variance(cell_frame: pd.DataFrame, config: MappingConfig) -> None:
@@ -1262,10 +1035,9 @@ def generate_plots(
     instance_summary: pd.DataFrame,
     cell_frame: pd.DataFrame,
     budget_frame: pd.DataFrame,
-    sensitivity_matrix: list[list[int]],
     config: MappingConfig,
 ) -> None:
-    """Generate all 10 required plots under `OUTPUT_DIR/plots/`."""
+    """Generate diagnostic plots under `OUTPUT_DIR/plots/`."""
 
     output_dir = Path(config.output_dir)
     plot_violin_by_alpha(
@@ -1274,7 +1046,7 @@ def generate_plots(
         value_column="spread_degree_random",
         title="Spread Distribution by α (all pfail and budget pooled)",
         filename="spread_distribution_by_alpha.png",
-        reference_lines=((config.delta_s, "red", "DELTA_S"),),
+        reference_lines=(),
         ylabel="PR_degree - PR_random",
     )
     plot_violin_by_alpha(
@@ -1283,46 +1055,14 @@ def generate_plots(
         value_column="final_pr_degree",
         title="PR(degree) Distribution by α",
         filename="pr_degree_distribution_by_alpha.png",
-        reference_lines=((config.delta_h, "red", "DELTA_H"), (config.delta_t, "blue", "DELTA_T")),
+        reference_lines=(),
         ylabel="final_pr_degree",
-    )
-    pooled = instance_summary.groupby(["alpha", "pfail"], as_index=False).agg(
-        n_failed_at_start=("n_failed_at_start", "median"),
-        pr_post_cascade=("pr_post_cascade", "median"),
-    )
-    plot_single_heatmap(
-        heatmap_matrix(
-            pooled,
-            row_values=config.pfail_values,
-            col_values=config.alpha_values,
-            value_column="n_failed_at_start",
-        ),
-        row_labels=[f"{v:.2f}" for v in config.pfail_values],
-        col_labels=[f"{v:.2f}" for v in config.alpha_values],
-        title="Median Failed Nodes at Recovery Start (post-cascade preview)",
-        filename=output_dir / "plots" / "cascade_amplification_heatmap.png",
-        cmap="YlOrRd",
-    )
-    plot_single_heatmap(
-        heatmap_matrix(
-            pooled,
-            row_values=config.pfail_values,
-            col_values=config.alpha_values,
-            value_column="pr_post_cascade",
-        ),
-        row_labels=[f"{v:.2f}" for v in config.pfail_values],
-        col_labels=[f"{v:.2f}" for v in config.alpha_values],
-        title="Median PR Immediately After Cascade (preview)",
-        filename=output_dir / "plots" / "pr_post_cascade_heatmap.png",
-        cmap="RdYlGn",
-        vmin=0.0,
-        vmax=1.0,
     )
     plot_budget_panel_heatmaps(
         cell_frame,
         config,
         value_column="f_ds",
-        title="Decision-Sensitive Fraction f_DS",
+        title="Decision-sensitive fraction (random fails, another heuristic recovers)",
         filename="ds_fraction_heatmap.png",
         cmap="coolwarm",
         highlight_ds=True,
@@ -1331,36 +1071,24 @@ def generate_plots(
         cell_frame,
         config,
         value_column="interestingness_degree",
-        title="Interestingness Score (f_DS × mean spread in DS instances)",
+        title="Interestingness (f_DS × mean non-random success count on DS instances)",
         filename="interestingness_heatmap.png",
         cmap="Blues",
         star_top3=True,
     )
     plot_budget_comparison(budget_frame, config)
-    plot_budget_panel_heatmaps(
-        cell_frame,
-        config,
-        value_column="frac_infeasible",
-        title="Fraction of Structurally Infeasible Instances (ρ > 1)",
-        filename="feasibility_heatmap.png",
-        cmap="Reds",
-    )
-    plot_threshold_sensitivity_heatmap(sensitivity_matrix, config)
     plot_graph_vs_seed_variance(cell_frame, config)
 
 
 def training_recommendation(
     cell_frame: pd.DataFrame,
     budget_frame: pd.DataFrame,
-    stable_delta_s_range: tuple[float, float],
-    proposed_threshold_entry: dict[str, Any],
     config: MappingConfig,
 ) -> dict[str, Any]:
-    """Compute the best single cell, best budget, mixed regime, and stability verdict."""
+    """Compute the best single cell, best budget, and mixed regime."""
 
     eligible = cell_frame[
         (cell_frame["cell_label"] == "decision_sensitive")
-        & (cell_frame["feasibility_ratio_mean"] < 1.0)
         & (cell_frame["f_ds"] >= config.min_ds_frac)
     ]
     if eligible.empty:
@@ -1373,13 +1101,12 @@ def training_recommendation(
             "budget_ref": int(top["budget_ref"]),
             "f_ds": float(top["f_ds"]),
             "interestingness": float(top["interestingness_degree"]),
-            "feasibility_ratio_mean": float(top["feasibility_ratio_mean"]),
+            "solved_frac_random": float(top["solved_frac_random"]),
         }
 
     best_budget_row = budget_frame.sort_values(
-        by=["n_cells_ds", "mean_feasibility_ratio"],
-        ascending=[False, True],
-        key=lambda column: abs(column - 0.5) if column.name == "mean_feasibility_ratio" else column,
+        by=["n_cells_ds", "mean_interestingness"],
+        ascending=[False, False],
     ).iloc[0]
     best_budget_ref = int(best_budget_row["budget_ref"])
 
@@ -1402,31 +1129,23 @@ def training_recommendation(
             "n_ds_cells_covered": int(len(selected)),
         }
 
-    stable_low, stable_high = stable_delta_s_range
     return {
         "best_single_cell": best_single,
         "best_budget_ref": best_budget_ref,
         "recommended_mixed_regime": mixed_regime,
-        "threshold_stability": {
-            "proposed_thresholds_in_stable_zone": (
-                math.isfinite(stable_low) and stable_low <= config.delta_s <= stable_high
-            ),
-            "stable_delta_s_range": [stable_low, stable_high],
-            "n_cells_ds_at_proposed": int(proposed_threshold_entry["n_cells_ds"]),
-        },
     }
 
 
 def print_budget_summary_table(budget_frame: pd.DataFrame) -> None:
     """Print the required per-budget summary table."""
 
-    print("Budget | DS Cells | Trivial | Mixed | Mean f_DS | Mean Interest. | Mean Feasibility")
-    print("-------|----------|---------|-------|-----------|----------------|------------------")
+    print("Budget | DS Cells | Trivial | Mixed | Mean f_DS | Mean Interest. | Random solved")
+    print("-------|----------|---------|-------|-----------|----------------|---------------")
     for row in budget_frame.itertuples(index=False):
         print(
             f"{int(row.budget_ref):>6} | {int(row.n_cells_ds):>8} | {int(row.n_cells_trivial):>7} | "
             f"{int(row.n_cells_mixed):>5} | {float(row.mean_f_ds):>9.3f} | "
-            f"{float(row.mean_interestingness):>14.3f} | {float(row.mean_feasibility_ratio):>16.3f}"
+            f"{float(row.mean_interestingness):>14.3f} | {float(row.mean_random_solved_frac):>13.3f}"
         )
 
 
@@ -1434,15 +1153,14 @@ def print_final_summary(
     policy_rows: pd.DataFrame,
     cell_frame: pd.DataFrame,
     recommendation: dict[str, Any],
-    stable_delta_s_range: tuple[float, float],
 ) -> None:
-    """Print the final research summary requested in the prompt."""
+    """Print the final research summary."""
 
     counts = cell_frame["cell_label"].value_counts()
     print("=======================================================================")
     print("REGIME MAPPING COMPLETE")
     print("=======================================================================")
-    print(f"Total instances evaluated: {len(policy_rows):,}")
+    print(f"Total policy rows evaluated: {len(policy_rows):,}")
     print(f"Total cells: {len(cell_frame)} (9 alpha x 7 pfail x 6 B)")
     print("Cell label distribution:")
     for label in ("decision_sensitive", "trivial", "hopeless", "mixed"):
@@ -1460,21 +1178,13 @@ def print_final_summary(
         print(
             f"    f_DS={best_single['f_ds']:.3f}, "
             f"interestingness={best_single['interestingness']:.3f}, "
-            f"feasibility={best_single['feasibility_ratio_mean']:.3f}"
+            f"random_solved_frac={best_single['solved_frac_random']:.3f}"
         )
 
     mixed = recommendation["recommended_mixed_regime"]
     print(f"\nRecommended budget for mixed training: B_ref = {recommendation['best_budget_ref']}")
     print("Recommended (alpha, pfail) pairs for mixed training:")
     print(f"    alpha in {mixed['alpha_values']}, pfail in {mixed['pfail_values']}")
-
-    stable = recommendation["threshold_stability"]["proposed_thresholds_in_stable_zone"]
-    print("\nThreshold stability:")
-    print(
-        f"    Proposed thresholds (deltaH=0.30, deltaS=0.15) are "
-        f"{'stable' if stable else 'unstable'}"
-    )
-    print(f"    Stable deltaS range: [{stable_delta_s_range[0]:.2f}, {stable_delta_s_range[1]:.2f}]")
     print("=======================================================================")
 
 
@@ -1537,16 +1247,6 @@ def run_analysis(
     cell_frame, graph_variance = aggregate_regime_cells(policy_rows, instance_summary, config)
     assert len(cell_frame) == config.total_cells
     budget_frame = aggregate_budget_summary(cell_frame)
-    sensitivity_frame, stable_delta_s_range, most_permissive, proposed_entry, sensitivity_matrix = threshold_sensitivity_analysis(
-        instance_summary,
-        config,
-    )
-    assert len(sensitivity_frame) == (
-        len(config.sens_delta_h)
-        * len(config.sens_delta_t)
-        * len(config.sens_delta_s)
-        * len(config.sens_min_ds)
-    )
 
     write_json(
         resolved_output_dir / "regime_cells.json",
@@ -1563,27 +1263,15 @@ def run_analysis(
         resolved_output_dir / "budget_summary.json",
         {"metadata": run_metadata, "budgets": budget_frame.to_dict(orient="records")},
     )
-    write_json(
-        resolved_output_dir / "threshold_sensitivity.json",
-        {
-            "metadata": run_metadata,
-            "sensitivity": sensitivity_frame.to_dict(orient="records"),
-            "stable_delta_s_range": list(stable_delta_s_range),
-            "most_permissive": most_permissive,
-            "proposed_thresholds": proposed_entry,
-        },
-    )
 
     recommendation = training_recommendation(
         cell_frame,
         budget_frame,
-        stable_delta_s_range,
-        proposed_entry,
         config,
     )
     write_json(resolved_output_dir / "training_recommendation.json", recommendation)
 
-    generate_plots(instance_summary, cell_frame, budget_frame, sensitivity_matrix, config)
+    generate_plots(instance_summary, cell_frame, budget_frame, config)
     assert_plot_outputs(resolved_output_dir)
 
     print("\nTop 5 cells by interestingness_degree:")
@@ -1599,35 +1287,18 @@ def run_analysis(
     print(
         f"\nBudget with most DS cells: {int(budget_frame.sort_values('n_cells_ds', ascending=False).iloc[0]['budget_ref'])}"
     )
-    feasibility_rank = budget_frame.assign(
-        feasibility_distance=(budget_frame["mean_feasibility_ratio"] - 0.5).abs()
-    ).sort_values("feasibility_distance")
+    high_interest = budget_frame.sort_values("mean_interestingness", ascending=False).iloc[0]
     print(
-        "Budget with feasibility closest to 0.5: "
-        f"{int(feasibility_rank.iloc[0]['budget_ref'])}"
+        "Budget with highest mean interestingness: "
+        f"{int(high_interest['budget_ref'])}"
     )
-    print(
-        f"\ndelta_S stable zone: [{stable_delta_s_range[0]:.2f}, {stable_delta_s_range[1]:.2f}] "
-        "(n_cells_ds changes by < 5 within this range)"
-    )
-    print(
-        f"Most permissive thresholds: dh={most_permissive['delta_h']:.2f}, "
-        f"dt={most_permissive['delta_t']:.2f}, ds={most_permissive['delta_s']:.2f}, "
-        f"min_ds={most_permissive['min_ds_frac']:.2f}"
-    )
-    print("\nn_cells_ds table for (delta_h, delta_s) at delta_t=0.80, min_ds=0.50:")
-    header = "      " + " ".join(f"{delta_s:>6.2f}" for delta_s in config.sens_delta_s)
-    print(header)
-    for delta_h, row in zip(config.sens_delta_h, sensitivity_matrix, strict=False):
-        print(f"{delta_h:>4.2f} " + " ".join(f"{value:>6d}" for value in row))
-    print_final_summary(policy_rows, cell_frame, recommendation, stable_delta_s_range)
+    print_final_summary(policy_rows, cell_frame, recommendation)
 
     return {
         "policy_rows": policy_rows,
         "instance_summary": instance_summary,
         "cell_frame": cell_frame,
         "budget_frame": budget_frame,
-        "sensitivity_frame": sensitivity_frame,
         "recommendation": recommendation,
         "output_dir": resolved_output_dir,
     }

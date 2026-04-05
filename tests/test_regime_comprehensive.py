@@ -55,6 +55,9 @@ def test_constants_defined():
     assert isinstance(comprehensive.BUDGET_VALUES, list)
     assert isinstance(comprehensive.N_GRAPHS, int)
     assert isinstance(comprehensive.N_SEEDS, int)
+    assert comprehensive.N_SEEDS == 5
+    assert comprehensive.MAX_ROUNDS == 20
+    assert len(comprehensive.POLICY_NAMES) == 5
     assert len(comprehensive.ALPHA_VALUES) == 9
     assert len(comprehensive.PFAIL_VALUES) == 7
     assert len(comprehensive.BUDGET_VALUES) == 6
@@ -98,11 +101,11 @@ def test_same_seed_invariant():
         seed_index=0,
         config=config,
     )
-    failed_counts = {row["n_failed_at_start"] for row in rows}
-    pr_values = {row["pr_post_cascade"] for row in rows}
-    assert len(rows) == 3
-    assert len(failed_counts) == 1
-    assert len(pr_values) == 1
+    policies = {row["policy"] for row in rows}
+    labels = {row["instance_label"] for row in rows}
+    assert len(rows) == len(comprehensive.POLICY_NAMES)
+    assert policies == set(comprehensive.POLICY_NAMES)
+    assert len(labels) == 1
 
 
 @dataclass(frozen=True)
@@ -148,12 +151,20 @@ def test_pr_metric_used_correctly():
     assert math.isclose(env.current_anc(), 1.0)
 
 
-def test_label_logic():
-    config = tiny_config()
-    assert comprehensive.classify_instance_label(0.20, 0.15, 0.05, config) == "hopeless"
-    assert comprehensive.classify_instance_label(0.90, 0.85, 0.05, config) == "trivial"
-    assert comprehensive.classify_instance_label(0.65, 0.40, 0.25, config) == "decision_sensitive"
-    assert comprehensive.classify_instance_label(0.60, 0.50, 0.10, config) == "ambiguous"
+def test_instance_label_from_heuristic_outcomes():
+    lbl = comprehensive.instance_label_from_heuristic_outcomes
+    pol = comprehensive.POLICY_NAMES
+    others = [p for p in pol if p != "random"]
+
+    def make_solved(random_ok: bool, other_ok: list[bool]) -> dict[str, bool]:
+        out = dict(zip(others, other_ok, strict=True))
+        out["random"] = random_ok
+        return out
+
+    assert lbl(make_solved(False, [True, False, False, False])) == "decision_sensitive"
+    assert lbl(make_solved(False, [False, False, False, False])) == "all_fail"
+    assert lbl(make_solved(True, [False, False, False, False])) == "random_recovers"
+    assert lbl(make_solved(True, [True, True, True, True])) == "random_recovers"
 
 
 def test_checkpoint_resume(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -163,14 +174,15 @@ def test_checkpoint_resume(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     with pytest.raises(RuntimeError, match="Intentional interruption"):
         comprehensive.run_analysis(config, output_dir=output_dir, fail_after_cells=1)
 
+    n_pol = len(comprehensive.POLICY_NAMES)
     checkpoint_frame = read_checkpoint(output_dir)
-    assert len(checkpoint_frame) == 3 * 2 * 3
+    assert len(checkpoint_frame) == 3 * 2 * n_pol
 
     comprehensive.run_analysis(config, output_dir=output_dir)
     resumed_output = capsys.readouterr().out
     assert "Resuming: 1 of 4 cells already complete" in resumed_output
     final_checkpoint = read_checkpoint(output_dir)
-    assert len(final_checkpoint) == 2 * 2 * 1 * 3 * 2 * 3
+    assert len(final_checkpoint) == 2 * 2 * 1 * 3 * 2 * n_pol
 
 
 def test_output_files_created(tmp_path: Path):
@@ -183,7 +195,6 @@ def test_output_files_created(tmp_path: Path):
         output_dir / "regime_cells.csv",
         output_dir / "regime_instances.csv",
         output_dir / "budget_summary.json",
-        output_dir / "threshold_sensitivity.json",
         output_dir / "training_recommendation.json",
         output_dir / "run_metadata.json",
         output_dir / "graph_variance.json",
@@ -199,4 +210,4 @@ def test_output_files_created(tmp_path: Path):
         assert path.exists(), f"Missing expected artifact: {path}"
 
     png_files = list((output_dir / "plots").glob("*.png"))
-    assert len(png_files) >= 10
+    assert len(png_files) == len(comprehensive.PNG_FILENAMES)

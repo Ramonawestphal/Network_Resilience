@@ -68,15 +68,15 @@ training:
   graph:
     n_range: [30, 50]
     m: 2
-  num_episodes: 500 # changed from 10000
+  num_episodes: 8000 
   replay_capacity: 10000
   warmup_transitions: 100
   batch_size: 64
   gamma: 0.99
-  learning_rate: 0.003 #changed from 0.0003
+  learning_rate: 0.0003 
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 500
+  epsilon_decay_episodes: 6000
   target_update_interval: 200
   hidden_dim: 128
   embed_dim: 128
