@@ -123,19 +123,19 @@ def plot_budget_curves(results: dict, output_path: Path) -> None:
     for policy_name in results["policies"]:
         budgets = [cell["budget"] for cell in cells]
         final_anc = [cell["policy_summaries"][policy_name]["final_anc"]["mean"] for cell in cells]
-        threshold_hit = [
-            cell["policy_summaries"][policy_name]["threshold_hit_fraction"]["mean"]
+        solved_frac = [
+            cell["policy_summaries"][policy_name]["solved_fraction"]["mean"]
             for cell in cells
         ]
         axes[0].plot(budgets, final_anc, marker="o", label=policy_name)
-        axes[1].plot(budgets, threshold_hit, marker="o", label=policy_name)
+        axes[1].plot(budgets, solved_frac, marker="o", label=policy_name)
 
     axes[0].set_title(f"Final ANC vs budget (alpha={target_alpha}, pfail={target_pfail})")
     axes[0].set_xlabel("budget")
     axes[0].set_ylabel("mean final ANC")
-    axes[1].set_title("Threshold-hit fraction vs budget")
+    axes[1].set_title("Fully restored fraction vs budget")
     axes[1].set_xlabel("budget")
-    axes[1].set_ylabel("mean threshold-hit fraction")
+    axes[1].set_ylabel("mean solved fraction")
     axes[0].legend()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=180, bbox_inches="tight")

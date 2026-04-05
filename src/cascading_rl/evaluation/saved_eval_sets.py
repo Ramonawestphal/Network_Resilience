@@ -65,7 +65,6 @@ def rollout_final_anc_on_instance(
     failure_seed: int,
     env_kwargs: Mapping[str, object],
     policy: Callable[[RecoveryObservation], Any],
-    tau: float,
 ) -> float:
     env = RecoveryEnv(
         graph,
@@ -76,7 +75,7 @@ def rollout_final_anc_on_instance(
         seed=0,
         **dict(env_kwargs),
     )
-    return rollout_policy(env, policy, seed=failure_seed, tau=tau).final_anc
+    return rollout_policy(env, policy, seed=failure_seed).final_anc
 
 
 def regime_label_from_heuristic_rollouts(
@@ -88,7 +87,6 @@ def regime_label_from_heuristic_rollouts(
     max_rounds: int,
     failure_seed: int,
     env_kwargs: Mapping[str, object],
-    tau: float,
     hopeless_threshold: float,
     trivial_threshold: float,
     spread_threshold: float,
@@ -108,7 +106,7 @@ def regime_label_from_heuristic_rollouts(
             seed=0,
             **dict(env_kwargs),
         )
-        result = rollout_policy(env, policy, seed=failure_seed, tau=tau)
+        result = rollout_policy(env, policy, seed=failure_seed)
         summaries[name] = summarize_episode_results([result])
     diagnostics = compute_regime_diagnostics(
         summaries,
@@ -235,7 +233,6 @@ def evaluate_policies_on_saved_instances(
     policy_factories: Mapping[str, object],
     *,
     env_kwargs: Mapping[str, object],
-    tau: float,
     policy_names: Sequence[str],
 ) -> tuple[
     dict[str, PolicyEvaluationSummary],
@@ -252,7 +249,7 @@ def evaluate_policies_on_saved_instances(
         for name in policy_names:
             env = recovery_env_from_instance(inst, env_kwargs=env_kwargs)
             policy = policy_factories[name](idx, seed_i)
-            result = rollout_policy(env, policy, seed=seed_i, tau=tau)
+            result = rollout_policy(env, policy, seed=seed_i)
             by_policy[name].append(result)
             by_regime[label][name].append(result)
     overall = {n: summarize_episode_results(rs) for n, rs in by_policy.items() if rs}

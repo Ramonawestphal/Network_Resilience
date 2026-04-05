@@ -61,6 +61,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
     obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
+    abandon_raw = regime.get("abandonment_anc_threshold", defaults.abandonment_anc_threshold)
     num_episodes = (
         int(episodes_override)
         if episodes_override is not None
@@ -87,10 +88,16 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
             budget_scaling.get("reference_n", defaults.budget_reference_n)
         ),
         max_rounds=int(regime["max_rounds"]),
+        scale_max_rounds=bool(
+            budget_scaling.get("scale_max_rounds", defaults.scale_max_rounds)
+        ),
         capacity_noise=float(regime.get("capacity_noise", defaults.capacity_noise)),
         failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),
         action_space=str(regime.get("action_space", defaults.action_space)),
         obs_hops=int(obs_hops_raw) if obs_hops_raw is not None else None,
+        abandonment_anc_threshold=(
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
         num_episodes=num_episodes,

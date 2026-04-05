@@ -36,11 +36,15 @@ def load_config(path: Path) -> dict[str, Any]:
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -64,7 +68,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--budgets", type=int, nargs="+", default=None)
     parser.add_argument("--num-graphs", type=int, default=1)
     parser.add_argument("--graph-seed", type=int, default=None)
-    parser.add_argument("--tau", type=float, default=None)
+    parser.add_argument(
+        "--target-solved-fraction",
+        type=float,
+        default=None,
+        help="Minimum mean fully-restored rate for b* (default: evaluation.minimum_budget_solved_target or evaluation.tau).",
+    )
     parser.add_argument("--policies", type=str, nargs="+", default=None)
     parser.add_argument("--scale-budget", action="store_true")
     parser.add_argument("--reference-n", type=int, default=None)
@@ -91,8 +100,13 @@ def main() -> None:
     pfail = float(args.pfail if args.pfail is not None else regime["pfail"])
     max_rounds = int(args.max_rounds if args.max_rounds is not None else regime["max_rounds"])
     budgets = list(args.budgets) if args.budgets is not None else [int(value) for value in evaluation["budgets"]]
-    tau = float(args.tau if args.tau is not None else evaluation["tau"])
+    target_solved_fraction = float(
+        args.target_solved_fraction
+        if args.target_solved_fraction is not None
+        else evaluation.get("minimum_budget_solved_target", evaluation.get("tau", 0.8))
+    )
     scale_budget = bool(args.scale_budget or budget_scaling.get("enabled", False))
+    scale_max_rounds = bool(budget_scaling.get("scale_max_rounds", True))
     reference_n = int(
         args.reference_n
         if args.reference_n is not None
@@ -129,7 +143,7 @@ def main() -> None:
         minimum_budget, search_curve = estimate_minimum_budget(
             representative_graph,
             policy,
-            tau=tau,
+            target_solved_fraction=target_solved_fraction,
             budgets=budgets,
             trials=len(training["benchmark_seeds"]),
             alpha=alpha,
@@ -137,12 +151,13 @@ def main() -> None:
             max_rounds=max_rounds,
             env_kwargs=env_kwargs,
             scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
         )
         results[policy_name] = {
             "minimum_budget": minimum_budget,
             "search_curve": {
-                str(budget): {"final_anc_mean": mean, "final_anc_stderr": stderr}
+                str(budget): {"solved_fraction_mean": mean, "solved_fraction_stderr": stderr}
                 for budget, (mean, stderr) in search_curve.items()
             },
         }
@@ -153,7 +168,7 @@ def main() -> None:
         "alpha": alpha,
         "pfail": pfail,
         "max_rounds": max_rounds,
-        "tau": tau,
+        "target_solved_fraction": target_solved_fraction,
         "budgets": budgets,
         "graph_seed": graph_seed,
         "num_graphs": args.num_graphs,

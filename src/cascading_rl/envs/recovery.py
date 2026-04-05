@@ -121,6 +121,7 @@ class RecoveryEnv:
         failure_bias: str = "uniform",
         action_space: str = "failed",
         obs_hops: int | None = None,
+        abandonment_anc_threshold: float | None = None,
     ) -> None:
         if budget < 1:
             raise ValueError("budget must be at least 1.")
@@ -128,6 +129,10 @@ class RecoveryEnv:
             raise ValueError("max_rounds must be at least 1 when provided.")
         if obs_hops is not None and obs_hops < 1:
             raise ValueError("obs_hops must be at least 1 when provided.")
+        if abandonment_anc_threshold is not None and not (
+            0.0 <= abandonment_anc_threshold <= 1.0
+        ):
+            raise ValueError("abandonment_anc_threshold must lie in [0, 1] when set.")
 
         self.base_graph = graph.copy()
         self.alpha = alpha
@@ -139,6 +144,11 @@ class RecoveryEnv:
         self.failure_bias = str(failure_bias)
         self.action_space = str(action_space)
         self.obs_hops = obs_hops
+        self.abandonment_anc_threshold = (
+            float(abandonment_anc_threshold)
+            if abandonment_anc_threshold is not None
+            else None
+        )
         self._rng = Random(seed)
         self.state: CascadeState | None = None
         self.remaining_budget = budget
@@ -193,6 +203,11 @@ class RecoveryEnv:
             raise RuntimeError("Environment must be reset before use.")
         return accumulated_normalized_connectivity(self.state.graph, self.state.active)
 
+    def _abandon_due_to_low_anc(self, post_cascade_anc: float) -> bool:
+        if self.abandonment_anc_threshold is None or self.state is None:
+            return False
+        return post_cascade_anc < self.abandonment_anc_threshold and bool(self.state.failed)
+
     def step(self, action: Node) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
         if self.state is None:
             raise RuntimeError("Environment must be reset before use.")
@@ -220,7 +235,11 @@ class RecoveryEnv:
         reward = anc_after_cascade - previous_anc
 
         exhausted_rounds = action_round >= self.max_rounds
+        abandoned = self._abandon_due_to_low_anc(anc_after_cascade)
         if not self.state.failed:
+            done = True
+            abandoned = False
+        elif abandoned:
             done = True
         elif round_complete and exhausted_rounds:
             done = True
@@ -243,10 +262,16 @@ class RecoveryEnv:
             "next_round": self.current_round,
             "remaining_budget": self.remaining_budget,
             "round_complete": round_complete,
-            "max_rounds_reached": round_complete and exhausted_rounds,
+            "max_rounds_reached": (
+                round_complete
+                and exhausted_rounds
+                and bool(self.state.failed)
+                and not abandoned
+            ),
             "reactivated_node": action,
             "newly_failed_nodes": newly_failed,
             "cascade_executed": cascade_executed,
+            "abandoned": abandoned,
         }
         return self.observe(), reward, done, info
 
@@ -281,7 +306,14 @@ class RecoveryEnv:
         reward = post_cascade_anc - previous_anc
 
         exhausted_rounds = self.current_round >= self.max_rounds
-        done = not self.state.failed or exhausted_rounds
+        abandoned = self._abandon_due_to_low_anc(post_cascade_anc)
+        if not self.state.failed:
+            done = True
+            abandoned = False
+        elif abandoned:
+            done = True
+        else:
+            done = exhausted_rounds
 
         if not done:
             self.current_round += 1
@@ -301,7 +333,10 @@ class RecoveryEnv:
             "actions": list(actions),
             "remaining_budget": self.remaining_budget,
             "round_complete": True,
-            "max_rounds_reached": exhausted_rounds,
+            "max_rounds_reached": (
+                exhausted_rounds and bool(self.state.failed) and not abandoned
+            ),
             "cascade_executed": cascade_executed,
+            "abandoned": abandoned,
         }
         return self.observe(), reward, done, info

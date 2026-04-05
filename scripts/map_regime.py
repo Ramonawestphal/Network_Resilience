@@ -32,11 +32,15 @@ from scripts.reproducibility import write_run_metadata
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -53,10 +57,10 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
         "regime_label",
         "interestingness_score",
         "final_anc_spread",
-        "threshold_hit_spread",
+        "solved_fraction_spread",
         "rounds_spread",
         "mean_final_anc",
-        "mean_threshold_hit",
+        "mean_solved_fraction",
         "budget_sensitivity",
         "best_policy",
         "worst_policy",
@@ -69,7 +73,10 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
             [
                 f"{policy_name}_final_anc_mean",
                 f"{policy_name}_final_anc_stderr",
-                f"{policy_name}_threshold_hit_mean",
+                f"{policy_name}_solved_fraction_mean",
+                f"{policy_name}_fully_restored_count",
+                f"{policy_name}_episode_count",
+                f"{policy_name}_rounds_when_solved_mean",
                 f"{policy_name}_rounds_mean",
             ]
         )
@@ -86,10 +93,10 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                 "regime_label": row["diagnostics"]["regime_label"],
                 "interestingness_score": row["diagnostics"]["interestingness_score"],
                 "final_anc_spread": row["diagnostics"]["final_anc_spread"],
-                "threshold_hit_spread": row["diagnostics"]["threshold_hit_spread"],
+                "solved_fraction_spread": row["diagnostics"]["solved_fraction_spread"],
                 "rounds_spread": row["diagnostics"]["rounds_spread"],
                 "mean_final_anc": row["diagnostics"]["mean_final_anc"],
-                "mean_threshold_hit": row["diagnostics"]["mean_threshold_hit"],
+                "mean_solved_fraction": row["diagnostics"]["mean_solved_fraction"],
                 "budget_sensitivity": row["diagnostics"]["budget_sensitivity"],
                 "best_policy": row["diagnostics"]["best_policy"],
                 "worst_policy": row["diagnostics"]["worst_policy"],
@@ -101,9 +108,17 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                 policy_summary = row["policy_summaries"][policy_name]
                 csv_row[f"{policy_name}_final_anc_mean"] = policy_summary["final_anc"]["mean"]
                 csv_row[f"{policy_name}_final_anc_stderr"] = policy_summary["final_anc"]["stderr"]
-                csv_row[f"{policy_name}_threshold_hit_mean"] = policy_summary[
-                    "threshold_hit_fraction"
+                csv_row[f"{policy_name}_solved_fraction_mean"] = policy_summary[
+                    "solved_fraction"
                 ]["mean"]
+                csv_row[f"{policy_name}_fully_restored_count"] = policy_summary[
+                    "fully_restored_count"
+                ]
+                csv_row[f"{policy_name}_episode_count"] = policy_summary["episode_count"]
+                rws = policy_summary.get("rounds_when_solved")
+                csv_row[f"{policy_name}_rounds_when_solved_mean"] = (
+                    rws["mean"] if isinstance(rws, dict) else ""
+                )
                 csv_row[f"{policy_name}_rounds_mean"] = policy_summary["rounds"]["mean"]
             writer.writerow(csv_row)
 
@@ -113,7 +128,7 @@ def build_recommendation(serialized_cells: list[dict]) -> dict | None:
         cell
         for cell in serialized_cells
         if cell["diagnostics"]["final_anc_spread"] > 0.0
-        or cell["diagnostics"]["threshold_hit_spread"] > 0.0
+        or cell["diagnostics"]["solved_fraction_spread"] > 0.0
     ]
     interesting_cells = [
         cell
@@ -127,7 +142,7 @@ def build_recommendation(serialized_cells: list[dict]) -> dict | None:
         candidate_cells,
         key=lambda cell: (
             cell["diagnostics"]["final_anc_spread"],
-            cell["diagnostics"]["threshold_hit_spread"],
+            cell["diagnostics"]["solved_fraction_spread"],
             cell["diagnostics"]["budget_sensitivity"] or 0.0,
             cell["diagnostics"]["interestingness_score"],
         ),
@@ -141,11 +156,11 @@ def build_recommendation(serialized_cells: list[dict]) -> dict | None:
         "best_policy": best_cell["diagnostics"]["best_policy"],
         "worst_policy": best_cell["diagnostics"]["worst_policy"],
         "final_anc_spread": best_cell["diagnostics"]["final_anc_spread"],
-        "threshold_hit_spread": best_cell["diagnostics"]["threshold_hit_spread"],
+        "solved_fraction_spread": best_cell["diagnostics"]["solved_fraction_spread"],
         "budget_sensitivity": best_cell["diagnostics"]["budget_sensitivity"],
         "limited_spread": (
             best_cell["diagnostics"]["final_anc_spread"] < 0.05
-            and best_cell["diagnostics"]["threshold_hit_spread"] < 0.05
+            and best_cell["diagnostics"]["solved_fraction_spread"] < 0.05
         ),
     }
 
@@ -154,14 +169,22 @@ def write_note(
     recommendation: dict | None,
     output_path: Path,
     *,
-    tau: float,
+    minimum_budget_solved_target: float,
+    env_kwargs: dict[str, object],
     num_graphs: int,
     seeds: list[int],
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as file:
         file.write("# Recommended RL Regime\n\n")
-        file.write(f"- `tau`: {tau}\n")
+        file.write(
+            f"- `minimum_budget_solved_target` (for b\\* search in evaluate scripts): "
+            f"{minimum_budget_solved_target}\n"
+        )
+        file.write(
+            f"- env stopping: `abandonment_anc_threshold` = "
+            f"{env_kwargs.get('abandonment_anc_threshold')!r}\n"
+        )
         file.write(f"- fixed graph instances per cell: {num_graphs}\n")
         file.write(f"- matched seeds per graph: {len(seeds)}\n\n")
 
@@ -183,8 +206,8 @@ def write_note(
             f"- final ANC spread across heuristics: `{recommendation['final_anc_spread']:.3f}`\n"
         )
         file.write(
-            f"- threshold-hit spread across heuristics: "
-            f"`{recommendation['threshold_hit_spread']:.3f}`\n"
+            f"- solved-fraction spread across heuristics: "
+            f"`{recommendation['solved_fraction_spread']:.3f}`\n"
         )
         if recommendation["budget_sensitivity"] is not None:
             file.write(
@@ -228,7 +251,9 @@ def main() -> None:
     env_kwargs = resolve_env_kwargs(config)
 
     output_dir = ROOT / regime_config["output_dir"]
-    tau = float(evaluation_config["tau"])
+    target_solved_fraction = float(
+        evaluation_config.get("minimum_budget_solved_target", evaluation_config.get("tau", 0.8))
+    )
     seeds = list(regime_config["seeds"])
     graphs = make_graph_batch(
         num_graphs=int(regime_config["num_graphs"]),
@@ -251,12 +276,12 @@ def main() -> None:
         budgets=regime_config["budgets"],
         max_rounds=regime_config.get("max_rounds"),
         seeds=seeds,
-        tau=tau,
         hopeless_threshold=float(regime_config["hopeless_threshold"]),
         trivial_threshold=float(regime_config["trivial_threshold"]),
         spread_threshold=float(regime_config["spread_threshold"]),
         env_kwargs=env_kwargs,
         scale_budget=bool(budget_scaling.get("enabled", True)),
+        scale_max_rounds=bool(budget_scaling.get("scale_max_rounds", True)),
         reference_n=int(budget_scaling.get("reference_n", 40)),
     )
 
@@ -266,7 +291,7 @@ def main() -> None:
     results = {
         "config_path": str(args.config),
         "policies": selected_policies,
-        "tau": tau,
+        "minimum_budget_solved_target": target_solved_fraction,
         "seeds": seeds,
         "num_graphs": len(graphs),
         "env": env_kwargs,
@@ -284,7 +309,14 @@ def main() -> None:
     with json_path.open("w", encoding="utf-8") as file:
         json.dump(results, file, indent=2)
     write_csv(serialized_cells, csv_path, selected_policies)
-    write_note(recommendation, note_path, tau=tau, num_graphs=len(graphs), seeds=seeds)
+    write_note(
+        recommendation,
+        note_path,
+        minimum_budget_solved_target=target_solved_fraction,
+        env_kwargs=dict(env_kwargs),
+        num_graphs=len(graphs),
+        seeds=seeds,
+    )
     write_run_metadata(
         metadata_path,
         script_path=Path(__file__).resolve(),
@@ -294,7 +326,7 @@ def main() -> None:
             "output_dir": portable_artifact_path(output_dir),
             "num_graphs": len(graphs),
             "policies": selected_policies,
-            "tau": tau,
+            "minimum_budget_solved_target": target_solved_fraction,
             "env": env_kwargs,
         },
     )

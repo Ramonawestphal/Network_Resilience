@@ -29,7 +29,6 @@ def test_evaluate_policy_factories_on_graphs_returns_all_selected_policies():
         pfail=0.0,
         budget=2,
         seeds=[0, 1],
-        tau=0.5,
     )
 
     assert set(summaries) == {"degree", "greedy"}
@@ -46,7 +45,6 @@ def test_compute_regime_diagnostics_marks_trivial_when_all_policies_succeed():
         pfail=0.0,
         budget=3,
         seeds=[0, 1],
-        tau=0.5,
     )
 
     diagnostics = compute_regime_diagnostics(summaries)
@@ -66,7 +64,6 @@ def test_build_regime_cells_produces_budget_sensitivity_for_same_alpha_pfail():
         pfail_values=[0.05],
         budgets=[1, 2],
         seeds=[0, 1],
-        tau=0.8,
     )
 
     assert len(cells) == 2
@@ -92,15 +89,13 @@ def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch
             self.budget = budget
             budgets_seen.append((graph.number_of_nodes(), budget))
 
-    def fake_rollout_policy(env, policy, seed=None, tau=None):
+    def fake_rollout_policy(env, policy, seed=None):
         return EpisodeResult(
             total_reward=0.0,
             final_anc=float(env.budget),
             steps=0,
             rounds=0,
             remaining_failed_nodes=0,
-            threshold_step=None,
-            threshold_round=None,
         )
 
     monkeypatch.setattr(regime_module, "RecoveryEnv", DummyEnv)
@@ -113,7 +108,6 @@ def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch
         pfail=0.1,
         budget=2,
         seeds=[0],
-        tau=0.5,
         scale_budget=True,
         reference_n=40,
     )
@@ -125,47 +119,54 @@ def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch
 def _summary(
     *,
     final_anc: float,
-    threshold_hit: float,
     rounds: float,
     solved_fraction: float,
+    fully_restored_count: int = 10,
+    episode_count: int = 10,
+    rounds_when_solved_mean: float | None = None,
 ) -> PolicyEvaluationSummary:
     metric = lambda value: AggregateMetric(mean=value, stderr=0.0)
+    rws = (
+        metric(rounds_when_solved_mean)
+        if rounds_when_solved_mean is not None
+        else None
+    )
     return PolicyEvaluationSummary(
         final_anc=metric(final_anc),
         total_reward=metric(final_anc),
         steps=metric(1.0),
         rounds=metric(rounds),
         solved_fraction=metric(solved_fraction),
-        threshold_hit_fraction=metric(threshold_hit),
-        threshold_step=metric(1.0),
-        threshold_round=metric(1.0),
+        rounds_when_solved=rws,
+        fully_restored_count=fully_restored_count,
+        episode_count=episode_count,
     )
 
 
 def test_compute_regime_diagnostics_marks_ambiguous_when_spread_below_threshold():
     summaries = {
         "greedy": _summary(
-            final_anc=0.52, threshold_hit=0.51, rounds=2.0, solved_fraction=0.40
+            final_anc=0.52, rounds=2.0, solved_fraction=0.41
         ),
         "degree": _summary(
-            final_anc=0.50, threshold_hit=0.50, rounds=2.0, solved_fraction=0.40
+            final_anc=0.50, rounds=2.0, solved_fraction=0.40
         ),
     }
     diagnostics = compute_regime_diagnostics(summaries, spread_threshold=0.05)
     assert diagnostics.regime_label == "ambiguous"
     assert diagnostics.interesting_for_rl is False
     assert diagnostics.final_anc_spread == pytest.approx(0.02)
-    assert diagnostics.threshold_hit_spread == pytest.approx(0.01)
+    assert diagnostics.solved_fraction_spread == pytest.approx(0.01)
 
 
 def test_compute_regime_diagnostics_tracks_best_heuristic_gap():
     summaries = {
-        "rl": _summary(final_anc=0.68, threshold_hit=0.70, rounds=2.0, solved_fraction=0.60),
+        "rl": _summary(final_anc=0.68, rounds=2.0, solved_fraction=0.60),
         "greedy": _summary(
-            final_anc=0.61, threshold_hit=0.58, rounds=2.5, solved_fraction=0.50
+            final_anc=0.61, rounds=2.5, solved_fraction=0.50
         ),
         "degree": _summary(
-            final_anc=0.55, threshold_hit=0.52, rounds=2.8, solved_fraction=0.40
+            final_anc=0.55, rounds=2.8, solved_fraction=0.40
         ),
     }
 
@@ -186,17 +187,17 @@ def test_summarize_regime_buckets_reports_rl_gap():
         diagnostics=compute_regime_diagnostics(
             {
                 "rl": _summary(
-                    final_anc=0.95, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+                    final_anc=0.95, rounds=1.0, solved_fraction=1.0
                 ),
                 "greedy": _summary(
-                    final_anc=0.92, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+                    final_anc=0.92, rounds=1.0, solved_fraction=1.0
                 ),
             }
         ),
         policy_summaries={
-            "rl": _summary(final_anc=0.95, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0),
+            "rl": _summary(final_anc=0.95, rounds=1.0, solved_fraction=1.0),
             "greedy": _summary(
-                final_anc=0.92, threshold_hit=1.0, rounds=1.0, solved_fraction=1.0
+                final_anc=0.92, rounds=1.0, solved_fraction=1.0
             ),
         },
     )
@@ -207,17 +208,17 @@ def test_summarize_regime_buckets_reports_rl_gap():
         diagnostics=compute_regime_diagnostics(
             {
                 "rl": _summary(
-                    final_anc=0.66, threshold_hit=0.64, rounds=2.0, solved_fraction=0.50
+                    final_anc=0.66, rounds=2.0, solved_fraction=0.50
                 ),
                 "greedy": _summary(
-                    final_anc=0.58, threshold_hit=0.55, rounds=2.5, solved_fraction=0.45
+                    final_anc=0.58, rounds=2.5, solved_fraction=0.45
                 ),
             }
         ),
         policy_summaries={
-            "rl": _summary(final_anc=0.66, threshold_hit=0.64, rounds=2.0, solved_fraction=0.50),
+            "rl": _summary(final_anc=0.66, rounds=2.0, solved_fraction=0.50),
             "greedy": _summary(
-                final_anc=0.58, threshold_hit=0.55, rounds=2.5, solved_fraction=0.45
+                final_anc=0.58, rounds=2.5, solved_fraction=0.45
             ),
         },
     )

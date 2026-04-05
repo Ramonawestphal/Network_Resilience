@@ -27,7 +27,6 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
         },
         env_factory=env_factory,
         seeds=range(5),
-        tau=0.8,
     )
 
     assert set(summaries) == {"degree", "risk", "greedy", "betweenness"}
@@ -35,7 +34,6 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
         assert 0.0 <= summary.final_anc.mean <= 1.0
         assert summary.steps.mean >= 0.0
         assert 0.0 <= summary.solved_fraction.mean <= 1.0
-        assert 0.0 <= summary.threshold_hit_fraction.mean <= 1.0
 
 
 def test_budget_search_runs_on_generated_graph():
@@ -44,7 +42,7 @@ def test_budget_search_runs_on_generated_graph():
     minimum_budget, results = estimate_minimum_budget(
         graph,
         choose_highest_degree_failed_node,
-        tau=0.5,
+        target_solved_fraction=0.5,
         budgets=range(1, 4),
         trials=5,
         alpha=0.2,
@@ -53,8 +51,8 @@ def test_budget_search_runs_on_generated_graph():
 
     assert minimum_budget is None or minimum_budget in {1, 2, 3}
     assert set(results) == {1, 2, 3}
-    for mean_anc, stderr in results.values():
-        assert 0.0 <= mean_anc <= 1.0
+    for mean_solved, stderr in results.values():
+        assert 0.0 <= mean_solved <= 1.0
         assert stderr >= 0.0
 
 

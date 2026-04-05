@@ -27,7 +27,7 @@ def test_save_and_load_eval_instances_roundtrip(tmp_path: Path):
             "pr_random": 0.3,
             "spread": 0.2,
             "regime_label": "decision-sensitive",
-            "max_rounds": 5,
+            "max_rounds": 20,
             "m": 2,
         }
     ]
@@ -54,7 +54,7 @@ def test_recovery_env_from_instance_prefers_b_scaled_when_present():
         "p_fail": 0.1,
         "budget": 3,
         "b_scaled": 11,
-        "max_rounds": 5,
+        "max_rounds": 20,
     }
     env = recovery_env_from_instance(inst, env_kwargs=env_kwargs)
     assert env.budget == 11

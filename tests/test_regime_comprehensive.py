@@ -26,7 +26,7 @@ def tiny_config() -> comprehensive.MappingConfig:
         n_seeds=2,
         graph_n_range=(30, 32),
         graph_m=2,
-        max_rounds=5,
+        max_rounds=20,
         reference_n=40,
         master_seed=2026,
         delta_h=0.30,

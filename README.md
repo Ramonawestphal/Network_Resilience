@@ -31,7 +31,7 @@ Current step order:
 1. Sample one exogenous failure event at `t=0`.
 2. Within a round, choose up to `B` failed nodes sequentially.
 3. After the round budget is exhausted, run exactly one cascade wave from the current failed frontier.
-4. Repeat until there are no failed nodes left or `max_rounds` is reached.
+4. Repeat until there are no failed nodes left, `max_rounds` is reached, or (optionally) post-cascade ANC falls strictly below `training.regime.abandonment_anc_threshold` while failures remain (`info["abandoned"]`).
 
 Reward is always the ANC gain immediately after the chosen repair and before any round-end cascade wave. That keeps credit assignment local to the repair decision while still letting the next state reflect cascade consequences.
 
@@ -54,7 +54,7 @@ Current defaults:
 - reference regime: `alpha=0.10`, `pfail=0.15`
 - mixed training grid: `alpha_values=(0.10, 0.15, 0.20)`, `pfail_values=(0.10, 0.15, 0.20)`
 - reference budget: `4`
-- `max_rounds=5`
+- `max_rounds=20` (with `budget_scaling.scale_max_rounds`, scaled linearly with graph size like the budget)
 - `num_episodes=8000`
 - `warmup_transitions=500`
 - `batch_size=64`

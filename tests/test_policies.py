@@ -53,9 +53,9 @@ def test_risk_policy_prefers_node_adjacent_to_stressed_neighbors():
 def test_greedy_policy_prefers_largest_connectivity_gain():
     observation = make_observation()
 
-    action = choose_greedy_anc_node(observation)
+    actions = choose_greedy_anc_node(observation)
 
-    assert action == 0
+    assert actions == [0, 3]
 
 
 def test_betweenness_policy_prefers_bridge_like_node():

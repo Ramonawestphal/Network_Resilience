@@ -25,7 +25,7 @@ def make_config() -> dict:
             "seed": 7,
             "benchmark_graphs": 3,
             "benchmark_seeds": [0, 1, 2],
-            "regime": {"alpha": 0.2, "pfail": 0.1, "budget": 2, "max_rounds": 5},
+            "regime": {"alpha": 0.2, "pfail": 0.1, "budget": 2, "max_rounds": 20},
             "graph": {"n_range": [30, 50], "m": 2},
         },
         "regime_mapping": {
@@ -73,7 +73,7 @@ def test_resolve_grid_spec_hard_regime_incomplete_falls_back_to_training():
     assert grid_spec["alpha_values"] == [0.05]
     assert grid_spec["pfail_values"] == [0.1]
     assert grid_spec["budgets"] == [2]
-    assert grid_spec["max_rounds"] == 5
+    assert grid_spec["max_rounds"] == 20
     assert grid_spec["n_range"] == (30, 50)
     assert grid_spec["m"] == 2
     assert grid_spec["seeds"] == [0, 1, 2]
@@ -114,15 +114,19 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
         "policy_summaries": {
             "rl": {
                 "final_anc": {"mean": 0.8, "stderr": 0.1},
-                "threshold_hit_fraction": {"mean": 0.7, "stderr": 0.0},
                 "rounds": {"mean": 3.0, "stderr": 0.0},
                 "solved_fraction": {"mean": 0.6, "stderr": 0.0},
+                "fully_restored_count": 6,
+                "episode_count": 10,
+                "rounds_when_solved": {"mean": 2.5, "stderr": 0.1},
             },
             "degree": {
                 "final_anc": {"mean": 0.9, "stderr": 0.05},
-                "threshold_hit_fraction": {"mean": 0.8, "stderr": 0.0},
                 "rounds": {"mean": 2.0, "stderr": 0.0},
                 "solved_fraction": {"mean": 0.7, "stderr": 0.0},
+                "fully_restored_count": 7,
+                "episode_count": 10,
+                "rounds_when_solved": {"mean": 2.0, "stderr": 0.0},
             },
         }
     }
@@ -133,17 +137,21 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
         "rl": {
             "final_anc_mean": 0.8,
             "final_anc_stderr": 0.1,
-            "threshold_hit_mean": 0.7,
             "rounds_mean": 3.0,
             "solved_fraction_mean": 0.6,
+            "fully_restored_count": 6,
+            "episode_count": 10,
+            "rounds_when_solved_mean": 2.5,
             "b_star": 3,
         },
         "degree": {
             "final_anc_mean": 0.9,
             "final_anc_stderr": 0.05,
-            "threshold_hit_mean": 0.8,
             "rounds_mean": 2.0,
             "solved_fraction_mean": 0.7,
+            "fully_restored_count": 7,
+            "episode_count": 10,
+            "rounds_when_solved_mean": 2.0,
             "b_star": 2,
         },
     }
@@ -173,7 +181,7 @@ def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypa
             "budgets": [2],
             "num_graphs": 1,
             "seeds": [0],
-            "max_rounds": 5,
+            "max_rounds": 20,
         }
     )
 
@@ -329,7 +337,7 @@ def test_run_eval_set_mode_scaled_pickle_requires_b_scaled_on_all_instances(tmp_
         "graph": nx.path_graph(20),
         "alpha": 0.15,
         "p_fail": 0.18,
-        "max_rounds": 5,
+        "max_rounds": 20,
         "regime_label": "decision-sensitive",
     }
     inst_scaled = {**common, "b_scaled": 3, "failure_seed": 1}

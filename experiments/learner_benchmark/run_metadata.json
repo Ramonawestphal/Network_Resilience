@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-04-05T11:29:27.689271+00:00",
+  "script": "scripts/evaluate_policy.py",
+  "argv": [
+    "scripts/evaluate_policy.py",
+    "--config",
+    "config/default.yaml",
+    "--policies",
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness",
+    "--grid-source",
+    "hard_regime",
+    "--num-graphs",
+    "5",
+    "--seeds",
+    "0",
+    "1",
+    "2",
+    "--alpha-values",
+    "0.10",
+    "--pfail-values",
+    "0.15"
+  ],
+  "config_path": "config/default.yaml",
+  "config_sha256": "7e1efe8f76112d5bc27fee7fae0a5565c03c1647ac7e606dc6a7d7217c4be704",
+  "git_commit": "392f7408fb205fec287902b6a3a809eb62d8010c",
+  "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "torch_version": "2.11.0+cpu",
+  "checkpoint": "experiments/learner/recovery_q.pt",
+  "grid_source": "hard_regime",
+  "policies": [
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness"
+  ]
+}

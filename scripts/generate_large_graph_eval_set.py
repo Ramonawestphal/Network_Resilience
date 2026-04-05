@@ -50,11 +50,15 @@ def load_config(path: Path) -> dict:
 def resolve_env_kwargs(config: dict) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -63,7 +67,6 @@ def build_filtered_instances(
     n_range: tuple[int, int],
     m: int,
     max_rounds: int,
-    tau: float,
     env_kwargs: dict[str, object],
     regime_mapping: dict,
     master_seed: int,
@@ -118,7 +121,6 @@ def build_filtered_instances(
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_degree,
-                tau=tau,
             )
             pr_random = rollout_final_anc_on_instance(
                 graph,
@@ -129,7 +131,6 @@ def build_filtered_instances(
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_random,
-                tau=tau,
             )
             spread = pr_degree - pr_random
             is_ds = (spread > spread_threshold) and (pr_degree < EVAL_DS_MAX_PR_DEGREE)
@@ -145,7 +146,6 @@ def build_filtered_instances(
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
-                tau=tau,
                 hopeless_threshold=float(regime_mapping["hopeless_threshold"]),
                 trivial_threshold=float(regime_mapping["trivial_threshold"]),
                 spread_threshold=spread_threshold,
@@ -193,7 +193,6 @@ def run_one_set(
     regime_mapping = config["regime_mapping"]
     m = int(training["graph"]["m"])
     max_rounds = int(training["regime"]["max_rounds"])
-    tau = float(evaluation["tau"])
     env_kwargs = resolve_env_kwargs(config)
     master_seed = int(training["seed"]) + seed_offset
 
@@ -201,7 +200,6 @@ def run_one_set(
         n_range=n_range,
         m=m,
         max_rounds=max_rounds,
-        tau=tau,
         env_kwargs=env_kwargs,
         regime_mapping=regime_mapping,
         master_seed=master_seed,
@@ -219,7 +217,6 @@ def run_one_set(
             n_range=n_range,
             m=m,
             max_rounds=max_rounds,
-            tau=tau,
             env_kwargs=env_kwargs,
             regime_mapping=regime_mapping,
             master_seed=master_seed + 333_333,

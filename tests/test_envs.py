@@ -3,6 +3,56 @@ import networkx as nx
 from cascading_rl.envs.recovery import RecoveryEnv
 
 
+def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
+    """Episode ends with info['abandoned'] when ANC stays below threshold and failures remain."""
+    graph = nx.path_graph(10)
+    env = RecoveryEnv(
+        graph,
+        alpha=1.0,
+        pfail=0.0,
+        budget=1,
+        max_rounds=10,
+        abandonment_anc_threshold=0.30,
+    )
+    env.reset()
+    env.state.active = {0, 1}
+    env.state.failed = set(range(2, 10))
+    env.state.frontier = {2}
+    for node in graph.nodes():
+        env.state.loads[node] = 1.0
+        env.state.capacities[node] = 3.0
+    env.remaining_budget = 1
+    env.current_round = 1
+
+    _, _, done, info = env.step(2)
+    assert done is True
+    assert info["abandoned"] is True
+    assert info["anc_after_cascade"] < 0.30
+    assert env.state.failed
+
+    env2 = RecoveryEnv(
+        graph,
+        alpha=1.0,
+        pfail=0.0,
+        budget=1,
+        max_rounds=10,
+        abandonment_anc_threshold=0.30,
+    )
+    env2.reset()
+    env2.state.active = {0, 1}
+    env2.state.failed = set(range(2, 10))
+    env2.state.frontier = {2}
+    for node in graph.nodes():
+        env2.state.loads[node] = 1.0
+        env2.state.capacities[node] = 3.0
+    env2.remaining_budget = 1
+    env2.current_round = 1
+
+    _, _, done_b, info_b = env2.step_batch([2])
+    assert done_b is True
+    assert info_b["abandoned"] is True
+
+
 def test_environment_step_rewards_connectivity_gain():
     graph = nx.star_graph(3)
     env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2)
@@ -82,7 +132,7 @@ def test_environment_starts_new_round_when_budget_is_exhausted():
 
 def test_obs_hops_masks_loads_beyond_one_hop_and_step_preserves_valid_actions():
     graph = nx.path_graph(7)
-    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=5, obs_hops=1)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=20, obs_hops=1)
     env.reset(seed=0)
     env.state.active = {0, 2, 3, 4, 6}
     env.state.failed = {1, 5}

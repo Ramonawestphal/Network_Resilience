@@ -51,7 +51,7 @@ Regime grid:
 - `alpha in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30}`
 - `pfail in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20}`
 - `budget_ref in {1, 2, 3, 4, 5, 6}`
-- `max_rounds = 5`
+- `max_rounds = 20` (reference value at `reference_n`; linear scaling with `n` when `scale_max_rounds` is enabled)
 - `reference_n = 40`
 
 Thresholds used for cell labeling and sensitivity analysis:
