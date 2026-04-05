@@ -434,7 +434,7 @@ def summarize_regime_buckets(
                 winner_counts.get(cell.diagnostics.best_policy, 0) + 1
             )
 
-        policy_means: dict[str, dict[str, float]] = {}
+        policy_means: dict[str, dict[str, float | None]] = {}
         for policy_name in policy_names:
             matching_summaries = [
                 cell.policy_summaries[policy_name]
@@ -456,7 +456,9 @@ def summarize_regime_buckets(
                 "solved_fraction_mean": _mean(
                     [summary.solved_fraction.mean for summary in matching_summaries]
                 ),
-                "rounds_when_solved_mean": _mean(rounds_ws) if rounds_ws else float("nan"),
+                "rounds_when_solved_mean": (
+                    _mean(rounds_ws) if rounds_ws else None
+                ),
             }
 
         rl_gaps = [
