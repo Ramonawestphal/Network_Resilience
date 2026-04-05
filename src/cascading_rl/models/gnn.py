@@ -19,30 +19,12 @@ FEATURE_NAMES = (
     "failed_flag",
     "active_flag",
     "frontier_flag",
-    "budget_coverage",
-    "degree_norm",
-)
-
-GLOBAL_FEATURE_NAMES = (
-    "failed_fraction",
-    "mean_load_capacity_ratio",
-    "max_load_capacity_ratio",
-    "current_round_norm",
-)
-
-LEGACY_FEATURE_NAMES = (
-    "load_norm",
-    "capacity_norm",
-    "load_capacity_ratio",
-    "failed_flag",
-    "active_flag",
-    "frontier_flag",
     "remaining_budget_norm",
     "current_round_norm",
     "degree_norm",
 )
 
-LEGACY_GLOBAL_FEATURE_NAMES = (
+GLOBAL_FEATURE_NAMES = (
     "failed_fraction",
     "mean_load_capacity_ratio",
     "max_load_capacity_ratio",
@@ -83,16 +65,12 @@ def observation_to_global_features(
 def resolve_feature_names(input_dim: int) -> tuple[str, ...]:
     if input_dim == len(FEATURE_NAMES):
         return FEATURE_NAMES
-    if input_dim == len(LEGACY_FEATURE_NAMES):
-        return LEGACY_FEATURE_NAMES
     raise ValueError(f"Unsupported node-feature width: {input_dim}")
 
 
 def resolve_global_feature_names(input_dim: int) -> tuple[str, ...]:
     if input_dim == len(FEATURE_NAMES):
         return GLOBAL_FEATURE_NAMES
-    if input_dim == len(LEGACY_FEATURE_NAMES):
-        return LEGACY_GLOBAL_FEATURE_NAMES
     raise ValueError(f"Unsupported node-feature width: {input_dim}")
 
 
@@ -161,8 +139,8 @@ def observation_to_graph_tensor(
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
         canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
-        legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
-        legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
+        legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
+        legacy_round = float(observation.current_round) / max(1.0, float(num_real_nodes))
         feature_values = {
             "load_norm": load / scale,
             "capacity_norm": capacity / scale,

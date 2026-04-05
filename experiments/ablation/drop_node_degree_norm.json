@@ -1,0 +1,49 @@
+{
+  "name": "drop_node_degree_norm",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm"
+  ],
+  "active_global_features": [
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "max_load_capacity_ratio"
+  ],
+  "use_virtual_node": false,
+  "training_episodes": 20,
+  "checkpoint_path": "experiments/ablation/drop_node_degree_norm.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.5536395172937636,
+      "stderr": 0.04812617889882086
+    },
+    "solved_fraction": {
+      "mean": 0.52,
+      "stderr": 0.05021167315686783
+    },
+    "fully_restored_count": 52,
+    "fully_restored_fraction": 0.52,
+    "episode_count": 100,
+    "unsolved_low_final_anc_count": 46,
+    "unsolved_low_final_anc_fraction": 0.46,
+    "final_anc_failure_threshold_used": 0.3,
+    "rounds_when_solved": {
+      "mean": 12.673076923076923,
+      "stderr": 1.2667344847228004
+    },
+    "mean_delta_anc_per_round": {
+      "mean": 0.020051835688179448,
+      "stderr": 0.0059614846831921794
+    },
+    "mean_anc_on_failed": {
+      "mean": 0.07008232769534081,
+      "stderr": 0.024422369301903436
+    }
+  }
+}

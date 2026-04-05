@@ -1,0 +1,46 @@
+{
+  "name": "node_virtual",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "frontier_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [],
+  "use_virtual_node": true,
+  "training_episodes": 20,
+  "checkpoint_path": "experiments/ablation/node_virtual.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.43663770380021233,
+      "stderr": 0.0494070368071297
+    },
+    "solved_fraction": {
+      "mean": 0.43,
+      "stderr": 0.0497569851956243
+    },
+    "fully_restored_count": 43,
+    "fully_restored_fraction": 0.43,
+    "episode_count": 100,
+    "unsolved_low_final_anc_count": 56,
+    "unsolved_low_final_anc_fraction": 0.56,
+    "final_anc_failure_threshold_used": 0.3,
+    "rounds_when_solved": {
+      "mean": 4.186046511627907,
+      "stderr": 0.721644343210717
+    },
+    "mean_delta_anc_per_round": {
+      "mean": 0.027554397271419777,
+      "stderr": 0.006813477451733099
+    },
+    "mean_anc_on_failed": {
+      "mean": 0.011645094386337379,
+      "stderr": 0.008376444275095958
+    }
+  }
+}
