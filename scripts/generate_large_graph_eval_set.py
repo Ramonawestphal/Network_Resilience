@@ -17,7 +17,6 @@ from cascading_rl.evaluation.regime import build_policy_factories
 from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.evaluation.saved_eval_sets import (
     DIAGNOSTIC_POLICY_NAMES,
-    EVAL_SPREAD_FILTER_DEGREE_RANDOM,
     regime_label_from_heuristic_rollouts,
     rollout_final_anc_on_instance,
     save_eval_instances,
@@ -31,6 +30,8 @@ N_REF = 40
 NUM_GRAPHS = 20
 SEEDS_PER_GRAPH = 5
 KEEP_FRACTION_WARN = 0.3
+# Exclude instances where the degree heuristic already achieves very high recovery (not hard enough).
+EVAL_DS_MAX_PR_DEGREE = 0.90
 
 SETS = (
     ("large_graph_medium.pkl", (100, 150), 60_000),
@@ -49,11 +50,15 @@ def load_config(path: Path) -> dict:
 def resolve_env_kwargs(config: dict) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -62,13 +67,13 @@ def build_filtered_instances(
     n_range: tuple[int, int],
     m: int,
     max_rounds: int,
-    tau: float,
     env_kwargs: dict[str, object],
     regime_mapping: dict,
     master_seed: int,
     p_fail: float,
 ) -> tuple[list[dict], int, list[float]]:
     rng = Random(master_seed)
+    spread_threshold = float(regime_mapping["spread_threshold"])
     graphs_meta: list[tuple[object, int, int]] = []
     for _ in range(NUM_GRAPHS):
         n = rng.randint(n_range[0], n_range[1])
@@ -116,7 +121,6 @@ def build_filtered_instances(
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_degree,
-                tau=tau,
             )
             pr_random = rollout_final_anc_on_instance(
                 graph,
@@ -127,10 +131,10 @@ def build_filtered_instances(
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_random,
-                tau=tau,
             )
             spread = pr_degree - pr_random
-            if spread <= EVAL_SPREAD_FILTER_DEGREE_RANDOM:
+            is_ds = (spread > spread_threshold) and (pr_degree < EVAL_DS_MAX_PR_DEGREE)
+            if not is_ds:
                 continue
 
             spreads.append(spread)
@@ -142,10 +146,9 @@ def build_filtered_instances(
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
-                tau=tau,
                 hopeless_threshold=float(regime_mapping["hopeless_threshold"]),
                 trivial_threshold=float(regime_mapping["trivial_threshold"]),
-                spread_threshold=float(regime_mapping["spread_threshold"]),
+                spread_threshold=spread_threshold,
                 base_seed=master_seed,
                 graph_index=gi,
             )
@@ -190,7 +193,6 @@ def run_one_set(
     regime_mapping = config["regime_mapping"]
     m = int(training["graph"]["m"])
     max_rounds = int(training["regime"]["max_rounds"])
-    tau = float(evaluation["tau"])
     env_kwargs = resolve_env_kwargs(config)
     master_seed = int(training["seed"]) + seed_offset
 
@@ -198,7 +200,6 @@ def run_one_set(
         n_range=n_range,
         m=m,
         max_rounds=max_rounds,
-        tau=tau,
         env_kwargs=env_kwargs,
         regime_mapping=regime_mapping,
         master_seed=master_seed,
@@ -216,7 +217,6 @@ def run_one_set(
             n_range=n_range,
             m=m,
             max_rounds=max_rounds,
-            tau=tau,
             env_kwargs=env_kwargs,
             regime_mapping=regime_mapping,
             master_seed=master_seed + 333_333,

@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.reproducibility import portable_artifact_path
+from cascading_rl.reproducibility import portable_artifact_path, portable_repo_relative_path
 from cascading_rl.training import (
     FREEZE_GRAPH_SPECS_SEED_OFFSET,
     TrainingConfig,
@@ -40,6 +40,10 @@ def training_config_for_json(config: TrainingConfig) -> dict[str, Any]:
             "count": config.num_episodes,
             "spec_seed": config.seed + FREEZE_GRAPH_SPECS_SEED_OFFSET,
         }
+    if data.get("validation_eval_set_path"):
+        data["validation_eval_set_path"] = portable_repo_relative_path(
+            data["validation_eval_set_path"]
+        )
     return data
 
 
@@ -61,6 +65,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
     obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
+    abandon_raw = regime.get("abandonment_anc_threshold", defaults.abandonment_anc_threshold)
     num_episodes = (
         int(episodes_override)
         if episodes_override is not None
@@ -87,10 +92,16 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
             budget_scaling.get("reference_n", defaults.budget_reference_n)
         ),
         max_rounds=int(regime["max_rounds"]),
+        scale_max_rounds=bool(
+            budget_scaling.get("scale_max_rounds", defaults.scale_max_rounds)
+        ),
         capacity_noise=float(regime.get("capacity_noise", defaults.capacity_noise)),
         failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),
         action_space=str(regime.get("action_space", defaults.action_space)),
         obs_hops=int(obs_hops_raw) if obs_hops_raw is not None else None,
+        abandonment_anc_threshold=(
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
         num_episodes=num_episodes,
@@ -182,7 +193,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hard-regime",
         action="store_true",
-        help="Use hard-regime grids and 8000 episodes (overridden by --episodes if set).",
+        help="Use hard-regime grids and 10000 episodes (overridden by --episodes if set).",
     )
     parser.add_argument(
         "--checkpoint-dir",
@@ -204,7 +215,10 @@ def parse_args() -> argparse.Namespace:
         "--validation-eval-set",
         type=Path,
         default=None,
-        help="If set, run periodic validation on this pickle (e.g. eval_sets/ds_validation.pkl).",
+        help=(
+            "Periodic validation on this JSON/YAML eval set (default: training.validation_eval_set_path "
+            "from config, e.g. eval_sets/ds_validation.json). Overrides the config path when set."
+        ),
     )
     parser.add_argument(
         "--validation-every",
@@ -235,7 +249,7 @@ def main() -> None:
             pfail=0.15,
             alpha_values=(0.10, 0.15, 0.20),
             pfail_values=(0.10, 0.15, 0.20),
-            num_episodes=8000,
+            num_episodes=10000,
         )
     if args.episodes is not None:
         training_config = replace(training_config, num_episodes=args.episodes)
@@ -248,7 +262,8 @@ def main() -> None:
         if not ves.is_absolute():
             ves = ROOT / ves
         training_config = replace(
-            training_config, validation_eval_set_path=str(ves.resolve())
+            training_config,
+            validation_eval_set_path=portable_repo_relative_path(ves),
         )
     if args.validation_every is not None:
         training_config = replace(
@@ -256,6 +271,14 @@ def main() -> None:
         )
     if args.checkpoint_dir is not None:
         training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
+
+    if training_config.validation_eval_set_path:
+        training_config = replace(
+            training_config,
+            validation_eval_set_path=portable_repo_relative_path(
+                training_config.validation_eval_set_path
+            ),
+        )
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
 

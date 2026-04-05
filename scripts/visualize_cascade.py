@@ -17,7 +17,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.dynamics.cascade import (
     initialize_loads_and_capacities,
 )
@@ -96,20 +96,35 @@ def rollout_frames(
 
     while observation.failed:
         action = policy(observation)
-        next_observation, reward, done, info = env.step(action)
+        if isinstance(action, (list, tuple)):
+            batch = list(action)
+            next_observation, reward, done, info = env.step_batch(batch)
+            batch_label = f"batch ({len(batch)} nodes)"
+            label = (
+                f"Round {info['action_round']} {batch_label}"
+                if not info["cascade_executed"]
+                else f"Round {info['action_round']} cascade after {batch_label}"
+            )
+            chosen: object = tuple(batch)
+            highlighted = tuple(batch)
+        else:
+            next_observation, reward, done, info = env.step(action)
+            label = (
+                f"Round {info['action_round']} repair {info['action_index_in_round']}"
+                if not info["cascade_executed"]
+                else f"Round {info['action_round']} cascade after repair {info['action_index_in_round']}"
+            )
+            chosen = action
+            highlighted = (action,)
 
         frames.append(
             Frame(
-                label=(
-                    f"Round {info['action_round']} repair {info['action_index_in_round']}"
-                    if not info["cascade_executed"]
-                    else f"Round {info['action_round']} cascade after repair {info['action_index_in_round']}"
-                ),
+                label=label,
                 observation=next_observation,
                 anc=float(info["anc"]),
                 reward=reward,
-                chosen_action=action,
-                highlighted_nodes=(action,),
+                chosen_action=chosen,
+                highlighted_nodes=highlighted,
             )
         )
 
@@ -125,9 +140,16 @@ def draw_frame(ax, position: dict, frame: Frame) -> None:
     active_nodes = set(frame.observation.active)
     failed_nodes = set(frame.observation.failed)
 
+    reactivated: set[Hashable] = set()
+    if frame.chosen_action is not None:
+        if isinstance(frame.chosen_action, (list, tuple)):
+            reactivated = set(frame.chosen_action)
+        else:
+            reactivated = {frame.chosen_action}
+
     node_colors = []
     for node in graph.nodes():
-        if frame.chosen_action is not None and node == frame.chosen_action and node in active_nodes:
+        if node in reactivated and node in active_nodes:
             node_colors.append("#457b9d")
         elif node in frame.highlighted_nodes and node in failed_nodes:
             node_colors.append("#ffb000")
@@ -205,7 +227,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_REFERENCE_N,
         help="Reference graph size used for canonical budget scaling.",
     )
-    parser.add_argument("--max-rounds", type=int, default=5, help="Maximum number of repair rounds.")
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=20,
+        help="Reference max repair rounds at --reference-n (scaled linearly with graph size).",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--policy",
@@ -231,12 +258,18 @@ def main() -> None:
         reference_n=args.reference_n,
         enabled=True,
     )
+    resolved_max_rounds = compute_scaled_max_rounds(
+        args.max_rounds,
+        num_nodes=graph.number_of_nodes(),
+        reference_n=args.reference_n,
+        enabled=True,
+    )
     env = RecoveryEnv(
         graph,
         alpha=args.alpha,
         pfail=args.pfail,
         budget=resolved_budget,
-        max_rounds=args.max_rounds,
+        max_rounds=resolved_max_rounds,
         seed=args.seed,
     )
     frames = rollout_frames(env, policy_name=args.policy, seed=args.seed)

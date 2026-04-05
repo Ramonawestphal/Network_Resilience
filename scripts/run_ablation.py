@@ -17,13 +17,14 @@ if str(SRC) not in sys.path:
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import FEATURE_NAMES, GLOBAL_FEATURE_NAMES, build_greedy_policy
-from cascading_rl.reproducibility import portable_artifact_path
+from cascading_rl.reproducibility import portable_artifact_path, portable_repo_relative_path
 from cascading_rl.training import (
     FREEZE_GRAPH_SPECS_SEED_OFFSET,
     TrainingConfig,
     generate_episode_graph_specs,
     train_recovery_agent,
 )
+from cascading_rl.training.trainer import _env_kwargs_from_config
 
 
 ABLATION_OUTPUT_DIR = ROOT / "experiments" / "ablation"
@@ -109,16 +110,26 @@ ABLATION_RUNS = build_ablation_runs()
 
 
 def serialize_policy_summary(summary) -> dict[str, object]:
+    rws = summary.rounds_when_solved
     return {
         "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
-        "threshold_hit_fraction": {
-            "mean": summary.threshold_hit_fraction.mean,
-            "stderr": summary.threshold_hit_fraction.stderr,
-        },
         "solved_fraction": {
             "mean": summary.solved_fraction.mean,
             "stderr": summary.solved_fraction.stderr,
         },
+        "fully_restored_count": summary.fully_restored_count,
+        "fully_restored_fraction": (
+            summary.fully_restored_count / summary.episode_count
+            if summary.episode_count
+            else 0.0
+        ),
+        "episode_count": summary.episode_count,
+        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
+        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
+        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
+        "rounds_when_solved": (
+            {"mean": rws.mean, "stderr": rws.stderr} if rws is not None else None
+        ),
         "mean_delta_anc_per_round": {
             "mean": summary.mean_delta_anc_per_round.mean,
             "stderr": summary.mean_delta_anc_per_round.stderr,
@@ -140,12 +151,21 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
     training = config["training"]
     regime = training["regime"]
     graph = training["graph"]
+    budget_scaling = config.get("budget_scaling", {})
+    defaults = TrainingConfig()
     return TrainingConfig(
         seed=int(training["seed"]),
         device=str(training["device"]),
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
         budget=int(regime["budget"]),
+        scale_budget=bool(budget_scaling.get("enabled", defaults.scale_budget)),
+        budget_reference_n=int(
+            budget_scaling.get("reference_n", defaults.budget_reference_n)
+        ),
+        scale_max_rounds=bool(
+            budget_scaling.get("scale_max_rounds", defaults.scale_max_rounds)
+        ),
         max_rounds=int(regime["max_rounds"]),
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
@@ -165,6 +185,11 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         validation_graphs=int(training["validation_graphs"]),
         validation_seeds=tuple(training["validation_seeds"]),
         validation_every=int(training["validation_every"]),
+        validation_eval_set_path=(
+            str(training["validation_eval_set_path"]).strip()
+            if training.get("validation_eval_set_path")
+            else None
+        ),
         checkpoint_dir=str(ABLATION_OUTPUT_DIR),
         checkpoint_name="placeholder.pt",
         freeze_graphs=bool(training.get("freeze_graphs", False)),
@@ -176,7 +201,6 @@ def evaluate_config(
     training_config: TrainingConfig,
     eval_graphs: list,
     eval_seeds: list[int],
-    tau: float,
 ) -> dict[str, object]:
     rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
     summary = evaluate_policy_factories_on_graphs(
@@ -187,7 +211,10 @@ def evaluate_config(
         budget=training_config.budget,
         max_rounds=training_config.max_rounds,
         seeds=eval_seeds,
-        tau=tau,
+        env_kwargs=_env_kwargs_from_config(training_config),
+        scale_budget=training_config.scale_budget,
+        scale_max_rounds=training_config.scale_max_rounds,
+        reference_n=training_config.budget_reference_n,
     )["rl"]
     return serialize_policy_summary(summary)
 
@@ -196,21 +223,25 @@ def print_comparison_table(results: list[dict[str, object]]) -> None:
     print("")
     print(
         f"{'config':<28} {'node':<6} {'global':<8} {'virtual':<8} "
-        f"{'final_anc':<18} {'threshold_hit':<18} {'solved':<18}"
+        f"{'final_anc':<18} {'solved':<18} {'restored':<14} {'rws_mean':<10}"
     )
     print("-" * 108)
     for item in results:
         final_anc = item["results"]["final_anc"]
-        threshold = item["results"]["threshold_hit_fraction"]
         solved = item["results"]["solved_fraction"]
+        rws = item["results"]["rounds_when_solved"]
+        rws_m = rws["mean"] if rws else float("nan")
+        restored = item["results"]["fully_restored_count"]
+        ep_n = item["results"]["episode_count"]
         print(
             f"{item['name']:<28} "
             f"{len(item['active_node_features']):<6} "
             f"{len(item['active_global_features']):<8} "
             f"{str(item['use_virtual_node']):<8} "
             f"{final_anc['mean']:.3f}+/-{final_anc['stderr']:.3f}   "
-            f"{threshold['mean']:.3f}+/-{threshold['stderr']:.3f}   "
-            f"{solved['mean']:.3f}+/-{solved['stderr']:.3f}"
+            f"{solved['mean']:.3f}+/-{solved['stderr']:.3f}   "
+            f"{restored}/{ep_n}  "
+            f"{rws_m:.2f}"
         )
 
 
@@ -236,6 +267,14 @@ def main() -> None:
     config = load_config(args.config)
     base_training_config = build_training_config(config, episodes_override=args.episodes)
     training = config["training"]
+    if base_training_config.validation_eval_set_path:
+        ves = Path(base_training_config.validation_eval_set_path)
+        if not ves.is_absolute():
+            ves = ROOT / ves
+        base_training_config = replace(
+            base_training_config,
+            validation_eval_set_path=portable_repo_relative_path(ves),
+        )
     graph = training["graph"]
     eval_tau = float(config["evaluation"]["tau"])
     eval_seeds = list(training["benchmark_seeds"])
@@ -269,7 +308,6 @@ def main() -> None:
             training_config,
             eval_graphs,
             eval_seeds,
-            eval_tau,
         )
         run_payload = {
             "name": ablation_config["name"],

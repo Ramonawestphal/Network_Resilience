@@ -25,6 +25,23 @@ def portable_artifact_path(path: str | Path) -> str:
         return resolved.as_posix()
 
 
+def portable_repo_relative_path(path: str | Path) -> str:
+    """Normalize *path* for configs and summaries: repo-relative POSIX when under ``REPO_ROOT``.
+
+    Relative *path* is resolved against ``REPO_ROOT`` (not the process CWD). If the result
+    is still outside the repo (e.g. user file), return absolute POSIX.
+    """
+    p = Path(path)
+    if not p.is_absolute():
+        candidate = (REPO_ROOT / p).resolve()
+    else:
+        candidate = p.resolve()
+    try:
+        return candidate.relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        return candidate.as_posix()
+
+
 def _portable_argv(argv: list[str]) -> list[str]:
     """Best-effort: rewrite argv entries that are existing paths under the repo as relative POSIX."""
     out: list[str] = []

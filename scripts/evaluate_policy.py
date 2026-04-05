@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 import warnings
 from pathlib import Path
@@ -15,7 +14,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import (
     RegimeCellResult,
@@ -29,6 +28,7 @@ from cascading_rl.evaluation import (
     summarize_episode_results,
     summarize_regime_buckets,
 )
+from cascading_rl.evaluation.benchmarks import final_anc_failure_threshold_for_reporting
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.reproducibility import portable_artifact_path, write_run_metadata
@@ -133,7 +133,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scale-max-rounds",
         action="store_true",
-        help="Scale max_rounds per graph as max(10, ceil(3 * pfail * n / budget)).",
+        help=(
+            "Scale max_rounds linearly with graph size (same reference_n as budget scaling: "
+            "round(max_rounds * n / reference_n))."
+        ),
     )
     parser.add_argument(
         "--reference-n",
@@ -156,6 +159,15 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Load fixed eval instances from a pickle file (e.g. eval_sets/ds_validation.pkl).",
+    )
+    parser.add_argument(
+        "--eval-set-log",
+        type=Path,
+        default=None,
+        help=(
+            "With --eval-set only: write the same report lines to this UTF-8 file "
+            "(directories are created; still prints to stdout)."
+        ),
     )
     return parser.parse_args()
 
@@ -196,11 +208,15 @@ def build_eval_policy_factories(
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -276,9 +292,15 @@ def serialize_legacy_summary(
         policy_name: {
             "final_anc_mean": metrics["final_anc"]["mean"],
             "final_anc_stderr": metrics["final_anc"]["stderr"],
-            "threshold_hit_mean": metrics["threshold_hit_fraction"]["mean"],
             "rounds_mean": metrics["rounds"]["mean"],
             "solved_fraction_mean": metrics["solved_fraction"]["mean"],
+            "fully_restored_count": metrics["fully_restored_count"],
+            "episode_count": metrics["episode_count"],
+            "rounds_when_solved_mean": (
+                metrics["rounds_when_solved"]["mean"]
+                if metrics.get("rounds_when_solved")
+                else None
+            ),
             "b_star": b_star_by_policy.get(policy_name),
         }
         for policy_name, metrics in policy_summaries.items()
@@ -291,7 +313,7 @@ def estimate_b_star_for_policies(
     representative_graph: Any,
     rl_policy: Any | None,
     base_seed: int,
-    tau: float,
+    target_solved_fraction: float,
     evaluation_budgets: list[int],
     trials: int,
     alpha: float,
@@ -299,6 +321,7 @@ def estimate_b_star_for_policies(
     max_rounds: int | None,
     env_kwargs: dict[str, object],
     scale_budget: bool,
+    scale_max_rounds: bool,
     reference_n: int,
 ) -> dict[str, int | None]:
     base_factories = build_policy_factories(base_seed=base_seed)
@@ -313,7 +336,7 @@ def estimate_b_star_for_policies(
         b_star[policy_name] = estimate_minimum_budget(
             representative_graph,
             policy,
-            tau=tau,
+            target_solved_fraction=target_solved_fraction,
             budgets=evaluation_budgets,
             trials=trials,
             alpha=alpha,
@@ -321,13 +344,10 @@ def estimate_b_star_for_policies(
             max_rounds=max_rounds,
             env_kwargs=env_kwargs,
             scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
         )[0]
     return b_star
-
-def compute_scaled_max_rounds(*, pfail: float, num_nodes: int, budget: int) -> int:
-    return max(10, math.ceil(3 * pfail * num_nodes / budget))
-
 
 def build_scaling_metadata(
     *,
@@ -369,11 +389,12 @@ def resolve_budget_and_rounds(
     )
     resolved_max_rounds = (
         compute_scaled_max_rounds(
-            pfail=pfail,
+            max_rounds,
             num_nodes=num_nodes,
-            budget=resolved_budget,
+            reference_n=reference_n,
+            enabled=True,
         )
-        if scale_max_rounds
+        if scale_max_rounds and max_rounds is not None
         else max_rounds
     )
     return resolved_budget, resolved_max_rounds
@@ -428,7 +449,6 @@ def evaluate_policy_factories_with_optional_scaling(
     budget: int,
     max_rounds: int | None,
     seeds: list[int],
-    tau: float,
     env_kwargs: dict[str, object],
     scale_budget: bool,
     scale_max_rounds: bool,
@@ -444,8 +464,8 @@ def evaluate_policy_factories_with_optional_scaling(
             budget=budget,
             max_rounds=max_rounds,
             seeds=seeds,
-            tau=tau,
             env_kwargs=env_kwargs,
+            reference_n=reference_n,
         )
 
     episode_results_by_policy: dict[str, list[Any]] = {name: [] for name in policy_factories}
@@ -472,11 +492,15 @@ def evaluate_policy_factories_with_optional_scaling(
                     **env_kwargs,
                 )
                 policy = policy_factory(graph_index, seed)
-                result = rollout_policy(env, policy, seed=seed, tau=tau)
+                result = rollout_policy(env, policy, seed=seed)
                 episode_results_by_policy[policy_name].append(result)
 
+    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
     return {
-        policy_name: summarize_episode_results(episode_results)
+        policy_name: summarize_episode_results(
+            episode_results,
+            final_anc_failure_threshold=thr,
+        )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
 
@@ -490,7 +514,6 @@ def build_regime_cells_with_optional_scaling(
     budgets: list[int],
     max_rounds: int | None,
     seeds: list[int],
-    tau: float,
     hopeless_threshold: float,
     trivial_threshold: float,
     spread_threshold: float,
@@ -509,11 +532,13 @@ def build_regime_cells_with_optional_scaling(
             budgets=budgets,
             max_rounds=max_rounds,
             seeds=seeds,
-            tau=tau,
             hopeless_threshold=hopeless_threshold,
             trivial_threshold=trivial_threshold,
             spread_threshold=spread_threshold,
             env_kwargs=env_kwargs,
+            scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
+            reference_n=reference_n,
         )
 
     cells: list[RegimeCellResult] = []
@@ -532,7 +557,6 @@ def build_regime_cells_with_optional_scaling(
                     budget=budget,
                     max_rounds=max_rounds,
                     seeds=seeds,
-                    tau=tau,
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,
                     scale_max_rounds=scale_max_rounds,
@@ -601,162 +625,189 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
         mean_final_anc_from_summaries,
     )
 
-    eval_path = args.eval_set
-    assert eval_path is not None
-    if not eval_path.is_absolute():
-        eval_path = ROOT / eval_path
-    if not eval_path.exists():
-        raise FileNotFoundError(f"Eval set not found: {eval_path}")
+    log_path = getattr(args, "eval_set_log", None)
+    log_file = None
+    resolved_log: Path | None = None
+    if log_path is not None:
+        resolved_log = log_path if log_path.is_absolute() else ROOT / log_path
+        resolved_log.parent.mkdir(parents=True, exist_ok=True)
+        log_file = resolved_log.open("w", encoding="utf-8")
 
-    instances = load_eval_instances(eval_path)
+    def p(*a: object, **kw: Any) -> None:
+        print(*a, **kw)
+        if log_file is not None:
+            kw_log = dict(kw)
+            kw_log["file"] = log_file
+            kw_log["flush"] = True
+            print(*a, **kw_log)
 
-    scaled_eval_set = any(inst.get("b_scaled") is not None for inst in instances)
-    if scaled_eval_set:
-        bad_indices: list[int] = []
-        for i, inst in enumerate(instances):
-            raw = inst.get("b_scaled")
-            if raw is None:
-                bad_indices.append(i)
-                continue
-            try:
-                if int(raw) < 1:
+    try:
+        eval_path = args.eval_set
+        assert eval_path is not None
+        if not eval_path.is_absolute():
+            eval_path = ROOT / eval_path
+        if not eval_path.exists():
+            raise FileNotFoundError(f"Eval set not found: {eval_path}")
+
+        instances = load_eval_instances(eval_path)
+
+        scaled_eval_set = any(inst.get("b_scaled") is not None for inst in instances)
+        if scaled_eval_set:
+            bad_indices: list[int] = []
+            for i, inst in enumerate(instances):
+                raw = inst.get("b_scaled")
+                if raw is None:
                     bad_indices.append(i)
-            except (TypeError, ValueError):
-                bad_indices.append(i)
-        if bad_indices:
-            raise ValueError(
-                f"{eval_path.name}: when any instance defines 'b_scaled', every instance must "
-                f"include a valid positive integer 'b_scaled'. "
-                f"Invalid or missing at indices {bad_indices[:10]!r}"
-                f"{'...' if len(bad_indices) > 10 else ''}."
+                    continue
+                try:
+                    if int(raw) < 1:
+                        bad_indices.append(i)
+                except (TypeError, ValueError):
+                    bad_indices.append(i)
+            if bad_indices:
+                raise ValueError(
+                    f"{eval_path.name}: when any instance defines 'b_scaled', every instance must "
+                    f"include a valid positive integer 'b_scaled'. "
+                    f"Invalid or missing at indices {bad_indices[:10]!r}"
+                    f"{'...' if len(bad_indices) > 10 else ''}."
+                )
+
+        ds_instances = [
+            inst for inst in instances if inst.get("regime_label") == "decision-sensitive"
+        ]
+        if not ds_instances:
+            warnings.warn(
+                "Eval set contains no decision-sensitive instances — results are not meaningful "
+                "for DS-focused analysis.",
+                UserWarning,
+                stacklevel=1,
             )
 
-    ds_instances = [
-        inst for inst in instances if inst.get("regime_label") == "decision-sensitive"
-    ]
-    if not ds_instances:
-        warnings.warn(
-            "Eval set contains no decision-sensitive instances — results are not meaningful "
-            "for DS-focused analysis.",
-            UserWarning,
-            stacklevel=1,
-        )
-
-    training = config["training"]
-    evaluation = config["evaluation"]
-    tau = float(evaluation["tau"])
-    env_kwargs = resolve_env_kwargs(config)
-    selected = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
-    if "rl" in selected and not args.checkpoint.exists():
-        print(f"Warning: checkpoint missing at {args.checkpoint}; skipping rl policy.")
-        selected = [policy for policy in selected if policy != "rl"]
-    if not selected:
-        raise ValueError("No policies left to evaluate on saved eval set.")
-    factories = build_eval_policy_factories(
-        args.checkpoint,
-        base_seed=int(training["seed"]),
-        selected_policies=selected,
-    )
-    overall, per_bucket = evaluate_policies_on_saved_instances(
-        instances,
-        factories,
-        env_kwargs=env_kwargs,
-        tau=tau,
-        policy_names=selected,
-    )
-
-    print(f"=== Saved eval set: {eval_path}")
-    print(f"instances={len(instances)}")
-    per_budget = sorted(
-        {
-            int(inst["b_scaled"])
-            if "b_scaled" in inst
-            else int(inst["budget"])
-            for inst in instances
-        }
-    )
-    print(f"per-instance budgets used (unique, sorted): {per_budget}")
-    for name in selected:
-        if name not in overall:
-            continue
-        summary = overall[name]
-        print(
-            f"{name}: final_anc={summary.final_anc.mean:.3f}±{summary.final_anc.stderr:.3f} "
-            f"threshold_hit={summary.threshold_hit_fraction.mean:.3f} "
-            f"rounds={summary.rounds.mean:.3f} "
-            f"solved={summary.solved_fraction.mean:.3f}"
-        )
-
-    for label in sorted(per_bucket.keys()):
-        n_label = sum(1 for inst in instances if str(inst.get("regime_label")) == label)
-        print(f"\n[bucket: {label}] instances={n_label}")
-        for name in selected:
-            if name not in per_bucket[label]:
-                continue
-            s = per_bucket[label][name]
-            print(
-                f"  {name}: final_anc_mean={s.final_anc.mean:.3f} "
-                f"threshold_hit_mean={s.threshold_hit_fraction.mean:.3f}"
-            )
-
-    large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
-    has_b_scaled = bool(instances) and any(inst.get("b_scaled") is not None for inst in instances)
-    if eval_path.name in large_names or has_b_scaled:
-        transfer_policies: list[str] = ["degree", "random"]
-        if args.checkpoint.exists():
-            transfer_policies = ["rl", "degree", "random"]
-        t_factories = build_eval_policy_factories(
+        training = config["training"]
+        evaluation = config["evaluation"]
+        env_kwargs = resolve_env_kwargs(config)
+        selected = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
+        if "rl" in selected and not args.checkpoint.exists():
+            p(f"Warning: checkpoint missing at {args.checkpoint}; skipping rl policy.")
+            selected = [policy for policy in selected if policy != "rl"]
+        if not selected:
+            raise ValueError("No policies left to evaluate on saved eval set.")
+        factories = build_eval_policy_factories(
             args.checkpoint,
-            base_seed=int(training["seed"]) + 1,
-            selected_policies=transfer_policies,
+            base_seed=int(training["seed"]),
+            selected_policies=selected,
         )
-        t_names = list(t_factories.keys())
+        overall, per_bucket = evaluate_policies_on_saved_instances(
+            instances,
+            factories,
+            env_kwargs=env_kwargs,
+            policy_names=selected,
+        )
 
-        baseline_path = ROOT / "eval_sets" / "ds_validation.pkl"
-        table_rows: list[tuple[str, dict[str, float]]] = []
-        if baseline_path.exists():
-            base_instances = load_eval_instances(baseline_path)
-            base_overall, _ = evaluate_policies_on_saved_instances(
-                base_instances,
+        p(f"=== Saved eval set: {eval_path}")
+        p(f"instances={len(instances)}")
+        per_budget = sorted(
+            {
+                int(inst["b_scaled"])
+                if "b_scaled" in inst
+                else int(inst["budget"])
+                for inst in instances
+            }
+        )
+        p(f"per-instance budgets used (unique, sorted): {per_budget}")
+        for name in selected:
+            if name not in overall:
+                continue
+            summary = overall[name]
+            rws = summary.rounds_when_solved
+            rws_s = f"{rws.mean:.2f}±{rws.stderr:.2f}" if rws is not None else "n/a"
+            p(
+                f"{name}: fully_restored={summary.fully_restored_count}/{summary.episode_count} "
+                f"mean_rounds_if_restored={rws_s} "
+                f"(mean_anc_all_episodes={summary.final_anc.mean:.3f}±{summary.final_anc.stderr:.3f})"
+            )
+
+        for label in sorted(per_bucket.keys()):
+            n_label = sum(1 for inst in instances if str(inst.get("regime_label")) == label)
+            p(f"\n[bucket: {label}] instances={n_label}")
+            for name in selected:
+                if name not in per_bucket[label]:
+                    continue
+                s = per_bucket[label][name]
+                rws_b = s.rounds_when_solved
+                rws_bs = f"{rws_b.mean:.2f}" if rws_b is not None else "n/a"
+                p(
+                    f"  {name}: restored={s.fully_restored_count}/{s.episode_count} "
+                    f"mean_rounds_if_restored={rws_bs} final_anc_mean={s.final_anc.mean:.3f}"
+                )
+
+        large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
+        has_b_scaled = bool(instances) and any(
+            inst.get("b_scaled") is not None for inst in instances
+        )
+        if eval_path.name in large_names or has_b_scaled:
+            transfer_policies: list[str] = ["degree", "random"]
+            if args.checkpoint.exists():
+                transfer_policies = ["rl", "degree", "random"]
+            t_factories = build_eval_policy_factories(
+                args.checkpoint,
+                base_seed=int(training["seed"]) + 1,
+                selected_policies=transfer_policies,
+            )
+            t_names = list(t_factories.keys())
+
+            baseline_path = ROOT / "eval_sets" / "ds_validation.pkl"
+            table_rows: list[tuple[str, dict[str, float]]] = []
+            if baseline_path.exists():
+                base_instances = load_eval_instances(baseline_path)
+                base_overall, _ = evaluate_policies_on_saved_instances(
+                    base_instances,
+                    t_factories,
+                    env_kwargs=env_kwargs,
+                    policy_names=t_names,
+                )
+                table_rows.append(
+                    (
+                        "validation (n~30-50)",
+                        mean_final_anc_from_summaries(base_overall, t_names),
+                    )
+                )
+            else:
+                p(
+                    "\nNote: eval_sets/ds_validation.pkl not found; transfer table has only "
+                    "the current set."
+                )
+
+            cur_overall, _ = evaluate_policies_on_saved_instances(
+                instances,
                 t_factories,
                 env_kwargs=env_kwargs,
-                tau=tau,
                 policy_names=t_names,
             )
+            if eval_path.name == "large_graph_medium.pkl":
+                row_label = "medium (n~100-150)"
+            elif eval_path.name == "large_graph_large.pkl":
+                row_label = "large (n~300-500)"
+            else:
+                row_label = f"current ({eval_path.name})"
             table_rows.append(
-                (
-                    "validation (n≈30-50)",
-                    mean_final_anc_from_summaries(base_overall, t_names),
+                (row_label, mean_final_anc_from_summaries(cur_overall, t_names)),
+            )
+
+            p("\n=== Zero-shot transfer (mean final_anc / PR)")
+            header = "bucket\t" + "\t".join(t_names)
+            p(header)
+            for row_label, means in table_rows:
+                vals = "\t".join(
+                    f"{means.get(pol, float('nan')):.3f}" for pol in t_names
                 )
-            )
-        else:
-            print(
-                "\nNote: eval_sets/ds_validation.pkl not found; transfer table has only the current set."
-            )
+                p(f"{row_label}\t{vals}")
 
-        cur_overall, _ = evaluate_policies_on_saved_instances(
-            instances,
-            t_factories,
-            env_kwargs=env_kwargs,
-            tau=tau,
-            policy_names=t_names,
-        )
-        if eval_path.name == "large_graph_medium.pkl":
-            row_label = "medium (n≈100-150)"
-        elif eval_path.name == "large_graph_large.pkl":
-            row_label = "large (n≈300-500)"
-        else:
-            row_label = f"current ({eval_path.name})"
-        table_rows.append(
-            (row_label, mean_final_anc_from_summaries(cur_overall, t_names)),
-        )
-
-        print("\n=== Zero-shot transfer (mean final_anc / PR)")
-        header = "bucket\t" + "\t".join(t_names)
-        print(header)
-        for row_label, means in table_rows:
-            vals = "\t".join(f"{means.get(p, float('nan')):.3f}" for p in t_names)
-            print(f"{row_label}\t{vals}")
+        if resolved_log is not None:
+            print(f"Saved eval-set report to {resolved_log}", flush=True)
+    finally:
+        if log_file is not None:
+            log_file.close()
 
 
 def main() -> None:
@@ -772,6 +823,12 @@ def main() -> None:
     evaluation = config["evaluation"]
     budget_scaling_cfg = config.get("budget_scaling", {})
     scale_budget_active = bool(args.scale_budget or budget_scaling_cfg.get("enabled", False))
+    scale_max_rounds_cfg = budget_scaling_cfg.get("scale_max_rounds")
+    scale_max_rounds_active = bool(
+        args.scale_max_rounds
+        if args.scale_max_rounds
+        else (scale_max_rounds_cfg if scale_max_rounds_cfg is not None else True)
+    )
     reference_n = int(
         args.reference_n
         if args.reference_n is not None
@@ -816,14 +873,16 @@ def main() -> None:
         seed=benchmark_graph_seed,
     )
 
-    tau = float(evaluation["tau"])
+    target_solved_fraction = float(
+        evaluation.get("minimum_budget_solved_target", evaluation.get("tau", 0.8))
+    )
     log_scaling_decisions(
         graphs=graphs,
         pfail=float(regime["pfail"]),
         budget=benchmark_reference_budget,
         max_rounds=int(regime["max_rounds"]),
         scale_budget=scale_budget_active,
-        scale_max_rounds=args.scale_max_rounds,
+        scale_max_rounds=scale_max_rounds_active,
         reference_budget=benchmark_reference_budget,
         reference_n=reference_n,
     )
@@ -835,10 +894,9 @@ def main() -> None:
         budget=benchmark_reference_budget,
         max_rounds=int(regime["max_rounds"]),
         seeds=list(training["benchmark_seeds"]),
-        tau=tau,
         env_kwargs=env_kwargs,
         scale_budget=scale_budget_active,
-        scale_max_rounds=args.scale_max_rounds,
+        scale_max_rounds=scale_max_rounds_active,
         reference_budget=benchmark_reference_budget,
         reference_n=reference_n,
     )
@@ -847,9 +905,16 @@ def main() -> None:
         policy_name: {
             "final_anc_mean": summary.final_anc.mean,
             "final_anc_stderr": summary.final_anc.stderr,
-            "threshold_hit_mean": summary.threshold_hit_fraction.mean,
             "rounds_mean": summary.rounds.mean,
             "solved_fraction_mean": summary.solved_fraction.mean,
+            "fully_restored_count": summary.fully_restored_count,
+            "episode_count": summary.episode_count,
+            "rounds_when_solved_mean": (
+                summary.rounds_when_solved.mean if summary.rounds_when_solved is not None else None
+            ),
+            "rounds_when_solved_stderr": (
+                summary.rounds_when_solved.stderr if summary.rounds_when_solved is not None else None
+            ),
         }
         for policy_name, summary in summaries.items()
     }
@@ -861,7 +926,7 @@ def main() -> None:
         representative_graph=representative_graph,
         rl_policy=rl_policy,
         base_seed=int(training["seed"]),
-        tau=tau,
+        target_solved_fraction=target_solved_fraction,
         evaluation_budgets=list(evaluation_budgets),
         trials=len(training["benchmark_seeds"]),
         alpha=float(regime["alpha"]),
@@ -869,6 +934,7 @@ def main() -> None:
         max_rounds=int(regime["max_rounds"]),
         env_kwargs=env_kwargs,
         scale_budget=scale_budget_active,
+        scale_max_rounds=scale_max_rounds_active,
         reference_n=reference_n,
     )
     for policy_name, value in b_star.items():
@@ -879,7 +945,7 @@ def main() -> None:
     grid_reference_budget = grid_budgets[0]
     grid_scaling_metadata = build_scaling_metadata(
         scale_budget=scale_budget_active,
-        scale_max_rounds=args.scale_max_rounds,
+        scale_max_rounds=scale_max_rounds_active,
         reference_budget=grid_reference_budget,
         reference_n=reference_n,
     )
@@ -919,13 +985,12 @@ def main() -> None:
         budgets=grid_spec["budgets"],
         max_rounds=grid_spec["max_rounds"],
         seeds=grid_spec["seeds"],
-        tau=tau,
         hopeless_threshold=float(threshold_cfg["hopeless_threshold"]),
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
         env_kwargs=env_kwargs,
         scale_budget=scale_budget_active,
-        scale_max_rounds=args.scale_max_rounds,
+        scale_max_rounds=scale_max_rounds_active,
         reference_budget=grid_reference_budget,
         reference_n=reference_n,
     )
@@ -938,7 +1003,7 @@ def main() -> None:
             key: list(value) if isinstance(value, tuple) else value
             for key, value in grid_spec.items()
         },
-        "tau": tau,
+        "minimum_budget_solved_target": target_solved_fraction,
         "scaling": grid_scaling_metadata,
         "cells": [serialize_regime_cell(cell) for cell in cells],
         "bucket_summary": summarize_regime_buckets(cells),
@@ -954,6 +1019,8 @@ def main() -> None:
         "checkpoint": serialize_path(args.checkpoint),
         "config": serialize_path(args.config),
         "policies": selected_policy_names,
+        "minimum_budget_solved_target": target_solved_fraction,
+        "env_stopping": env_kwargs,
         **serialized,
     }
     with summary_path.open("w", encoding="utf-8") as file:
@@ -978,12 +1045,23 @@ def main() -> None:
     print(f"Saved grid evaluation summary to {grid_path}")
     print(f"Saved regime evaluation summary to {regime_path}")
     for policy_name, metrics in summary_payload.items():
-        if policy_name in {"checkpoint", "config", "policies", "scaling"}:
+        if policy_name in {
+            "checkpoint",
+            "config",
+            "policies",
+            "scaling",
+            "minimum_budget_solved_target",
+            "env_stopping",
+        }:
             continue
+        if not isinstance(metrics, dict) or "b_star" not in metrics:
+            continue
+        rws_m = metrics.get("rounds_when_solved_mean")
+        rws_s = f"{rws_m:.2f}" if rws_m is not None else "n/a"
         print(
-            f"{policy_name}: final_anc={metrics['final_anc_mean']:.3f}, "
-            f"threshold_hit={metrics['threshold_hit_mean']:.3f}, "
-            f"rounds={metrics['rounds_mean']:.3f}, b_star={metrics['b_star']}"
+            f"{policy_name}: fully_restored={metrics['fully_restored_count']}/"
+            f"{metrics['episode_count']} mean_rounds_if_restored={rws_s} "
+            f"(mean_anc_all={metrics['final_anc_mean']:.3f}) b_star={metrics['b_star']}"
         )
     for bucket_name, bucket in grid_results["bucket_summary"].items():
         rl_gap = bucket["rl_vs_best_heuristic_gap"]

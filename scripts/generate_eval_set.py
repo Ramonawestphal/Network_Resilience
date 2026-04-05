@@ -43,11 +43,15 @@ def load_config(path: Path) -> dict:
 def resolve_env_kwargs(config: dict) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
     }
 
 
@@ -64,7 +68,6 @@ def main() -> None:
     regime_mapping = config["regime_mapping"]
     m = int(training["graph"]["m"])
     max_rounds = int(training["regime"]["max_rounds"])
-    tau = float(evaluation["tau"])
     env_kwargs = resolve_env_kwargs(config)
 
     master_seed = int(training["seed"]) + 50_000
@@ -143,7 +146,6 @@ def main() -> None:
                 max_rounds=max_rounds,
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
-                tau=tau,
                 hopeless_threshold=float(regime_mapping["hopeless_threshold"]),
                 trivial_threshold=float(regime_mapping["trivial_threshold"]),
                 spread_threshold=float(regime_mapping["spread_threshold"]),

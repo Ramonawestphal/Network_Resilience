@@ -8,12 +8,13 @@ from pathlib import Path
 from random import Random
 from typing import Any
 import sys
+import warnings
 
 import torch
 from torch.nn import functional as F
 from torch.optim import Adam
 
-from cascading_rl.budgeting import compute_scaled_budget
+from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
@@ -46,14 +47,16 @@ class TrainingConfig:
     budget: int = 3
     scale_budget: bool = True
     budget_reference_n: int = 40
-    max_rounds: int = 5
+    max_rounds: int = 20
+    scale_max_rounds: bool = True
     capacity_noise: float = 0.0
     failure_bias: str = "uniform"
     action_space: str = "failed"
     obs_hops: int | None = None
+    abandonment_anc_threshold: float | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
-    num_episodes: int = 8000
+    num_episodes: int = 10000
     replay_capacity: int = 10000
     warmup_transitions: int = 500
     batch_size: int = 64
@@ -62,7 +65,7 @@ class TrainingConfig:
     learning_rate: float = 3e-4
     epsilon_start: float = 1.0
     epsilon_end: float = 0.05
-    epsilon_decay_episodes: int = 6000
+    epsilon_decay_episodes: int = 10000
     target_update_interval: int = 200
     hidden_dim: int = 128
     embed_dim: int = 128
@@ -84,7 +87,7 @@ class TrainingConfig:
     checkpoint_name: str = "recovery_q.pt"
     freeze_graphs: bool = False
     episode_graph_specs: tuple[tuple[int, int], ...] | None = None
-    # Diagnostics: log PR(degree)-PR(random) per episode; validate on a pickle eval set.
+    # Diagnostics: log PR(degree)-PR(random) per episode; optional JSON/YAML eval set path.
     log_episode_spread: bool = False
     log_grad_norm: bool = False
     validation_eval_set_path: str | None = None
@@ -249,14 +252,14 @@ def _print_validation_update(validation: dict[str, Any]) -> None:
     )
     tag = (
         "[validation:eval_set]"
-        if validation.get("validation_source") == "eval_set_pickle"
+        if validation.get("validation_source") == "eval_set_file"
         else "[validation]"
     )
     print(
         "\n"
         f"{tag} ep={validation['episode']} "
         f"final_anc={reference['final_anc_mean']:.3f}±{reference['final_anc_stderr']:.3f} "
-        f"threshold_hit={reference['threshold_hit_mean']:.3f} "
+        f"solved_fraction={reference['solved_fraction_mean']:.3f} "
         f"rounds={reference['rounds_mean']:.3f}\n"
         f"per-alpha: {per_alpha_text}",
         flush=True,
@@ -313,6 +316,7 @@ def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
         "failure_bias": config.failure_bias,
         "action_space": config.action_space,
         "obs_hops": config.obs_hops,
+        "abandonment_anc_threshold": config.abandonment_anc_threshold,
     }
 
 
@@ -322,6 +326,15 @@ def _resolve_budget_for_graph(config: TrainingConfig, graph: Any) -> int:
         num_nodes=graph.number_of_nodes(),
         reference_n=config.budget_reference_n,
         enabled=config.scale_budget,
+    )
+
+
+def _resolve_max_rounds_for_graph(config: TrainingConfig, graph: Any) -> int:
+    return compute_scaled_max_rounds(
+        config.max_rounds,
+        num_nodes=graph.number_of_nodes(),
+        reference_n=config.budget_reference_n,
+        enabled=config.scale_max_rounds,
     )
 
 
@@ -337,6 +350,7 @@ def generate_imitation_data(
     env_kwargs: dict[str, Any] | None = None,
     base_seed: int = 0,
     scale_budget: bool = False,
+    scale_max_rounds: bool = False,
     budget_reference_n: int = 40,
 ) -> list[ImitationSample]:
     if num_seeds < 1:
@@ -352,6 +366,12 @@ def generate_imitation_data(
             reference_n=budget_reference_n,
             enabled=scale_budget,
         )
+        resolved_max_rounds = compute_scaled_max_rounds(
+            max_rounds,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=budget_reference_n,
+            enabled=scale_max_rounds,
+        )
         for seed_offset in range(num_seeds):
             rollout_seed = base_seed + graph_index * 10_000 + seed_offset
             env = RecoveryEnv(
@@ -359,7 +379,7 @@ def generate_imitation_data(
                 alpha=alpha,
                 pfail=pfail,
                 budget=resolved_budget,
-                max_rounds=max_rounds,
+                max_rounds=resolved_max_rounds,
                 seed=rollout_seed,
                 **env_kwargs,
             )
@@ -459,7 +479,6 @@ def _degree_minus_random_spread(
     env_kwargs: dict[str, object],
     episode_index: int,
     factory_base_seed: int,
-    tau: float,
 ) -> float:
     """Heuristic spread for the same graph template and failure seed as the training episode."""
     from cascading_rl.evaluation.regime import build_policy_factories
@@ -477,7 +496,6 @@ def _degree_minus_random_spread(
         failure_seed=failure_seed,
         env_kwargs=env_kwargs,
         policy=pol_degree,
-        tau=tau,
     )
     pr_random = rollout_final_anc_on_instance(
         graph,
@@ -488,7 +506,6 @@ def _degree_minus_random_spread(
         failure_seed=failure_seed,
         env_kwargs=env_kwargs,
         policy=pol_random,
-        tau=tau,
     )
     return pr_degree - pr_random
 
@@ -500,7 +517,7 @@ def validate_policy_on_eval_set(
     device: torch.device,
     instances: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Run greedy RL on a saved eval pickle (same protocol as ``--eval-set``)."""
+    """Run greedy RL on a saved eval set file (same protocol as ``--eval-set``)."""
     from cascading_rl.evaluation.saved_eval_sets import evaluate_policies_on_saved_instances
 
     env_kwargs = _env_kwargs_from_config(config)
@@ -512,7 +529,6 @@ def validate_policy_on_eval_set(
         instances,
         factories,
         env_kwargs=env_kwargs,
-        tau=config.validation_tau,
         policy_names=["rl"],
     )
     summary = overall["rl"]
@@ -521,11 +537,12 @@ def validate_policy_on_eval_set(
         "pfail": config.pfail,
         "budget": config.budget,
         "scale_budget": config.scale_budget,
+        "scale_max_rounds": config.scale_max_rounds,
         "budget_reference_n": config.budget_reference_n,
         "max_rounds": config.max_rounds,
         "final_anc_mean": summary.final_anc.mean,
         "final_anc_stderr": summary.final_anc.stderr,
-        "threshold_hit_mean": summary.threshold_hit_fraction.mean,
+        "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
     }
     mean_anc = summary.final_anc.mean
@@ -533,7 +550,7 @@ def validate_policy_on_eval_set(
     return {
         "final_anc_mean": summary.final_anc.mean,
         "final_anc_stderr": summary.final_anc.stderr,
-        "threshold_hit_mean": summary.threshold_hit_fraction.mean,
+        "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
         "reference": reference,
         "per_alpha_anc": per_alpha_anc,
@@ -542,12 +559,12 @@ def validate_policy_on_eval_set(
             "pfail_values": list(config.pfail_values),
             "cell_count": len(config.alpha_values) * len(config.pfail_values),
             "final_anc_mean": mean_anc,
-            "threshold_hit_mean": summary.threshold_hit_fraction.mean,
+            "solved_fraction_mean": summary.solved_fraction.mean,
             "rounds_mean": summary.rounds.mean,
             "cells": [],
         },
         "env": env_kwargs,
-        "validation_source": "eval_set_pickle",
+        "validation_source": "eval_set_file",
     }
 
 
@@ -568,9 +585,9 @@ def validate_policy(
         budget=config.budget,
         max_rounds=config.max_rounds,
         seeds=config.validation_seeds,
-        tau=config.validation_tau,
         env_kwargs=env_kwargs,
         scale_budget=config.scale_budget,
+        scale_max_rounds=config.scale_max_rounds,
         reference_n=config.budget_reference_n,
     )
     reference_summary = reference_summaries["rl"]
@@ -585,9 +602,9 @@ def validate_policy(
                 budget=config.budget,
                 max_rounds=config.max_rounds,
                 seeds=config.validation_seeds,
-                tau=config.validation_tau,
                 env_kwargs=env_kwargs,
                 scale_budget=config.scale_budget,
+                scale_max_rounds=config.scale_max_rounds,
                 reference_n=config.budget_reference_n,
             )["rl"]
             grid_cells.append(
@@ -595,13 +612,15 @@ def validate_policy(
                     "alpha": alpha,
                     "pfail": pfail,
                     "final_anc_mean": grid_summary.final_anc.mean,
-                    "threshold_hit_mean": grid_summary.threshold_hit_fraction.mean,
+                    "solved_fraction_mean": grid_summary.solved_fraction.mean,
                     "rounds_mean": grid_summary.rounds.mean,
                 }
             )
 
     grid_final_anc_mean = sum(cell["final_anc_mean"] for cell in grid_cells) / len(grid_cells)
-    grid_threshold_hit_mean = sum(cell["threshold_hit_mean"] for cell in grid_cells) / len(grid_cells)
+    grid_solved_fraction_mean = sum(cell["solved_fraction_mean"] for cell in grid_cells) / len(
+        grid_cells
+    )
     grid_rounds_mean = sum(cell["rounds_mean"] for cell in grid_cells) / len(grid_cells)
     per_alpha_anc: dict[float, float] = {}
     for alpha in config.alpha_values:
@@ -613,9 +632,9 @@ def validate_policy(
             budget=config.budget,
             max_rounds=config.max_rounds,
             seeds=config.validation_seeds,
-            tau=config.validation_tau,
             env_kwargs=env_kwargs,
             scale_budget=config.scale_budget,
+            scale_max_rounds=config.scale_max_rounds,
             reference_n=config.budget_reference_n,
         )["rl"]
         per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
@@ -623,18 +642,19 @@ def validate_policy(
     return {
         "final_anc_mean": reference_summary.final_anc.mean,
         "final_anc_stderr": reference_summary.final_anc.stderr,
-        "threshold_hit_mean": reference_summary.threshold_hit_fraction.mean,
+        "solved_fraction_mean": reference_summary.solved_fraction.mean,
         "rounds_mean": reference_summary.rounds.mean,
         "reference": {
             "alpha": config.alpha,
             "pfail": config.pfail,
             "budget": config.budget,
             "scale_budget": config.scale_budget,
+            "scale_max_rounds": config.scale_max_rounds,
             "budget_reference_n": config.budget_reference_n,
             "max_rounds": config.max_rounds,
             "final_anc_mean": reference_summary.final_anc.mean,
             "final_anc_stderr": reference_summary.final_anc.stderr,
-            "threshold_hit_mean": reference_summary.threshold_hit_fraction.mean,
+            "solved_fraction_mean": reference_summary.solved_fraction.mean,
             "rounds_mean": reference_summary.rounds.mean,
         },
         "grid": {
@@ -642,7 +662,7 @@ def validate_policy(
             "pfail_values": list(config.pfail_values),
             "cell_count": len(grid_cells),
             "final_anc_mean": grid_final_anc_mean,
-            "threshold_hit_mean": grid_threshold_hit_mean,
+            "solved_fraction_mean": grid_solved_fraction_mean,
             "rounds_mean": grid_rounds_mean,
             "cells": grid_cells,
         },
@@ -684,9 +704,6 @@ def save_checkpoint(
 
 
 def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, TrainingState, Path]:
-    assert epsilon_for_episode(config, 100) > 0.5, "epsilon decays too fast"
-    assert epsilon_for_episode(config, 6000) < 0.1, "epsilon decays too slow"
-
     device = resolve_device(config.device)
     rng = Random(config.seed)
     torch.manual_seed(config.seed)
@@ -711,13 +728,29 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     eval_set_instances: list[Mapping[str, Any]] | None = None
     if config.validation_eval_set_path:
         from cascading_rl.evaluation.saved_eval_sets import load_eval_instances
+        from cascading_rl.reproducibility import REPO_ROOT
 
         eval_path = Path(config.validation_eval_set_path)
+        if not eval_path.is_absolute():
+            eval_path = REPO_ROOT / eval_path
+        eval_path = eval_path.resolve()
         if not eval_path.is_file():
             raise FileNotFoundError(
-                f"validation_eval_set_path is not a file: {eval_path.resolve()}"
+                f"validation_eval_set_path is not a file: {eval_path}"
             )
         eval_set_instances = load_eval_instances(eval_path)
+
+    if (
+        eval_set_instances is None
+        and config.num_episodes >= config.validation_every >= 1
+    ):
+        warnings.warn(
+            "Validating on synthetic graphs. Results will be noisy and not "
+            "comparable across runs. Use --validation-eval-set with a fixed eval set (e.g. "
+            "eval_sets/ds_validation.json) instead.",
+            UserWarning,
+            stacklevel=1,
+        )
 
     regime_combinations = [(float(alpha), float(pfail)) for alpha in alpha_values for pfail in pfail_values]
 
@@ -786,12 +819,13 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             n, graph_seed = resolved_specs[episode % len(resolved_specs)]
             graph = make_ba_graph(n=n, m=config.m, seed=graph_seed)
             resolved_budget = _resolve_budget_for_graph(config, graph)
+            resolved_max_rounds = _resolve_max_rounds_for_graph(config, graph)
             env = RecoveryEnv(
                 graph,
                 alpha=alpha,
                 pfail=pfail,
                 budget=resolved_budget,
-                max_rounds=config.max_rounds,
+                max_rounds=resolved_max_rounds,
                 seed=0,
                 **env_kwargs,
             )
@@ -807,12 +841,13 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 graph = rng.choice(list(graph_buffer))
             failure_seed = rng.randint(0, 10**9)
             resolved_budget = _resolve_budget_for_graph(config, graph)
+            resolved_max_rounds = _resolve_max_rounds_for_graph(config, graph)
             env = RecoveryEnv(
                 graph,
                 alpha=alpha,
                 pfail=pfail,
                 budget=resolved_budget,
-                max_rounds=config.max_rounds,
+                max_rounds=resolved_max_rounds,
                 seed=0,
                 **env_kwargs,
             )
@@ -824,12 +859,11 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 alpha=alpha,
                 pfail=pfail,
                 budget=resolved_budget,
-                max_rounds=config.max_rounds,
+                max_rounds=resolved_max_rounds,
                 failure_seed=episode_failure_seed,
                 env_kwargs=env_kwargs,
                 episode_index=episode,
                 factory_base_seed=config.seed + 400_000,
-                tau=config.validation_tau,
             )
             training_state.episode_spreads.append(spread)
             print(

@@ -7,10 +7,11 @@ from random import Random
 
 import networkx as nx
 
-from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget
+from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     PolicyEvaluationSummary,
+    final_anc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
@@ -32,10 +33,10 @@ class RegimeDiagnostics:
     interesting_for_rl: bool
     interestingness_score: float
     final_anc_spread: float
-    threshold_hit_spread: float
+    solved_fraction_spread: float
     rounds_spread: float
     mean_final_anc: float
-    mean_threshold_hit: float
+    mean_solved_fraction: float
     budget_sensitivity: float | None
     best_policy: str
     worst_policy: str
@@ -79,15 +80,16 @@ def evaluate_policy_factories_on_graphs(
     budget: int,
     max_rounds: int | None = None,
     seeds: Iterable[int],
-    tau: float,
     env_kwargs: Mapping[str, object] | None = None,
     scale_budget: bool = False,
+    scale_max_rounds: bool = False,
     reference_n: int = 40,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policies across fixed graph instances and matched seeds."""
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
     resolved_env_kwargs = dict(env_kwargs or {})
     seeds_seq = tuple(seeds)
+    thr = final_anc_failure_threshold_for_reporting(resolved_env_kwargs)
 
     for graph_index, graph in enumerate(graphs):
         resolved_budget = compute_scaled_budget(
@@ -96,6 +98,16 @@ def evaluate_policy_factories_on_graphs(
             reference_n=reference_n,
             enabled=scale_budget,
         )
+        resolved_max_rounds = (
+            compute_scaled_max_rounds(
+                max_rounds,
+                num_nodes=graph.number_of_nodes(),
+                reference_n=reference_n,
+                enabled=scale_max_rounds,
+            )
+            if max_rounds is not None
+            else None
+        )
         for seed in seeds_seq:
             for policy_name, policy_factory in policy_factories.items():
                 env = RecoveryEnv(
@@ -103,16 +115,19 @@ def evaluate_policy_factories_on_graphs(
                     alpha=alpha,
                     pfail=pfail,
                     budget=resolved_budget,
-                    max_rounds=max_rounds,
+                    max_rounds=resolved_max_rounds,
                     seed=seed,
                     **resolved_env_kwargs,
                 )
                 policy = policy_factory(graph_index, seed)
-                result = rollout_policy(env, policy, seed=seed, tau=tau)
+                result = rollout_policy(env, policy, seed=seed)
                 episode_results_by_policy[policy_name].append(result)
 
     return {
-        policy_name: summarize_episode_results(episode_results)
+        policy_name: summarize_episode_results(
+            episode_results,
+            final_anc_failure_threshold=thr,
+        )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
 
@@ -126,10 +141,10 @@ def filter_interesting_graphs(
     budget: int,
     max_rounds: int | None = None,
     seeds: Iterable[int],
-    tau: float,
     spread_threshold: float = 0.05,
     env_kwargs: Mapping[str, object] | None = None,
     scale_budget: bool = False,
+    scale_max_rounds: bool = False,
     reference_n: int = DEFAULT_REFERENCE_N,
 ) -> list[nx.Graph]:
     """Keep only graphs whose per-policy final-ANC spread exceeds the threshold."""
@@ -145,9 +160,9 @@ def filter_interesting_graphs(
             budget=budget,
             max_rounds=max_rounds,
             seeds=seeds_seq,
-            tau=tau,
             env_kwargs=env_kwargs,
             scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
         )
         final_anc_values = [summary.final_anc.mean for summary in summaries.values()]
@@ -170,8 +185,8 @@ def compute_regime_diagnostics(
         policy_name: summary.final_anc.mean
         for policy_name, summary in policy_summaries.items()
     }
-    threshold_hit_by_policy = {
-        policy_name: summary.threshold_hit_fraction.mean
+    solved_fraction_by_policy = {
+        policy_name: summary.solved_fraction.mean
         for policy_name, summary in policy_summaries.items()
     }
     rounds_by_policy = {
@@ -188,28 +203,30 @@ def compute_regime_diagnostics(
     }
 
     final_anc_spread = max(final_anc_by_policy.values()) - min(final_anc_by_policy.values())
-    threshold_hit_spread = max(threshold_hit_by_policy.values()) - min(
-        threshold_hit_by_policy.values()
+    solved_fraction_spread = max(solved_fraction_by_policy.values()) - min(
+        solved_fraction_by_policy.values()
     )
     rounds_spread = max(rounds_by_policy.values()) - min(rounds_by_policy.values())
     mean_final_anc = sum(final_anc_by_policy.values()) / len(final_anc_by_policy)
-    mean_threshold_hit = sum(threshold_hit_by_policy.values()) / len(threshold_hit_by_policy)
+    mean_solved_fraction = sum(solved_fraction_by_policy.values()) / len(
+        solved_fraction_by_policy
+    )
 
     middle_final_anc = max(0.0, 1.0 - 2.0 * abs(mean_final_anc - 0.5))
-    middle_threshold_hit = max(0.0, 1.0 - 2.0 * abs(mean_threshold_hit - 0.5))
+    middle_solved = max(0.0, 1.0 - 2.0 * abs(mean_solved_fraction - 0.5))
     interestingness_score = (
         0.35 * final_anc_spread
-        + 0.25 * threshold_hit_spread
+        + 0.25 * solved_fraction_spread
         + 0.20 * middle_final_anc
-        + 0.20 * middle_threshold_hit
+        + 0.20 * middle_solved
     )
     if budget_sensitivity is not None:
         interestingness_score += 0.20 * budget_sensitivity
 
     best_final_anc = max(final_anc_by_policy.values())
     worst_final_anc = min(final_anc_by_policy.values())
-    best_threshold_hit = max(threshold_hit_by_policy.values())
-    worst_threshold_hit = min(threshold_hit_by_policy.values())
+    best_solved_fraction = max(solved_fraction_by_policy.values())
+    worst_solved_fraction = min(solved_fraction_by_policy.values())
     if heuristic_final_anc:
         best_heuristic = max(heuristic_final_anc, key=heuristic_final_anc.get)
         best_heuristic_final_anc = heuristic_final_anc[best_heuristic]
@@ -223,13 +240,13 @@ def compute_regime_diagnostics(
         else None
     )
 
-    if best_final_anc <= hopeless_threshold and best_threshold_hit <= hopeless_threshold:
+    if best_final_anc <= hopeless_threshold and best_solved_fraction <= hopeless_threshold:
         regime_label = "hopeless"
-    elif worst_final_anc >= trivial_threshold and worst_threshold_hit >= trivial_threshold:
+    elif worst_final_anc >= trivial_threshold and worst_solved_fraction >= trivial_threshold:
         regime_label = "trivial"
     elif (
         final_anc_spread > spread_threshold
-        or threshold_hit_spread > spread_threshold
+        or solved_fraction_spread > spread_threshold
     ):
         regime_label = "decision-sensitive"
     else:
@@ -240,10 +257,10 @@ def compute_regime_diagnostics(
         interesting_for_rl=regime_label == "decision-sensitive",
         interestingness_score=interestingness_score,
         final_anc_spread=final_anc_spread,
-        threshold_hit_spread=threshold_hit_spread,
+        solved_fraction_spread=solved_fraction_spread,
         rounds_spread=rounds_spread,
         mean_final_anc=mean_final_anc,
-        mean_threshold_hit=mean_threshold_hit,
+        mean_solved_fraction=mean_solved_fraction,
         budget_sensitivity=budget_sensitivity,
         best_policy=best_policy,
         worst_policy=worst_policy,
@@ -262,12 +279,12 @@ def build_regime_cells(
     budgets: Sequence[int],
     max_rounds: int | None = None,
     seeds: Iterable[int],
-    tau: float,
     hopeless_threshold: float = 0.25,
     trivial_threshold: float = 0.75,
     spread_threshold: float = 0.05,
     env_kwargs: Mapping[str, object] | None = None,
     scale_budget: bool = False,
+    scale_max_rounds: bool = False,
     reference_n: int = 40,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
@@ -287,9 +304,9 @@ def build_regime_cells(
                     budget=budget,
                     max_rounds=max_rounds,
                     seeds=seeds_seq,
-                    tau=tau,
                     env_kwargs=env_kwargs,
                     scale_budget=scale_budget,
+                    scale_max_rounds=scale_max_rounds,
                     reference_n=reference_n,
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
@@ -331,16 +348,22 @@ def serialize_metric(metric: object | None) -> dict[str, float] | None:
     }
 
 
-def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, dict[str, float] | None]:
+def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, object]:
+    ep = summary.episode_count
+    fully_frac = summary.fully_restored_count / ep if ep else 0.0
     return {
         "final_anc": serialize_metric(summary.final_anc),
         "total_reward": serialize_metric(summary.total_reward),
         "steps": serialize_metric(summary.steps),
         "rounds": serialize_metric(summary.rounds),
         "solved_fraction": serialize_metric(summary.solved_fraction),
-        "threshold_hit_fraction": serialize_metric(summary.threshold_hit_fraction),
-        "threshold_step": serialize_metric(summary.threshold_step),
-        "threshold_round": serialize_metric(summary.threshold_round),
+        "rounds_when_solved": serialize_metric(summary.rounds_when_solved),
+        "fully_restored_count": summary.fully_restored_count,
+        "fully_restored_fraction": fully_frac,
+        "episode_count": summary.episode_count,
+        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
+        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
+        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
     }
 
 
@@ -355,10 +378,10 @@ def serialize_regime_cell(cell: RegimeCellResult) -> dict[str, object]:
             "interesting_for_rl": diagnostics.interesting_for_rl,
             "interestingness_score": diagnostics.interestingness_score,
             "final_anc_spread": diagnostics.final_anc_spread,
-            "threshold_hit_spread": diagnostics.threshold_hit_spread,
+            "solved_fraction_spread": diagnostics.solved_fraction_spread,
             "rounds_spread": diagnostics.rounds_spread,
             "mean_final_anc": diagnostics.mean_final_anc,
-            "mean_threshold_hit": diagnostics.mean_threshold_hit,
+            "mean_solved_fraction": diagnostics.mean_solved_fraction,
             "budget_sensitivity": diagnostics.budget_sensitivity,
             "best_policy": diagnostics.best_policy,
             "worst_policy": diagnostics.worst_policy,
@@ -411,25 +434,30 @@ def summarize_regime_buckets(
                 winner_counts.get(cell.diagnostics.best_policy, 0) + 1
             )
 
-        policy_means: dict[str, dict[str, float]] = {}
+        policy_means: dict[str, dict[str, float | None]] = {}
         for policy_name in policy_names:
             matching_summaries = [
                 cell.policy_summaries[policy_name]
                 for cell in bucket_cells
                 if policy_name in cell.policy_summaries
             ]
+            rounds_ws = [
+                summary.rounds_when_solved.mean
+                for summary in matching_summaries
+                if summary.rounds_when_solved is not None
+            ]
             policy_means[policy_name] = {
                 "final_anc_mean": _mean(
                     [summary.final_anc.mean for summary in matching_summaries]
-                ),
-                "threshold_hit_mean": _mean(
-                    [summary.threshold_hit_fraction.mean for summary in matching_summaries]
                 ),
                 "rounds_mean": _mean(
                     [summary.rounds.mean for summary in matching_summaries]
                 ),
                 "solved_fraction_mean": _mean(
                     [summary.solved_fraction.mean for summary in matching_summaries]
+                ),
+                "rounds_when_solved_mean": (
+                    _mean(rounds_ws) if rounds_ws else None
                 ),
             }
 

@@ -32,13 +32,28 @@ def load_config(path: Path) -> dict[str, Any]:
     return data
 
 
+def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
+    regime = config["training"]["regime"]
+    obs_hops = regime.get("obs_hops")
+    abandon_raw = regime.get("abandonment_anc_threshold")
+    return {
+        "capacity_noise": float(regime.get("capacity_noise", 0.0)),
+        "failure_bias": str(regime.get("failure_bias", "uniform")),
+        "action_space": str(regime.get("action_space", "failed")),
+        "obs_hops": int(obs_hops) if obs_hops is not None else None,
+        "abandonment_anc_threshold": (
+            float(abandon_raw) if abandon_raw is not None else None
+        ),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate heuristics and RL in hard cascade regimes.")
     parser.add_argument(
         "--config",
         type=Path,
         default=ROOT / "config" / "default.yaml",
-        help="YAML config (evaluation.tau, regime_mapping thresholds, hard_regime grid).",
+        help="YAML config (regime_mapping thresholds, hard_regime grid, evaluation targets).",
     )
     parser.add_argument(
         "--checkpoint",
@@ -84,7 +99,9 @@ def main() -> None:
     threshold_cfg = config["regime_mapping"]
     budget_scaling = config.get("budget_scaling", {})
 
-    tau = float(evaluation["tau"])
+    target_solved_fraction = float(
+        evaluation.get("minimum_budget_solved_target", evaluation.get("tau", 0.8))
+    )
     alpha_values = list(args.alpha_values) if args.alpha_values is not None else list(
         hard.get("alpha_values", [hard["alpha"]])
     )
@@ -111,6 +128,9 @@ def main() -> None:
         m=m,
         seed=graph_seed,
     )
+    env_kwargs = resolve_env_kwargs(config)
+    smr_raw = budget_scaling.get("scale_max_rounds")
+    scale_max_rounds = bool(smr_raw) if smr_raw is not None else True
     policy_factories = build_policy_factories(base_seed=graph_seed)
     if args.checkpoint.exists():
         device = torch.device("cpu")
@@ -126,11 +146,12 @@ def main() -> None:
         budgets=[budget],
         max_rounds=max_rounds,
         seeds=seeds,
-        tau=tau,
         hopeless_threshold=float(threshold_cfg["hopeless_threshold"]),
         trivial_threshold=float(threshold_cfg["trivial_threshold"]),
         spread_threshold=float(threshold_cfg["spread_threshold"]),
+        env_kwargs=env_kwargs,
         scale_budget=bool(budget_scaling.get("enabled", True)),
+        scale_max_rounds=scale_max_rounds,
         reference_n=int(budget_scaling.get("reference_n", 40)),
     )
     serialized_cells = [serialize_regime_cell(cell) for cell in cells]
@@ -146,10 +167,12 @@ def main() -> None:
         json.dump(
             {
                 "checkpoint": str(args.checkpoint) if args.checkpoint.exists() else None,
-                "tau": tau,
+                "minimum_budget_solved_target": target_solved_fraction,
                 "budget": budget,
                 "scale_budget": bool(budget_scaling.get("enabled", True)),
                 "budget_reference_n": int(budget_scaling.get("reference_n", 40)),
+                "scale_max_rounds": scale_max_rounds,
+                "env": env_kwargs,
                 "max_rounds": max_rounds,
                 "num_graphs": num_graphs,
                 "seeds": seeds,
@@ -169,7 +192,10 @@ def main() -> None:
             for policy_name in cell["policy_summaries"]
         }
     )
-    print("Hard-regime evaluation - final_anc_mean per policy")
+    print(
+        "Hard-regime evaluation — mean final ANC (average over all episodes; episodes may end "
+        "early under abandonment_anc_threshold from config)"
+    )
     header = "alpha\tpfail\tlabel\twinner\t" + "\t".join(all_policies) + "\tRL_minus_best_heuristic"
     print(header)
     for cell in serialized_cells:
@@ -183,6 +209,21 @@ def main() -> None:
         print(
             f"{cell['alpha']}\t{cell['pfail']}\t{cell['diagnostics']['regime_label']}\t"
             f"{cell['diagnostics']['best_policy']}\t{vals}\t{gap_s}"
+        )
+    print("\nFully restored count / episodes — mean rounds when restored (n/a if none):")
+    for cell in serialized_cells:
+        parts: list[str] = []
+        for policy_name in all_policies:
+            ps = cell["policy_summaries"][policy_name]
+            rws = ps.get("rounds_when_solved")
+            rws_m = rws["mean"] if isinstance(rws, dict) else None
+            rws_s = f"{rws_m:.2f}" if rws_m is not None else "n/a"
+            parts.append(
+                f"{policy_name}={ps['fully_restored_count']}/{ps['episode_count']}@{rws_s}"
+            )
+        print(
+            f"{cell['alpha']}\t{cell['pfail']}\t{cell['diagnostics']['regime_label']}\t"
+            + "\t".join(parts)
         )
     print(f"Saved hard-regime results under {output_dir}")
     print(f"Saved hard-regime summary to {summary_path}")

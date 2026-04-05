@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-04-05T11:36:37.141790+00:00",
+  "script": "scripts/train_policy.py",
+  "argv": [
+    "scripts/train_policy.py",
+    "--config",
+    "config/default.yaml"
+  ],
+  "config_path": "config/default.yaml",
+  "config_sha256": "7e1efe8f76112d5bc27fee7fae0a5565c03c1647ac7e606dc6a7d7217c4be704",
+  "git_commit": "392f7408fb205fec287902b6a3a809eb62d8010c",
+  "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "torch_version": "2.11.0+cpu",
+  "checkpoint_path": "experiments/learner/recovery_q.pt",
+  "summary_path": "experiments/learner/recovery_q.summary.json"
+}

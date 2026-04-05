@@ -51,7 +51,7 @@ Regime grid:
 - `alpha in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30}`
 - `pfail in {0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20}`
 - `budget_ref in {1, 2, 3, 4, 5, 6}`
-- `max_rounds = 5`
+- `max_rounds = 20` (reference value at `reference_n`; linear scaling with `n` when `scale_max_rounds` is enabled)
 - `reference_n = 40`
 
 Thresholds used for cell labeling and sensitivity analysis:
@@ -101,7 +101,7 @@ Interpretation:
 
 ## Retained Outputs
 
-The directories below are **not** tracked in git (outputs are large). After a clone, run `scripts/map_regime_comprehensive.py` (with your chosen config/output directory) to populate them locally; the file layout is unchanged.
+The directories below are **not** tracked in git (outputs are large). After a clone, run `scripts/map_regime_comprehensive.py` (with your chosen config/output directory) to populate them locally. The script now scores **decision-sensitive** instances when random fails to fully recover but at least one other heuristic succeeds (no separate cascade-preview metrics).
 
 ### Smoke Outputs
 
@@ -113,7 +113,6 @@ The directories below are **not** tracked in git (outputs are large). After a cl
 - `regime_cells.json`
 - `regime_cells.csv`
 - `budget_summary.json`
-- `threshold_sensitivity.json`
 - `training_recommendation.json`
 - `graph_variance.json`
 - `run_metadata.json`
@@ -129,7 +128,6 @@ The directories below are **not** tracked in git (outputs are large). After a cl
 - `regime_cells.json`
 - `regime_cells.csv`
 - `budget_summary.json`
-- `threshold_sensitivity.json`
 - `training_recommendation.json`
 - `graph_variance.json`
 - `run_metadata.json`
@@ -154,12 +152,11 @@ Full plot outputs:
 
 These files mean:
 
-- `regime_instances`: policy-level rows for every `(graph_id, alpha, pfail, budget_ref, seed_index, policy)` instance
+- `regime_instances`: policy-level rows for every `(graph_id, alpha, pfail, budget_ref, seed_index, policy)` instance (including `solved` and `rounds_when_solved`)
 - `regime_cells`: aggregated per-cell statistics and labels
-- `budget_summary`: how decision-sensitivity and feasibility change with reference budget
-- `threshold_sensitivity`: relabeling results across the threshold grid without rerunning simulations
-- `training_recommendation`: best single cell, best mixed budget, and stable-threshold recommendation
-- `graph_variance`: decomposition of structural vs stochastic variance
+- `budget_summary`: how decision-sensitivity and random solve rate change with reference budget
+- `training_recommendation`: best single cell and best mixed budget
+- `graph_variance`: structural vs stochastic variance in PR(degree) across graphs and seeds
 
 ### Full-Run Results
 

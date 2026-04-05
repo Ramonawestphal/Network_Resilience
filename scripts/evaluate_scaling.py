@@ -78,12 +78,6 @@ def parse_args() -> argparse.Namespace:
         default=ROOT / "experiments" / "scaling",
         help="Directory for scaling evaluation artifacts.",
     )
-    parser.add_argument(
-        "--tau",
-        type=float,
-        default=None,
-        help="ANC threshold used for threshold_hit_fraction.",
-    )
     return parser.parse_args()
 
 
@@ -96,15 +90,18 @@ def _extract_policy_summaries(cell: dict[str, object]) -> dict[str, dict[str, fl
     for policy_name, summary in policy_summaries.items():
         if not isinstance(summary, dict):
             raise ValueError(f"Unexpected summary format for policy {policy_name!r}.")
+        rws = summary.get("rounds_when_solved")
         serialized[str(policy_name)] = {
             "final_anc_mean": float(summary["final_anc"]["mean"]),
             "final_anc_stderr": float(summary["final_anc"]["stderr"]),
-            "threshold_hit_mean": float(summary["threshold_hit_fraction"]["mean"]),
-            "threshold_hit_stderr": float(summary["threshold_hit_fraction"]["stderr"]),
             "rounds_mean": float(summary["rounds"]["mean"]),
             "rounds_stderr": float(summary["rounds"]["stderr"]),
             "solved_fraction_mean": float(summary["solved_fraction"]["mean"]),
             "solved_fraction_stderr": float(summary["solved_fraction"]["stderr"]),
+            "fully_restored_count": int(summary["fully_restored_count"]),
+            "episode_count": int(summary["episode_count"]),
+            "rounds_when_solved_mean": float(rws["mean"]) if rws else float("nan"),
+            "rounds_when_solved_stderr": float(rws["stderr"]) if rws else float("nan"),
         }
     return serialized
 
@@ -121,7 +118,7 @@ def main() -> None:
     started = perf_counter()
     size_results: list[dict[str, object]] = []
     env_metadata: dict[str, object] | None = None
-    tau: float | None = None
+    target_solved: float | None = None
 
     for graph_size in args.graph_sizes:
         temp_output_dir = output_dir / f".compat_n{graph_size}"
@@ -175,7 +172,9 @@ def main() -> None:
             )
         cell = cells[0]
         env_metadata = dict(grid_summary["env"])
-        tau = float(grid_summary["tau"])
+        target_solved = float(
+            grid_summary.get("minimum_budget_solved_target", grid_summary.get("tau", 0.8))
+        )
         size_results.append(
             {
                 "graph_size": graph_size,
@@ -205,7 +204,7 @@ def main() -> None:
         "max_rounds": args.max_rounds,
         "m": args.m,
         "graph_seed": args.graph_seed,
-        "tau": tau,
+        "minimum_budget_solved_target": target_solved,
         "policies": list(dict.fromkeys(args.policies)),
         "env": env_metadata,
         "elapsed_seconds_total": perf_counter() - started,

@@ -2,6 +2,7 @@ from pathlib import Path
 from collections import Counter
 
 import networkx as nx
+import pytest
 import torch
 
 from cascading_rl.budgeting import compute_scaled_budget
@@ -174,7 +175,8 @@ def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):
         device="cpu",
     )
 
-    _, training_state, checkpoint_path = train_recovery_agent(config)
+    with pytest.warns(UserWarning, match="Validating on synthetic"):
+        _, training_state, checkpoint_path = train_recovery_agent(config)
 
     assert checkpoint_path.exists()
     assert len(training_state.episode_rewards) == config.num_episodes

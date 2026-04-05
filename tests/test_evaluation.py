@@ -1,7 +1,14 @@
 import networkx as nx
+import pytest
 
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
-from cascading_rl.evaluation.benchmarks import evaluate_policies, rollout_policy
+from cascading_rl.evaluation.benchmarks import (
+    EpisodeResult,
+    evaluate_policies,
+    final_anc_failure_threshold_for_reporting,
+    rollout_policy,
+    summarize_episode_results,
+)
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
 
@@ -10,12 +17,11 @@ def test_rollout_policy_handles_zero_failure_episode():
     graph = nx.path_graph(4)
     env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, seed=0)
 
-    result = rollout_policy(env, choose_highest_degree_failed_node, seed=0, tau=0.5)
+    result = rollout_policy(env, choose_highest_degree_failed_node, seed=0)
 
     assert result.steps == 0
     assert result.remaining_failed_nodes == 0
     assert result.final_anc == 1.0
-    assert result.threshold_step == 0
 
 
 def test_rollout_policy_counts_rounds_after_budget_reset():
@@ -32,12 +38,11 @@ def test_rollout_policy_counts_rounds_after_budget_reset():
     env.current_round = 1
     env.reset = lambda seed=None: env.observe()
 
-    result = rollout_policy(env, choose_highest_degree_failed_node, tau=0.9)
+    result = rollout_policy(env, choose_highest_degree_failed_node)
 
     assert result.steps == 3
     assert result.rounds == 3
     assert result.remaining_failed_nodes == 0
-    assert result.threshold_round == 3
 
 
 def test_evaluate_policies_uses_matched_seed_rollouts():
@@ -58,12 +63,11 @@ def test_evaluate_policies_uses_matched_seed_rollouts():
         },
         env_factory,
         seeds=[0, 1, 2],
-        tau=0.5,
     )
 
     assert set(summaries) == {"degree", "random"}
     assert summaries["degree"].final_anc.mean >= 0.0
-    assert summaries["degree"].threshold_hit_fraction.mean >= 0.0
+    assert 0.0 <= summaries["degree"].solved_fraction.mean <= 1.0
 
 
 def test_rollout_policy_supports_batch_actions():
@@ -81,7 +85,59 @@ def test_rollout_policy_supports_batch_actions():
     def batch_policy(observation: RecoveryObservation) -> list[int]:
         return list(observation.valid_actions[: observation.remaining_budget])
 
-    result = rollout_policy(env, batch_policy, tau=0.9)
+    result = rollout_policy(env, batch_policy)
 
     assert result.steps >= 1
     assert result.rounds >= 1
+
+
+def test_final_anc_failure_threshold_for_reporting_respects_env_and_default():
+    assert final_anc_failure_threshold_for_reporting(None) == pytest.approx(0.3)
+    assert final_anc_failure_threshold_for_reporting({}) == pytest.approx(0.3)
+    assert final_anc_failure_threshold_for_reporting(
+        {"abandonment_anc_threshold": 0.25}
+    ) == pytest.approx(0.25)
+
+
+def test_summarize_episode_results_counts_unsolved_low_final_anc():
+    episodes = [
+        EpisodeResult(
+            total_reward=0.0,
+            final_anc=0.5,
+            steps=1,
+            rounds=1,
+            remaining_failed_nodes=0,
+        ),
+        EpisodeResult(
+            total_reward=0.0,
+            final_anc=0.2,
+            steps=2,
+            rounds=2,
+            remaining_failed_nodes=2,
+        ),
+        EpisodeResult(
+            total_reward=0.0,
+            final_anc=0.35,
+            steps=2,
+            rounds=2,
+            remaining_failed_nodes=1,
+        ),
+    ]
+    summary = summarize_episode_results(episodes, final_anc_failure_threshold=0.3)
+    assert summary.unsolved_low_final_anc_count == 1
+    assert summary.unsolved_low_final_anc_fraction == pytest.approx(1.0 / 3.0)
+    assert summary.final_anc_failure_threshold_used == pytest.approx(0.3)
+
+    boundary = summarize_episode_results(
+        [
+            EpisodeResult(
+                total_reward=0.0,
+                final_anc=0.3,
+                steps=1,
+                rounds=1,
+                remaining_failed_nodes=1,
+            )
+        ],
+        final_anc_failure_threshold=0.3,
+    )
+    assert boundary.unsolved_low_final_anc_count == 0
