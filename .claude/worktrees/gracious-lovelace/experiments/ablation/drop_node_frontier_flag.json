@@ -1,0 +1,60 @@
+{
+  "name": "drop_node_frontier_flag",
+  "active_node_features": [
+    "load_norm",
+    "capacity_norm",
+    "load_capacity_ratio",
+    "failed_flag",
+    "active_flag",
+    "remaining_budget_norm",
+    "current_round_norm",
+    "degree_norm"
+  ],
+  "active_global_features": [
+    "failed_fraction",
+    "mean_load_capacity_ratio",
+    "max_load_capacity_ratio"
+  ],
+  "use_virtual_node": false,
+  "training_episodes": 100,
+  "checkpoint_path": "C:\\Users\\alxmc\\OneDrive\\Documents\\uni\\year 3\\Seminar ML\\Code\\Cascading-RL\\experiments\\ablation\\drop_node_frontier_flag.pt",
+  "results": {
+    "final_anc": {
+      "mean": 0.9084079078491992,
+      "stderr": 0.012935420993948498
+    },
+    "threshold_hit_fraction": {
+      "mean": 0.9,
+      "stderr": 0.01732050807568877
+    },
+    "solved_fraction": {
+      "mean": 0.7933333333333333,
+      "stderr": 0.023377735530168836
+    },
+    "mean_delta_anc_per_round": 0.05163934185309645,
+    "mean_delta_anc_per_round_stderr": 0.0031097089265831167,
+    "mean_anc_on_failed": 0.5568124573348351,
+    "anc_by_round": [
+      {
+        "mean": 0.7764978488790085,
+        "stderr": 0.01040021650768474
+      },
+      {
+        "mean": 0.8023012449616982,
+        "stderr": 0.01398059427217712
+      },
+      {
+        "mean": 0.7915867139606482,
+        "stderr": 0.01886026842096719
+      },
+      {
+        "mean": 0.764220119336301,
+        "stderr": 0.025260518809031695
+      },
+      {
+        "mean": 0.6946930261639975,
+        "stderr": 0.033677633939663096
+      }
+    ]
+  }
+}
