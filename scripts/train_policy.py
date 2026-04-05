@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from cascading_rl.reproducibility import portable_artifact_path
+from cascading_rl.reproducibility import portable_artifact_path, portable_repo_relative_path
 from cascading_rl.training import (
     FREEZE_GRAPH_SPECS_SEED_OFFSET,
     TrainingConfig,
@@ -40,6 +40,10 @@ def training_config_for_json(config: TrainingConfig) -> dict[str, Any]:
             "count": config.num_episodes,
             "spec_seed": config.seed + FREEZE_GRAPH_SPECS_SEED_OFFSET,
         }
+    if data.get("validation_eval_set_path"):
+        data["validation_eval_set_path"] = portable_repo_relative_path(
+            data["validation_eval_set_path"]
+        )
     return data
 
 
@@ -258,7 +262,8 @@ def main() -> None:
         if not ves.is_absolute():
             ves = ROOT / ves
         training_config = replace(
-            training_config, validation_eval_set_path=str(ves.resolve())
+            training_config,
+            validation_eval_set_path=portable_repo_relative_path(ves),
         )
     if args.validation_every is not None:
         training_config = replace(
@@ -268,11 +273,11 @@ def main() -> None:
         training_config = replace(training_config, checkpoint_dir=args.checkpoint_dir)
 
     if training_config.validation_eval_set_path:
-        ves = Path(training_config.validation_eval_set_path)
-        if not ves.is_absolute():
-            ves = ROOT / ves
         training_config = replace(
-            training_config, validation_eval_set_path=str(ves.resolve())
+            training_config,
+            validation_eval_set_path=portable_repo_relative_path(
+                training_config.validation_eval_set_path
+            ),
         )
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)

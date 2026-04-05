@@ -212,7 +212,7 @@ def write_regime_heuristic_summary(
     lines = [
         "# Regime heuristic rollup",
         "",
-        "Per-policy means over all grid cells (alpha × p_fail × budget).",
+        "Per-policy means over all grid cells (alpha x p_fail x budget).",
         "",
         thr_note,
         "| policy | mean solved fraction | mean unsolved low-ANC fraction |",

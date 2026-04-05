@@ -214,7 +214,11 @@ def evaluate_policies(
     """Evaluate multiple policies with matched seeds and aggregate the outcomes."""
     seeds_list = list(seeds)
     summaries: dict[str, PolicyEvaluationSummary] = {}
-    thr = final_anc_failure_threshold_for_reporting(None)
+    probe_seed = seeds_list[0] if seeds_list else 0
+    probe_env = env_factory(probe_seed)
+    thr = final_anc_failure_threshold_for_reporting(
+        {"abandonment_anc_threshold": probe_env.abandonment_anc_threshold}
+    )
 
     for policy_name, policy in policy_map.items():
         episode_results = [
