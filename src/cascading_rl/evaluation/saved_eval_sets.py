@@ -1,4 +1,4 @@
-"""Helpers for fixed eval sets (JSON/YAML or legacy pickle) and heuristic spread / regime labels."""
+"""Helpers for fixed eval sets (JSON, YAML, or pickle with a ``.pkl`` suffix) and heuristic spread."""
 
 from __future__ import annotations
 
@@ -186,9 +186,6 @@ def _load_eval_payload(path: Path) -> Any:
         with path.open("rb") as f:
             return pickle.load(f)
     raw = path.read_bytes()
-    # Some eval sets are saved as pickle but named *.json; sniff pickle frame (protocol 2+).
-    if raw[:1] == b"\x80":
-        return pickle.loads(raw)
     text = raw.decode("utf-8")
     if suffix in {".yaml", ".yml"}:
         return yaml.safe_load(text)
