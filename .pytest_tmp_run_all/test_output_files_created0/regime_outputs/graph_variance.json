@@ -1,0 +1,136 @@
+{
+  "metadata": {
+    "generated_by": "map_regime_comprehensive.py",
+    "master_seed": 2026,
+    "timestamp": "2026-04-05T20:59:22.190676+00:00",
+    "n_graphs": 3,
+    "n_seeds": 2,
+    "total_instances": 120,
+    "grid": {
+      "alpha_values": [
+        0.05,
+        0.1
+      ],
+      "pfail_values": [
+        0.05,
+        0.1
+      ],
+      "budget_values": [
+        2
+      ],
+      "graph_n_range": [
+        30,
+        32
+      ],
+      "graph_m": 2,
+      "max_rounds": 20,
+      "reference_n": 40,
+      "n_graphs": 3,
+      "n_seeds": 2
+    },
+    "thresholds": {
+      "delta_h": 0.3,
+      "delta_t": 0.8,
+      "delta_s": 0.15,
+      "min_ds_frac": 0.5
+    }
+  },
+  "cells": [
+    {
+      "alpha": 0.05,
+      "pfail": 0.05,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.0,
+      "within_graph_std_pr_degree": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.05,
+      "pfail": 0.1,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.0,
+      "within_graph_std_pr_degree": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.05,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.0,
+      "within_graph_std_pr_degree": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        }
+      ]
+    },
+    {
+      "alpha": 0.1,
+      "pfail": 0.1,
+      "budget_ref": 2,
+      "across_graph_std_pr_degree": 0.0,
+      "within_graph_std_pr_degree": 0.0,
+      "per_graph_stats": [
+        {
+          "graph_id": 0,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 1,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        },
+        {
+          "graph_id": 2,
+          "graph_mean_pr_degree": 1.0,
+          "graph_std_pr_degree": 0.0
+        }
+      ]
+    }
+  ]
+}

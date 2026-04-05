@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-04-05T20:59:12.082536+00:00",
+  "script": "scripts/map_regime.py",
+  "argv": [
+    "map_regime.py",
+    "--config",
+    ".pytest_tmp_run_all/test_map_regime_writes_expecte0/config.yaml"
+  ],
+  "config_path": ".pytest_tmp_run_all/test_map_regime_writes_expecte0/config.yaml",
+  "config_sha256": "a1850708d12a58df85d26a593b2c40d6c0573af00dfa5be651a0e4485957add7",
+  "git_commit": "e05e1fd6bf207883a774f74dc462eeae5d7a1e82",
+  "python_version": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "torch_version": "2.11.0+cpu",
+  "output_dir": ".pytest_tmp_run_all/test_map_regime_writes_expecte0/regime_map",
+  "num_graphs": 1,
+  "policies": [
+    "random",
+    "degree"
+  ],
+  "minimum_budget_solved_target": 0.8,
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "abandonment_anc_threshold": null
+  }
+}

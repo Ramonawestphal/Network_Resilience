@@ -1,0 +1,7 @@
+=== Saved eval set: C:\Users\alxmc\OneDrive\Documents\03 - University\Year 3\Seminar - Machine Learning\Code\Cascading-RL\.pytest_tmp_run_all\test_run_eval_set_mode_writes_0\with_ds.pkl
+instances=1
+per-instance budgets used (unique, sorted): [2]
+degree: fully_restored=1/1 mean_rounds_if_restored=4.00±0.00 (mean_anc_all_episodes=1.000±0.000)
+
+[bucket: decision-sensitive] instances=1
+  degree: restored=1/1 mean_rounds_if_restored=4.00 final_anc_mean=1.000

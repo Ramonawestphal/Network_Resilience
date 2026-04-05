@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-04-05T20:59:11.446444+00:00",
+  "script": "scripts/evaluate_policy.py",
+  "argv": [
+    "evaluate_policy.py",
+    "--config",
+    ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/config.yaml",
+    "--checkpoint",
+    ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/stub.pt",
+    "--output-dir",
+    ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/eval_outputs",
+    "--policies",
+    "rl",
+    "degree"
+  ],
+  "config_path": ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/config.yaml",
+  "config_sha256": "4179a01367751b4f21ffcdc267321fe018f354b8c1c4cf52b0fb2798c84cc6ef",
+  "git_commit": "e05e1fd6bf207883a774f74dc462eeae5d7a1e82",
+  "python_version": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "torch_version": "2.11.0+cpu",
+  "checkpoint": ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/stub.pt",
+  "grid_source": "training",
+  "policies": [
+    "rl",
+    "degree"
+  ]
+}
