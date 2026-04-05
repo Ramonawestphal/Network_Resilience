@@ -182,10 +182,11 @@ def _instance_from_decoded(item: Mapping[str, Any]) -> dict[str, Any]:
 
 def _load_eval_payload(path: Path) -> Any:
     suffix = path.suffix.lower()
-    if suffix == ".pkl":
-        with path.open("rb") as f:
-            return pickle.load(f)
     raw = path.read_bytes()
+    # Be tolerant of mislabeled eval-set files: some existing artifacts use a
+    # `.json` suffix even though the payload is a pickle stream.
+    if suffix == ".pkl" or raw.startswith(b"\x80"):
+        return pickle.loads(raw)
     text = raw.decode("utf-8")
     if suffix in {".yaml", ".yml"}:
         return yaml.safe_load(text)

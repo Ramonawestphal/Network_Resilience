@@ -216,8 +216,9 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "Periodic validation on this JSON/YAML eval set (default: training.validation_eval_set_path "
-            "from config, e.g. eval_sets/ds_validation.json). Overrides the config path when set."
+            "Periodic validation on this JSON/YAML/pickle eval set (default: "
+            "training.validation_eval_set_path from config, e.g. eval_sets/ds_validation.pkl). "
+            "Overrides the config path when set."
         ),
     )
     parser.add_argument(

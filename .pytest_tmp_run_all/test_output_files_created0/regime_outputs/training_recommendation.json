@@ -1,0 +1,10 @@
+{
+  "best_single_cell": null,
+  "best_budget_ref": 2,
+  "recommended_mixed_regime": {
+    "budget_ref": 2,
+    "alpha_values": [],
+    "pfail_values": [],
+    "n_ds_cells_covered": 0
+  }
+}

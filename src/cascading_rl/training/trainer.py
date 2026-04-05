@@ -747,7 +747,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         warnings.warn(
             "Validating on synthetic graphs. Results will be noisy and not "
             "comparable across runs. Use --validation-eval-set with a fixed eval set (e.g. "
-            "eval_sets/ds_validation.json) instead.",
+            "eval_sets/ds_validation.pkl) instead.",
             UserWarning,
             stacklevel=1,
         )

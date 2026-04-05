@@ -1,0 +1,20 @@
+# Core graph library
+networkx>=3.0
+
+# Deep learning
+torch>=2.6.0
+
+# Config
+PyYAML>=6.0
+
+# Data / evaluation
+pandas>=2.0
+numpy>=1.24
+
+# Plotting (scripts/visualize_cascade.py, scripts/plot_regime.py)
+matplotlib>=3.7
+seaborn>=0.12
+
+# Dev / testing
+pytest>=7.0
+pytest-cov>=4.0

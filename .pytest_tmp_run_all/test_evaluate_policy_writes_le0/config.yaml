@@ -1,0 +1,46 @@
+evaluation:
+  budgets:
+  - 1
+  - 2
+  - 3
+  tau: 0.8
+graph:
+  m: 2
+  n_range:
+  - 30
+  - 50
+regime_mapping:
+  alpha_values:
+  - 0.2
+  budgets:
+  - 2
+  graph_seed: 123
+  hopeless_threshold: 0.25
+  max_rounds: 20
+  num_graphs: 1
+  pfail_values:
+  - 0.1
+  seeds:
+  - 0
+  spread_threshold: 0.05
+  trivial_threshold: 0.75
+training:
+  benchmark_dir: unused
+  benchmark_graphs: 1
+  benchmark_seeds:
+  - 0
+  graph:
+    m: 2
+    n_range:
+    - 30
+    - 50
+  regime:
+    action_space: failed
+    alpha: 0.2
+    budget: 2
+    capacity_noise: 0.0
+    failure_bias: uniform
+    max_rounds: 20
+    obs_hops: null
+    pfail: 0.1
+  seed: 7

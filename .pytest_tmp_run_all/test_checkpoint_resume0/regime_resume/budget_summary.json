@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "generated_by": "map_regime_comprehensive.py",
+    "master_seed": 2026,
+    "timestamp": "2026-04-05T20:59:16.367853+00:00",
+    "n_graphs": 3,
+    "n_seeds": 2,
+    "total_instances": 120,
+    "grid": {
+      "alpha_values": [
+        0.05,
+        0.1
+      ],
+      "pfail_values": [
+        0.05,
+        0.1
+      ],
+      "budget_values": [
+        2
+      ],
+      "graph_n_range": [
+        30,
+        32
+      ],
+      "graph_m": 2,
+      "max_rounds": 20,
+      "reference_n": 40,
+      "n_graphs": 3,
+      "n_seeds": 2
+    },
+    "thresholds": {
+      "delta_h": 0.3,
+      "delta_t": 0.8,
+      "delta_s": 0.15,
+      "min_ds_frac": 0.5
+    }
+  },
+  "budgets": [
+    {
+      "budget_ref": 2,
+      "n_cells_ds": 0,
+      "n_cells_trivial": 4,
+      "n_cells_hopeless": 0,
+      "n_cells_mixed": 0,
+      "mean_f_ds": 0.0,
+      "std_f_ds": 0.0,
+      "mean_interestingness": 0.0,
+      "std_interestingness": 0.0,
+      "mean_random_solved_frac": 1.0
+    }
+  ]
+}
