@@ -308,8 +308,11 @@ def main() -> None:
         output_dir / "unsolved_low_anc_heatmaps.png",
         suptitle="Unsolved low-final-ANC fraction (failed & final ANC < threshold)",
         colorbar_label="fraction of episodes",
-        value_fn=lambda cell, pol: float(
-            cell["policy_summaries"][pol].get("unsolved_low_final_anc_fraction", 0.0)
+        value_fn=lambda cell, pol: (
+            float(v)
+            if (v := cell["policy_summaries"][pol].get("unsolved_low_final_anc_fraction"))
+            is not None
+            else float("nan")
         ),
     )
 
