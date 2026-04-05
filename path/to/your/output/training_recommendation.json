@@ -1,0 +1,34 @@
+{
+  "best_single_cell": {
+    "alpha": 0.25,
+    "pfail": 0.2,
+    "budget_ref": 2,
+    "f_ds": 0.736,
+    "interestingness": 2.33,
+    "solved_frac_random": 0.262
+  },
+  "best_budget_ref": 2,
+  "recommended_mixed_regime": {
+    "budget_ref": 2,
+    "alpha_values": [
+      0.05,
+      0.08,
+      0.1,
+      0.12,
+      0.15,
+      0.18,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "pfail_values": [
+      0.08,
+      0.1,
+      0.12,
+      0.15,
+      0.18,
+      0.2
+    ],
+    "n_ds_cells_covered": 41
+  }
+}

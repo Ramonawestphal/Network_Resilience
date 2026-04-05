@@ -40,7 +40,7 @@ hard_regime:
   pfail: 0.15
   alpha_values: [0.10, 0.15, 0.20]
   pfail_values: [0.10, 0.15, 0.20]
-  budget: 4
+  budget: 2
   max_rounds: 20
   n_range: [30, 50]
   m: 2
@@ -58,7 +58,7 @@ training:
     pfail: 0.18
     alpha_values: [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
     pfail_values: [0.12, 0.15, 0.18, 0.20]
-    budget: 3
+    budget: 2
     max_rounds: 20
     capacity_noise: 0.0
     failure_bias: uniform
