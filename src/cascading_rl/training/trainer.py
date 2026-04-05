@@ -728,11 +728,15 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
     eval_set_instances: list[Mapping[str, Any]] | None = None
     if config.validation_eval_set_path:
         from cascading_rl.evaluation.saved_eval_sets import load_eval_instances
+        from cascading_rl.reproducibility import REPO_ROOT
 
         eval_path = Path(config.validation_eval_set_path)
+        if not eval_path.is_absolute():
+            eval_path = REPO_ROOT / eval_path
+        eval_path = eval_path.resolve()
         if not eval_path.is_file():
             raise FileNotFoundError(
-                f"validation_eval_set_path is not a file: {eval_path.resolve()}"
+                f"validation_eval_set_path is not a file: {eval_path}"
             )
         eval_set_instances = load_eval_instances(eval_path)
 

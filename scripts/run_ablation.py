@@ -17,7 +17,7 @@ if str(SRC) not in sys.path:
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import FEATURE_NAMES, GLOBAL_FEATURE_NAMES, build_greedy_policy
-from cascading_rl.reproducibility import portable_artifact_path
+from cascading_rl.reproducibility import portable_artifact_path, portable_repo_relative_path
 from cascading_rl.training import (
     FREEZE_GRAPH_SPECS_SEED_OFFSET,
     TrainingConfig,
@@ -272,7 +272,8 @@ def main() -> None:
         if not ves.is_absolute():
             ves = ROOT / ves
         base_training_config = replace(
-            base_training_config, validation_eval_set_path=str(ves.resolve())
+            base_training_config,
+            validation_eval_set_path=portable_repo_relative_path(ves),
         )
     graph = training["graph"]
     eval_tau = float(config["evaluation"]["tau"])
