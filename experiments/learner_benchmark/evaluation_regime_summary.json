@@ -43,7 +43,7 @@
     "primary_budget": 4,
     "primary_max_rounds": 20
   },
-  "tau": 0.8,
+  "minimum_budget_solved_target": 0.8,
   "scaling": {
     "scale_budget": true,
     "scale_max_rounds": true,
