@@ -42,8 +42,8 @@ class TrainingConfig:
     device: str = "cpu"
     alpha: float = 0.15
     pfail: float = 0.18
-    alpha_values: tuple[float, ...] = (0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20)
-    pfail_values: tuple[float, ...] = (0.12, 0.15, 0.18, 0.20)
+    alpha_values: tuple[float, ...] = (0.15,)
+    pfail_values: tuple[float, ...] = (0.18,)
     budget: int = 3
     scale_budget: bool = True
     budget_reference_n: int = 40

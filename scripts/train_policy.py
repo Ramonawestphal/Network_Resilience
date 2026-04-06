@@ -62,6 +62,8 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     graph = training["graph"]
     evaluation = config["evaluation"]
     budget_scaling = config.get("budget_scaling", {})
+    alpha_scalar = float(regime["alpha"])
+    pfail_scalar = float(regime["pfail"])
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
     obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
@@ -74,17 +76,17 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     return TrainingConfig(
         seed=int(training["seed"]),
         device=str(training["device"]),
-        alpha=float(regime["alpha"]),
-        pfail=float(regime["pfail"]),
+        alpha=alpha_scalar,
+        pfail=pfail_scalar,
         alpha_values=(
             tuple(float(value) for value in alpha_values_raw)
             if alpha_values_raw is not None
-            else defaults.alpha_values
+            else (alpha_scalar,)
         ),
         pfail_values=(
             tuple(float(value) for value in pfail_values_raw)
             if pfail_values_raw is not None
-            else defaults.pfail_values
+            else (pfail_scalar,)
         ),
         budget=int(regime["budget"]),
         scale_budget=bool(budget_scaling.get("enabled", defaults.scale_budget)),
