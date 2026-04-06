@@ -525,7 +525,7 @@ def validate_policy_on_eval_set(
     factories: dict[str, Callable[[int, int], Any]] = {
         "rl": lambda _gi, _se: policy,
     }
-    overall, _ = evaluate_policies_on_saved_instances(
+    overall, *_ = evaluate_policies_on_saved_instances(
         instances,
         factories,
         env_kwargs=env_kwargs,

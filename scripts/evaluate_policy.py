@@ -686,7 +686,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             base_seed=int(training["seed"]),
             selected_policies=selected,
         )
-        overall, per_bucket = evaluate_policies_on_saved_instances(
+        overall, per_bucket, agg_metrics = evaluate_policies_on_saved_instances(
             instances,
             factories,
             env_kwargs=env_kwargs,
@@ -730,6 +730,58 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                     f"mean_rounds_if_restored={rws_bs} final_anc_mean={s.final_anc.mean:.3f}"
                 )
 
+        # --- Aggregate metrics table ---
+        p("\n=== Aggregate metrics ===")
+        col_w = 20
+        header = (
+            f"{'policy':<{col_w}} {'recov_frac':>10}  {'rounds_recov':>18}  "
+            f"{'rounds_fail':>18}  {'anc_cond':>9}  {'anc_uncond':>10}"
+        )
+        p(header)
+
+        def _fmt_mean_std(m: float | None, s: float | None) -> str:
+            if m is None:
+                return f"{'—':>18}"
+            std_s = f"{s:.3f}" if s is not None else "0.000"
+            return f"{f'{m:.3f} ± {std_s}':>18}"
+
+        for name in selected:
+            if name not in agg_metrics:
+                continue
+            am = agg_metrics[name]
+            recov_frac_s = f"{am.recovered_fraction:.3f}"
+            rounds_recov_s = _fmt_mean_std(am.mean_rounds_to_recovery, am.std_rounds_to_recovery)
+            rounds_fail_s = _fmt_mean_std(am.mean_rounds_to_termination_failed, am.std_rounds_to_termination_failed)
+            anc_cond_s = f"{am.mean_anc_conditional:.3f}" if am.mean_anc_conditional is not None else "—"
+            anc_uncond_s = f"{am.mean_anc_unconditional:.3f}"
+            p(
+                f"{name:<{col_w}} {recov_frac_s:>10}  {rounds_recov_s}  "
+                f"{rounds_fail_s}  {anc_cond_s:>9}  {anc_uncond_s:>10}"
+            )
+
+        # --- Per-round ANC CSV ---
+        output_dir_arg = getattr(args, "output_dir", None)
+        if output_dir_arg is not None:
+            import csv
+
+            csv_output_dir = (
+                output_dir_arg if output_dir_arg.is_absolute() else ROOT / output_dir_arg
+            )
+            csv_output_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = csv_output_dir / "per_round_anc.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as csvf:
+                writer = csv.writer(csvf)
+                writer.writerow(["round", "policy", "mean_anc", "n_episodes"])
+                for name in selected:
+                    if name not in agg_metrics:
+                        continue
+                    am = agg_metrics[name]
+                    for i, (mean_anc, n_ep) in enumerate(
+                        zip(am.mean_anc_per_round, am.n_per_round)
+                    ):
+                        writer.writerow([i, name, f"{mean_anc:.6f}", n_ep])
+            p(f"\nPer-round ANC saved to {csv_path}")
+
         large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
         has_b_scaled = bool(instances) and any(
             inst.get("b_scaled") is not None for inst in instances
@@ -749,7 +801,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             table_rows: list[tuple[str, dict[str, float]]] = []
             if baseline_path.exists():
                 base_instances = load_eval_instances(baseline_path)
-                base_overall, _ = evaluate_policies_on_saved_instances(
+                base_overall, *_ = evaluate_policies_on_saved_instances(
                     base_instances,
                     t_factories,
                     env_kwargs=env_kwargs,
@@ -767,7 +819,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                     "the current set."
                 )
 
-            cur_overall, _ = evaluate_policies_on_saved_instances(
+            cur_overall, *_ = evaluate_policies_on_saved_instances(
                 instances,
                 t_factories,
                 env_kwargs=env_kwargs,

@@ -21,6 +21,12 @@ from cascading_rl.evaluation.benchmarks import (
     rollout_policy,
     summarize_episode_results,
 )
+from cascading_rl.evaluation.metrics import (
+    AggregateMetrics,
+    EpisodeMetrics,
+    compute_aggregate_metrics,
+    compute_episode_metrics,
+)
 from cascading_rl.evaluation.regime import build_policy_factories, compute_regime_diagnostics
 
 EVAL_SPREAD_FILTER_DEGREE_RANDOM = 0.15
@@ -238,9 +244,12 @@ def evaluate_policies_on_saved_instances(
 ) -> tuple[
     dict[str, PolicyEvaluationSummary],
     dict[str, dict[str, PolicyEvaluationSummary]],
+    dict[str, AggregateMetrics],
 ]:
-    """Aggregate rollouts over all instances; second return groups by instance regime_label."""
+    """Aggregate rollouts over all instances; second return groups by instance regime_label,
+    third return provides AggregateMetrics per policy."""
     by_policy: dict[str, list[EpisodeResult]] = {name: [] for name in policy_names}
+    by_episode_metrics: dict[str, list[EpisodeMetrics]] = {name: [] for name in policy_names}
     by_regime: dict[str, dict[str, list[EpisodeResult]]] = defaultdict(
         lambda: defaultdict(list)
     )
@@ -253,6 +262,8 @@ def evaluate_policies_on_saved_instances(
             result = rollout_policy(env, policy, seed=seed_i)
             by_policy[name].append(result)
             by_regime[label][name].append(result)
+            em = compute_episode_metrics(result.anc_by_round, result.remaining_failed_nodes == 0)
+            by_episode_metrics[name].append(em)
     thr = final_anc_failure_threshold_for_reporting(env_kwargs)
     overall = {
         n: summarize_episode_results(rs, final_anc_failure_threshold=thr)
@@ -267,7 +278,12 @@ def evaluate_policies_on_saved_instances(
         }
         for lbl, pmap in by_regime.items()
     }
-    return overall, per_bucket
+    agg_metrics = {
+        n: compute_aggregate_metrics(ems)
+        for n, ems in by_episode_metrics.items()
+        if ems
+    }
+    return overall, per_bucket, agg_metrics
 
 
 def mean_final_anc_from_summaries(
