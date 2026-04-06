@@ -38,7 +38,7 @@ def test_observation_to_graph_tensor_builds_features_and_mask():
 
     graph_tensor = observation_to_graph_tensor(observation, use_virtual_node=True)
 
-    assert graph_tensor.node_features.shape == (5, len(FEATURE_NAMES))
+    assert graph_tensor.node_features.shape == (5, 8)
     assert graph_tensor.adjacency.shape == (5, 5)
     assert graph_tensor.valid_mask.tolist() == [False, False, True, True, False]
     assert torch.allclose(
@@ -87,7 +87,7 @@ def test_q_network_supports_global_features_and_virtual_node():
     )
     graph_tensor, q_values = model.score_observation(observation)
 
-    assert graph_tensor.node_features.shape == (5, len(FEATURE_NAMES))
+    assert graph_tensor.node_features.shape == (5, 8)
     assert q_values.shape[0] == 4
     assert q_values[0].item() < -1e8
 

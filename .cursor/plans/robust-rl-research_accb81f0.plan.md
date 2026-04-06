@@ -33,7 +33,7 @@ The biggest confounder in this repo is that some episodes are effectively trivia
 Current code already gives useful building blocks:
 
 - Training samples per-episode `(alpha, pfail)` from grids in [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\train_policy.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\train_policy.py) and [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\src\cascading_rl\training\trainer.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\src\cascading_rl\training\trainer.py).
-- Heuristic comparisons and regime sweeps already exist in [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py), [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\evaluate_hard_regime.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\evaluate_hard_regime.py), and [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\map_regime.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\map_regime.py).
+- Heuristic comparisons and regime sweeps already exist in [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py) and [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\map_regime.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\map_regime.py).
 - Environment semantics that most affect conclusions live in [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\src\cascading_rl\envs\recovery.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\src\cascading_rl\envs\recovery.py): reward is based on ANC improvement after reactivation and before the next cascade wave.
 
 ## Proposed workflow
@@ -81,7 +81,6 @@ Create a lightweight experiment log structure in `README_RESEARCH.md` with secti
 
 Adapt the current evaluation scripts so they can evaluate one checkpoint across a configurable grid and summarize results by difficulty bucket. The most relevant existing code paths are:
 
-- [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\evaluate_hard_regime.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\evaluate_hard_regime.py)
 - [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\scripts\evaluate_policy.py)
 - [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\src\cascading_rl\evaluation\benchmarks.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\src\cascading_rl\evaluation\benchmarks.py)
 - [c:\Users\Ramonavscode\Seminar_ML\Cascading-RL\src\cascading_rl\evaluation\regime.py](c:\Users\Ramona.vscode\Seminar_ML\Cascading-RL\src\cascading_rl\evaluation\regime.py)

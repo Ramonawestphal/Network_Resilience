@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--grid-source",
-        choices=("training", "regime_mapping", "hard_regime"),
+        choices=("training", "regime_mapping"),
         default="training",
         help="Which config section should define the regime grid for robust evaluation.",
     )
@@ -249,20 +249,9 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
         n_range = tuple(graph_cfg["n_range"])
         m = int(graph_cfg["m"])
     else:
-        hard = config.get("hard_regime", {})
-        if not isinstance(hard, dict):
-            raise ValueError("hard_regime must be a mapping when grid_source='hard_regime'.")
-        train_regime = training["regime"]
-        train_graph = training["graph"]
-        alpha_values = list(hard.get("alpha_values", [hard.get("alpha", train_regime["alpha"])]))
-        pfail_values = list(hard.get("pfail_values", [hard.get("pfail", train_regime["pfail"])]))
-        budgets = [int(hard.get("budget", train_regime["budget"]))]
-        num_graphs = int(hard.get("num_graphs", training["benchmark_graphs"]))
-        seeds = list(hard.get("seeds", training["benchmark_seeds"]))
-        max_rounds = int(hard.get("max_rounds", train_regime["max_rounds"]))
-        graph_seed = int(hard.get("graph_seed", training["seed"]) + 2000)
-        n_range = tuple(hard.get("n_range", train_graph["n_range"]))
-        m = int(hard.get("m", train_graph["m"]))
+        raise ValueError(
+            f"Unknown grid_source {args.grid_source!r}; expected 'training' or 'regime_mapping'."
+        )
 
     n_range_override = getattr(args, "n_range", None)
     resolved = {

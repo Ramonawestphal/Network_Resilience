@@ -1,0 +1,93 @@
+{
+  "checkpoint": "/kaggle/working/ckpts/recovery_q.pt",
+  "config": "config/default.yaml",
+  "policies": [
+    "rl",
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness"
+  ],
+  "minimum_budget_solved_target": 0.8,
+  "env_stopping": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "abandonment_anc_threshold": 0.3
+  },
+  "rl": {
+    "final_anc_mean": 0.47248426535739224,
+    "final_anc_stderr": 0.040300001607231226,
+    "rounds_mean": 2.99,
+    "solved_fraction_mean": 0.36,
+    "fully_restored_count": 36,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 5.416666666666667,
+    "rounds_when_solved_stderr": 0.6086349545799254,
+    "b_star": 4
+  },
+  "random": {
+    "final_anc_mean": 0.19967273776874703,
+    "final_anc_stderr": 0.030626010338452702,
+    "rounds_mean": 1.35,
+    "solved_fraction_mean": 0.12,
+    "fully_restored_count": 12,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 1.75,
+    "rounds_when_solved_stderr": 0.17943514064131835,
+    "b_star": null
+  },
+  "degree": {
+    "final_anc_mean": 0.537075165244177,
+    "final_anc_stderr": 0.04001378567447944,
+    "rounds_mean": 3.47,
+    "solved_fraction_mean": 0.42,
+    "fully_restored_count": 42,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 5.690476190476191,
+    "rounds_when_solved_stderr": 0.6072424823184578,
+    "b_star": 4
+  },
+  "risk": {
+    "final_anc_mean": 0.27516853084978854,
+    "final_anc_stderr": 0.03707576570171104,
+    "rounds_mean": 1.68,
+    "solved_fraction_mean": 0.2,
+    "fully_restored_count": 20,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 3.15,
+    "rounds_when_solved_stderr": 0.6459387293739733,
+    "b_star": null
+  },
+  "greedy": {
+    "final_anc_mean": 0.666402620114504,
+    "final_anc_stderr": 0.03966047156873059,
+    "rounds_mean": 4.34,
+    "solved_fraction_mean": 0.58,
+    "fully_restored_count": 58,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 6.293103448275862,
+    "rounds_when_solved_stderr": 0.5046718343927205,
+    "b_star": 4
+  },
+  "betweenness": {
+    "final_anc_mean": 0.5254467545550446,
+    "final_anc_stderr": 0.040196385808991,
+    "rounds_mean": 3.32,
+    "solved_fraction_mean": 0.41,
+    "fully_restored_count": 41,
+    "episode_count": 100,
+    "rounds_when_solved_mean": 5.585365853658536,
+    "rounds_when_solved_stderr": 0.6217359742316488,
+    "b_star": 4
+  },
+  "scaling": {
+    "scale_budget": true,
+    "scale_max_rounds": false,
+    "reference_budget": 2,
+    "reference_n": 40,
+    "beta": 0.05
+  }
+}

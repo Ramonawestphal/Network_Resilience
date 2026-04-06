@@ -1,175 +1,80 @@
-# Node count range [min, max] for Barabási-Albert graph generation.
-# Change when you want to train or evaluate on larger/smaller graphs.
 graph:
   n_range: [30, 50]
-  # Edges added per new node in the BA model. Higher = denser graphs.
-  # Change when you want to study different connectivity levels.
   m: 2
 
 budget_scaling:
-  # Scale the budget (and optionally max_rounds) proportionally to graph size.
-  # Disable to use a fixed budget regardless of graph size.
   enabled: true
-  # Graph size used as the denominator when scaling budgets.
-  # Should match the midpoint of your expected n_range.
   reference_n: 40
-  # Also scale max_rounds by the same size ratio as the budget.
   scale_max_rounds: true
 
 evaluation:
-  # Target fraction of episodes where all nodes are fully restored,
-  # used by the minimum-budget (b*) search in evaluate/run_budget_search.
-  # Lower = easier to declare a budget sufficient.
+  # Target mean fully-restored rate for minimum-budget (b*) search in evaluate/run_budget_search.
   minimum_budget_solved_target: 0.8
-  # Legacy alias for minimum_budget_solved_target; used only if the above key is omitted.
+  # Legacy alias: used only if minimum_budget_solved_target is omitted.
   tau: 0.8
-  # Number of episodes per (graph, policy, budget) evaluation cell.
-  # Higher = more reliable estimates but slower.
   trials: 100
-  # Budget values to sweep during evaluation.
   budgets: [1, 2, 3, 4, 5]
-  # Use identical episode seeds across all policies for a fair matched comparison.
-  # Disable only if you want independent samples per policy.
   matched_seeds: true
 
 regime_mapping:
-  # Directory where regime map results (JSON + plots) are written.
   output_dir: experiments/regime_map
-  # Seed for graph generation; change to produce a different graph set.
   graph_seed: 123
-  # Number of graphs sampled per (alpha, pfail) cell.
   num_graphs: 3
-  # Episode seeds used per graph in each cell.
   seeds: [0, 1, 2, 3, 4, 5]
-  # Cascade amplification values to sweep across the regime map.
   alpha_values: [0.10, 0.15, 0.20, 0.25]
-  # Initial per-node failure probability values to sweep.
   pfail_values: [0.05, 0.08, 0.10, 0.15]
-  # Recovery budgets to evaluate per cell.
   budgets: [1, 2, 3, 4]
-  # Baseline policies included in regime scoring.
   policies: [random, degree, risk, greedy, betweenness]
-  # Mean ANC below this → cell classified as "hopeless" (no policy recovers well).
   hopeless_threshold: 0.25
-  # Mean ANC above this → cell classified as "trivial" (all policies recover well).
   trivial_threshold: 0.75
-  # If max policy ANC spread is below this, cell is classified as "uniform" (policies indistinguishable).
   spread_threshold: 0.05
-  # Maximum cascade simulation rounds per episode in the regime map.
   max_rounds: 20
-
-hard_regime:
-  # Single (alpha, pfail) point used as the primary hard-regime evaluation target.
-  alpha: 0.10
-  pfail: 0.15
-  # Sweep of alpha/pfail values for the full hard-regime grid evaluation.
-  alpha_values: [0.10, 0.15, 0.20]
-  pfail_values: [0.10, 0.15, 0.20]
-  # Recovery budget per episode step for hard-regime evaluation.
-  budget: 4
-  # Maximum cascade rounds per episode.
-  max_rounds: 20
-  # Graph size range and BA connectivity for hard-regime graphs.
-  # Can differ from the training graph distribution.
-  n_range: [30, 50]
-  m: 2
-  # Number of test graphs and episode seeds for hard-regime evaluation.
-  num_graphs: 30
-  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  # Seed for hard-regime graph generation; change to get a different test set.
-  graph_seed: 4242
-  # Directory where hard-regime evaluation results are written.
-  output_dir: experiments/hard_regime
 
 training:
-  # Global reproducibility seed (affects graph sampling, episode ordering, etc.).
   seed: 7
-  # PyTorch device. Use "cuda" for GPU training.
   device: cpu
-  # If true, the same graph batch is reused every episode instead of resampling.
-  # Useful for overfitting experiments; disable for generalisation.
   freeze_graphs: false
-
   regime:
-    # Cascade amplification factor: higher = load spreads more aggressively to neighbours.
-    # Change to train in easier (lower) or harder (higher) cascade conditions.
     alpha: 0.15
-    # Per-node initial failure probability at the start of each episode.
     pfail: 0.18
-    # Optional: sample alpha and pfail uniformly from these lists each episode.
-    # Remove (or leave as single-element lists) to fix alpha/pfail to the values above.
+    # Optional: train on a small distribution instead of one (alpha, pfail).
+    # If provided, each episode samples one alpha and one pfail uniformly.
     alpha_values: [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
     pfail_values: [0.12, 0.15, 0.18, 0.20]
     budget: 2
     max_rounds: 20
-    # Std of Gaussian noise added to node capacities at episode start.
-    # 0.0 = deterministic capacities; increase for robustness training.
     capacity_noise: 0.0
-    # How initial failures are distributed across nodes.
-    # "uniform" = each node fails independently with pfail.
     failure_bias: uniform
-    # Which nodes are valid recovery actions: "failed" (standard) or "all".
     action_space: failed
-    # Observation neighbourhood radius in hops. null = full graph visible.
-    # Set to a small integer (e.g. 2) for partial-observability experiments.
     obs_hops: null
-    # End the episode early if ANC drops below this fraction of the initial ANC.
-    # null to disable. Speeds up training by skipping unrecoverable episodes.
     abandonment_anc_threshold: 0.30
-
   graph:
-    # Graph size and connectivity for training graphs (independent of evaluation graphs).
     n_range: [30, 50]
     m: 2
-
-  # Total number of training episodes.
-  # Increase for better convergence; decrease for quick experiments.
+  # Long training: match epsilon_decay_episodes to num_episodes so ε → epsilon_end by the last episode.
   num_episodes: 8000
-  # Maximum number of transitions stored in the experience replay buffer.
   replay_capacity: 10000
-  # Number of transitions to collect before gradient updates begin.
   warmup_transitions: 500
-  # Transitions sampled per gradient update step.
   batch_size: 64
-  # Discount factor for future rewards. 1.0 = fully far-sighted; lower = more myopic.
   gamma: 0.99
-  # Adam optimizer learning rate.
   learning_rate: 0.0003
-  # Starting epsilon for ε-greedy exploration (fully random at the start).
   epsilon_start: 1.0
-  # Final epsilon after decay (small residual exploration).
   epsilon_end: 0.05
-  # Episodes over which epsilon decays linearly from epsilon_start to epsilon_end.
-  # Set equal to num_episodes so exploration ends exactly at the last episode.
   epsilon_decay_episodes: 6000
-  # Episodes between hard copies of the online network to the target network.
   target_update_interval: 200
-  # Width of hidden GNN layers.
   hidden_dim: 128
-  # Width of node embedding output from the GNN encoder.
   embed_dim: 128
-  # Number of message-passing layers in the GNN. Deeper = larger receptive field.
   num_layers: 2
-  # Include graph-level aggregate features (failed fraction, load ratios) in Q-value head.
   use_global_features: false
-  # Add a virtual aggregation node connected to all real nodes.
   use_virtual_node: false
-  # Number of validation graphs generated each validation cycle.
   validation_graphs: 2
-  # Episode seeds used during validation.
   validation_seeds: [0, 1, 2]
-  # Seed for generating the validation graph batch.
   validation_seed: 42
-  # Run validation every N episodes. Lower = more frequent but slower training.
   validation_every: 200
-  # Path to a fixed JSON evaluation set for comparable validation across runs.
-  # Regenerate with scripts/generate_eval_set.py if the environment changes.
-  validation_eval_set_path: eval_sets/ds_validation.pkl
-  # Directory and filename for the saved checkpoint.
+  # Fixed eval set for comparable validation across runs (JSON; regenerate with scripts/generate_eval_set.py).
+  validation_eval_set_path: eval_sets/ds_validation.json
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
-  # Post-training benchmark: number of graphs and seeds used to score the final model.
   benchmark_graphs: 10
   benchmark_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  # Directory where benchmark results are written.
   benchmark_dir: experiments/learner_benchmark

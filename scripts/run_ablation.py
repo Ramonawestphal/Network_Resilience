@@ -113,9 +113,6 @@ def serialize_policy_summary(summary) -> dict[str, object]:
     rws = summary.rounds_when_solved
     return {
         "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
-        "total_reward": {"mean": summary.total_reward.mean, "stderr": summary.total_reward.stderr},
-        "steps": {"mean": summary.steps.mean, "stderr": summary.steps.stderr},
-        "rounds": {"mean": summary.rounds.mean, "stderr": summary.rounds.stderr},
         "solved_fraction": {
             "mean": summary.solved_fraction.mean,
             "stderr": summary.solved_fraction.stderr,
@@ -142,31 +139,7 @@ def serialize_policy_summary(summary) -> dict[str, object]:
             if summary.mean_anc_on_failed is not None
             else None
         ),
-        "anc_by_round": [
-            {"mean": r.mean, "stderr": r.stderr} for r in summary.anc_by_round
-        ],
     }
-
-
-def extract_convergence_episode(training_state, threshold_fraction: float = 0.9) -> int | None:
-    """Find the first validation episode where ANC reaches threshold_fraction of the final value."""
-    if not training_state.validation_history:
-        return None
-    final_anc_values = [
-        float(entry["reference"]["final_anc_mean"])
-        for entry in training_state.validation_history
-        if entry.get("reference") and entry["reference"].get("final_anc_mean") is not None
-    ]
-    if not final_anc_values:
-        return None
-    final_val = final_anc_values[-1]
-    target = final_val * threshold_fraction
-    for entry in training_state.validation_history:
-        ref = entry.get("reference", {})
-        anc = ref.get("final_anc_mean")
-        if anc is not None and anc >= target:
-            return int(entry["episode"])
-    return None
 
 
 def load_config(path: Path) -> dict:
@@ -185,8 +158,6 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         device=str(training["device"]),
         alpha=float(regime["alpha"]),
         pfail=float(regime["pfail"]),
-        alpha_values=tuple(float(v) for v in regime.get("alpha_values", [regime["alpha"]])),
-        pfail_values=tuple(float(v) for v in regime.get("pfail_values", [regime["pfail"]])),
         budget=int(regime["budget"]),
         scale_budget=bool(budget_scaling.get("enabled", defaults.scale_budget)),
         budget_reference_n=int(
@@ -196,19 +167,9 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
             budget_scaling.get("scale_max_rounds", defaults.scale_max_rounds)
         ),
         max_rounds=int(regime["max_rounds"]),
-        capacity_noise=float(regime.get("capacity_noise", defaults.capacity_noise)),
-        failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),
-        action_space=str(regime.get("action_space", defaults.action_space)),
-        obs_hops=regime.get("obs_hops"),
-        abandonment_anc_threshold=regime.get("abandonment_anc_threshold"),
         n_range=tuple(graph["n_range"]),
         m=int(graph["m"]),
         num_episodes=int(episodes_override or training["num_episodes"]),
-        epsilon_decay_episodes=int(
-            episodes_override * int(training["epsilon_decay_episodes"]) / int(training["num_episodes"])
-            if episodes_override
-            else training["epsilon_decay_episodes"]
-        ),
         replay_capacity=int(training["replay_capacity"]),
         warmup_transitions=int(training["warmup_transitions"]),
         batch_size=int(training["batch_size"]),
@@ -216,14 +177,13 @@ def build_training_config(config: dict, episodes_override: int | None = None) ->
         learning_rate=float(training["learning_rate"]),
         epsilon_start=float(training["epsilon_start"]),
         epsilon_end=float(training["epsilon_end"]),
-
+        epsilon_decay_episodes=int(training["epsilon_decay_episodes"]),
         target_update_interval=int(training["target_update_interval"]),
         hidden_dim=int(training["hidden_dim"]),
         embed_dim=int(training["embed_dim"]),
         num_layers=int(training["num_layers"]),
         validation_graphs=int(training["validation_graphs"]),
         validation_seeds=tuple(training["validation_seeds"]),
-        validation_seed=int(training.get("validation_seed", defaults.validation_seed)),
         validation_every=int(training["validation_every"]),
         validation_eval_set_path=(
             str(training["validation_eval_set_path"]).strip()
@@ -243,13 +203,6 @@ def evaluate_config(
     eval_seeds: list[int],
 ) -> dict[str, object]:
     rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
-    # Strip abandonment_anc_threshold from eval env: it is a training speed-up that
-    # terminates episodes early when ANC drops below a threshold. Keeping it in eval
-    # artificially amplifies ANC gaps for weaker ablation models.
-    eval_env_kwargs = {
-        k: v for k, v in _env_kwargs_from_config(training_config).items()
-        if k != "abandonment_anc_threshold"
-    }
     summary = evaluate_policy_factories_on_graphs(
         eval_graphs,
         {"rl": lambda _graph_index, _seed: rl_policy},
@@ -258,7 +211,7 @@ def evaluate_config(
         budget=training_config.budget,
         max_rounds=training_config.max_rounds,
         seeds=eval_seeds,
-        env_kwargs=eval_env_kwargs,
+        env_kwargs=_env_kwargs_from_config(training_config),
         scale_budget=training_config.scale_budget,
         scale_max_rounds=training_config.scale_max_rounds,
         reference_n=training_config.budget_reference_n,
@@ -267,39 +220,28 @@ def evaluate_config(
 
 
 def print_comparison_table(results: list[dict[str, object]]) -> None:
-    # Use the first run (node_only) as the baseline for delta ANC.
-    baseline_anc = results[0]["results"]["final_anc"]["mean"] if results else 0.0
-
     print("")
     print(
-        f"{'config':<28} {'node':<6} {'global':<8} {'vn':<5} "
-        f"{'final_anc':<18} {'Δ_anc':<8} {'reward':<18} "
-        f"{'steps':<10} {'solved':<18} {'rws_mean':<10} {'conv_ep':<8}"
+        f"{'config':<28} {'node':<6} {'global':<8} {'virtual':<8} "
+        f"{'final_anc':<18} {'solved':<18} {'restored':<14} {'rws_mean':<10}"
     )
-    print("-" * 139)
+    print("-" * 108)
     for item in results:
-        r = item["results"]
-        final_anc = r["final_anc"]
-        reward = r["total_reward"]
-        steps = r["steps"]
-        solved = r["solved_fraction"]
-        rws = r["rounds_when_solved"]
+        final_anc = item["results"]["final_anc"]
+        solved = item["results"]["solved_fraction"]
+        rws = item["results"]["rounds_when_solved"]
         rws_m = rws["mean"] if rws else float("nan")
-        delta_anc = final_anc["mean"] - baseline_anc
-        conv_ep = item.get("convergence_episode_90pct")
-        conv_str = str(conv_ep) if conv_ep is not None else "n/a"
+        restored = item["results"]["fully_restored_count"]
+        ep_n = item["results"]["episode_count"]
         print(
             f"{item['name']:<28} "
             f"{len(item['active_node_features']):<6} "
             f"{len(item['active_global_features']):<8} "
-            f"{str(item['use_virtual_node']):<5} "
+            f"{str(item['use_virtual_node']):<8} "
             f"{final_anc['mean']:.3f}+/-{final_anc['stderr']:.3f}   "
-            f"{delta_anc:+.3f}   "
-            f"{reward['mean']:.3f}+/-{reward['stderr']:.3f}   "
-            f"{steps['mean']:.1f}      "
             f"{solved['mean']:.3f}+/-{solved['stderr']:.3f}   "
-            f"{rws_m:.2f}      "
-            f"{conv_str}"
+            f"{restored}/{ep_n}  "
+            f"{rws_m:.2f}"
         )
 
 
@@ -334,6 +276,7 @@ def main() -> None:
             validation_eval_set_path=portable_repo_relative_path(ves),
         )
     graph = training["graph"]
+    eval_tau = float(config["evaluation"]["tau"])
     eval_seeds = list(training["benchmark_seeds"])
     frozen_episode_graph_specs = generate_episode_graph_specs(
         base_training_config,
@@ -350,7 +293,6 @@ def main() -> None:
     comparison_results: list[dict[str, object]] = []
 
     for ablation_config in ABLATION_RUNS:
-        run_output_path = ABLATION_OUTPUT_DIR / f"{ablation_config['name']}.json"
         training_config = replace(
             base_training_config,
             checkpoint_name=f"{ablation_config['name']}.pt",
@@ -360,14 +302,13 @@ def main() -> None:
             use_virtual_node=ablation_config["use_virtual_node"],
             episode_graph_specs=frozen_episode_graph_specs,
         )
-        model, training_state, checkpoint_path = train_recovery_agent(training_config)
+        model, _, checkpoint_path = train_recovery_agent(training_config)
         results = evaluate_config(
             model,
             training_config,
             eval_graphs,
             eval_seeds,
         )
-        convergence_episode = extract_convergence_episode(training_state)
         run_payload = {
             "name": ablation_config["name"],
             "active_node_features": list(ablation_config["active_node_features"]),
@@ -375,21 +316,14 @@ def main() -> None:
             "use_virtual_node": ablation_config["use_virtual_node"],
             "training_episodes": training_config.num_episodes,
             "checkpoint_path": portable_artifact_path(checkpoint_path),
-            "convergence_episode_90pct": convergence_episode,
             "results": results,
         }
         comparison_results.append(run_payload)
+        run_output_path = ABLATION_OUTPUT_DIR / f"{ablation_config['name']}.json"
         with run_output_path.open("w", encoding="utf-8") as file:
             json.dump(run_payload, file, indent=2)
 
-    # Compute baseline-relative delta ANC (first run = baseline).
-    if comparison_results:
-        baseline_anc = comparison_results[0]["results"]["final_anc"]["mean"]
-        for item in comparison_results:
-            item["delta_anc_vs_baseline"] = item["results"]["final_anc"]["mean"] - baseline_anc
-
-    payload = {"baseline": comparison_results[0]["name"] if comparison_results else None,
-               "configs": comparison_results}
+    payload = {"configs": comparison_results}
     with ABLATION_OUTPUT_PATH.open("w", encoding="utf-8") as file:
         json.dump(payload, file, indent=2)
 

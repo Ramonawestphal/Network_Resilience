@@ -18,7 +18,6 @@ Fresh artifacts:
 - `experiments/regime_map/regime_results.json`
 - `experiments/regime_map/regime_results.csv`
 - `experiments/regime_map/recommended_regime.md`
-- `experiments/hard_regime/hard_regime_summary.json`
 - `experiments/reference_regime/evaluation_summary.json`
 - `experiments/reference_regime/evaluation_grid_summary.json`
 
@@ -68,8 +67,6 @@ The model uses the GNN in `src/cascading_rl/models/gnn.py` with a virtual global
 
 - `python scripts/map_regime.py`
   - heuristic-only regime map under the corrected semantics
-- `python scripts/evaluate_hard_regime.py`
-  - focused heuristic or RL-vs-heuristic sweep on the `hard_regime` config grid
 - `python scripts/train_policy.py`
   - train a fresh RL checkpoint under the corrected environment
 - `python scripts/evaluate_policy.py`

@@ -65,10 +65,3 @@ def test_pickle_protocol_for_eval_set(tmp_path: Path):
     with path.open("wb") as f:
         pickle.dump([{"k": 1}], f, protocol=4)
     assert load_eval_instances(path) == [{"k": 1}]
-
-
-def test_load_eval_instances_accepts_pickle_payload_with_json_suffix(tmp_path: Path):
-    path = tmp_path / "mislabeled.json"
-    with path.open("wb") as f:
-        pickle.dump([{"k": 1}], f, protocol=4)
-    assert load_eval_instances(path) == [{"k": 1}]

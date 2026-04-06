@@ -191,11 +191,6 @@ def parse_args() -> argparse.Namespace:
         help="Number of training episodes (default: from config).",
     )
     parser.add_argument(
-        "--hard-regime",
-        action="store_true",
-        help="Use hard-regime grids and 10000 episodes (overridden by --episodes if set).",
-    )
-    parser.add_argument(
         "--checkpoint-dir",
         type=str,
         default=None,
@@ -216,9 +211,8 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "Periodic validation on this JSON/YAML/pickle eval set (default: "
-            "training.validation_eval_set_path from config, e.g. eval_sets/ds_validation.pkl). "
-            "Overrides the config path when set."
+            "Periodic validation on this JSON/YAML eval set (default: training.validation_eval_set_path "
+            "from config, e.g. eval_sets/ds_validation.json). Overrides the config path when set."
         ),
     )
     parser.add_argument(
@@ -243,15 +237,6 @@ def main() -> None:
         training_config = replace(training_config, alpha_values=tuple(args.alpha_values))
     if args.pfail_values is not None:
         training_config = replace(training_config, pfail_values=tuple(args.pfail_values))
-    if args.hard_regime:
-        training_config = replace(
-            training_config,
-            alpha=0.10,
-            pfail=0.15,
-            alpha_values=(0.10, 0.15, 0.20),
-            pfail_values=(0.10, 0.15, 0.20),
-            num_episodes=10000,
-        )
     if args.episodes is not None:
         training_config = replace(training_config, num_episodes=args.episodes)
     if args.log_episode_spread:
