@@ -1,0 +1,39 @@
+{
+  "checkpoint": ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/stub.pt",
+  "config": ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/config.yaml",
+  "policies": [
+    "rl",
+    "degree"
+  ],
+  "minimum_budget_solved_target": 0.8,
+  "env_stopping": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "abandonment_anc_threshold": null
+  },
+  "rl": {
+    "final_anc_mean": 1.0,
+    "final_anc_stderr": 0.0,
+    "rounds_mean": 0.0,
+    "solved_fraction_mean": 1.0,
+    "fully_restored_count": 1,
+    "episode_count": 1,
+    "rounds_when_solved_mean": 0.0,
+    "rounds_when_solved_stderr": 0.0,
+    "b_star": 1
+  },
+  "degree": {
+    "final_anc_mean": 1.0,
+    "final_anc_stderr": 0.0,
+    "rounds_mean": 0.0,
+    "solved_fraction_mean": 1.0,
+    "fully_restored_count": 1,
+    "episode_count": 1,
+    "rounds_when_solved_mean": 0.0,
+    "rounds_when_solved_stderr": 0.0,
+    "b_star": 1
+  },
+  "scaling": null
+}

@@ -1,0 +1,42 @@
+budget_scaling:
+  enabled: false
+  reference_n: 40
+evaluation:
+  budgets:
+  - 1
+  - 2
+  matched_seeds: true
+  tau: 0.8
+  trials: 1
+graph:
+  m: 2
+  n_range:
+  - 12
+  - 12
+regime_mapping:
+  alpha_values:
+  - 0.2
+  budgets:
+  - 1
+  - 2
+  graph_seed: 123
+  hopeless_threshold: 0.25
+  max_rounds: 4
+  num_graphs: 1
+  output_dir: C:\Users\alxmc\OneDrive\Documents\03 - University\Year 3\Seminar - Machine
+    Learning\Code\Cascading-RL\.pytest_tmp_run_all\test_map_regime_writes_expecte0\regime_map
+  pfail_values:
+  - 0.05
+  policies:
+  - random
+  - degree
+  seeds:
+  - 0
+  spread_threshold: 0.05
+  trivial_threshold: 0.75
+training:
+  regime:
+    action_space: failed
+    capacity_noise: 0.0
+    failure_bias: uniform
+    obs_hops: null

@@ -1,0 +1,402 @@
+{
+  "checkpoint": ".pytest_tmp_run_all/test_evaluate_policy_writes_le0/stub.pt",
+  "grid_source": "training",
+  "policies": [
+    "rl",
+    "degree"
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "abandonment_anc_threshold": null
+  },
+  "grid_spec": {
+    "alpha_values": [
+      0.2
+    ],
+    "pfail_values": [
+      0.1
+    ],
+    "budgets": [
+      1,
+      2,
+      3
+    ],
+    "num_graphs": 1,
+    "seeds": [
+      0
+    ],
+    "max_rounds": 20,
+    "graph_seed": 1007,
+    "n_range": [
+      30,
+      50
+    ],
+    "m": 2,
+    "primary_alpha": 0.2,
+    "primary_pfail": 0.1,
+    "primary_budget": 1,
+    "primary_max_rounds": 20
+  },
+  "minimum_budget_solved_target": 0.8,
+  "scaling": {
+    "scale_budget": false,
+    "scale_max_rounds": true,
+    "reference_budget": 1,
+    "reference_n": 40,
+    "beta": null
+  },
+  "cells": [
+    {
+      "alpha": 0.2,
+      "pfail": 0.1,
+      "budget": 1,
+      "diagnostics": {
+        "regime_label": "trivial",
+        "interesting_for_rl": false,
+        "interestingness_score": 0.0,
+        "final_anc_spread": 0.0,
+        "solved_fraction_spread": 0.0,
+        "rounds_spread": 0.0,
+        "mean_final_anc": 1.0,
+        "mean_solved_fraction": 1.0,
+        "budget_sensitivity": 0.0,
+        "best_policy": "rl",
+        "worst_policy": "rl",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": 0.0
+      },
+      "policy_summaries": {
+        "rl": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        },
+        "degree": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        }
+      },
+      "scaling": {
+        "scale_budget": false,
+        "scale_max_rounds": true,
+        "reference_budget": 1,
+        "reference_n": 40,
+        "beta": null,
+        "representative_num_nodes": 31,
+        "resolved_budget": 1,
+        "resolved_max_rounds": 16
+      }
+    },
+    {
+      "alpha": 0.2,
+      "pfail": 0.1,
+      "budget": 2,
+      "diagnostics": {
+        "regime_label": "trivial",
+        "interesting_for_rl": false,
+        "interestingness_score": 0.0,
+        "final_anc_spread": 0.0,
+        "solved_fraction_spread": 0.0,
+        "rounds_spread": 0.0,
+        "mean_final_anc": 1.0,
+        "mean_solved_fraction": 1.0,
+        "budget_sensitivity": 0.0,
+        "best_policy": "rl",
+        "worst_policy": "rl",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": 0.0
+      },
+      "policy_summaries": {
+        "rl": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        },
+        "degree": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        }
+      },
+      "scaling": {
+        "scale_budget": false,
+        "scale_max_rounds": true,
+        "reference_budget": 2,
+        "reference_n": 40,
+        "beta": null,
+        "representative_num_nodes": 31,
+        "resolved_budget": 2,
+        "resolved_max_rounds": 16
+      }
+    },
+    {
+      "alpha": 0.2,
+      "pfail": 0.1,
+      "budget": 3,
+      "diagnostics": {
+        "regime_label": "trivial",
+        "interesting_for_rl": false,
+        "interestingness_score": 0.0,
+        "final_anc_spread": 0.0,
+        "solved_fraction_spread": 0.0,
+        "rounds_spread": 0.0,
+        "mean_final_anc": 1.0,
+        "mean_solved_fraction": 1.0,
+        "budget_sensitivity": 0.0,
+        "best_policy": "rl",
+        "worst_policy": "rl",
+        "best_heuristic": "degree",
+        "best_heuristic_final_anc": 1.0,
+        "rl_vs_best_heuristic_gap": 0.0
+      },
+      "policy_summaries": {
+        "rl": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        },
+        "degree": {
+          "final_anc": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "total_reward": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "steps": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "rounds": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "solved_fraction": {
+            "mean": 1.0,
+            "stderr": 0.0
+          },
+          "rounds_when_solved": {
+            "mean": 0.0,
+            "stderr": 0.0
+          },
+          "fully_restored_count": 1,
+          "fully_restored_fraction": 1.0,
+          "episode_count": 1,
+          "unsolved_low_final_anc_count": 0,
+          "unsolved_low_final_anc_fraction": 0.0,
+          "final_anc_failure_threshold_used": 0.3
+        }
+      },
+      "scaling": {
+        "scale_budget": false,
+        "scale_max_rounds": true,
+        "reference_budget": 3,
+        "reference_n": 40,
+        "beta": null,
+        "representative_num_nodes": 31,
+        "resolved_budget": 3,
+        "resolved_max_rounds": 16
+      }
+    }
+  ],
+  "bucket_summary": {
+    "overall": {
+      "cell_count": 3,
+      "mean_interestingness_score": 0.0,
+      "mean_budget_sensitivity": 0.0,
+      "winner_counts": {
+        "rl": 3
+      },
+      "policy_means": {
+        "degree": {
+          "final_anc_mean": 1.0,
+          "rounds_mean": 0.0,
+          "solved_fraction_mean": 1.0,
+          "rounds_when_solved_mean": 0.0
+        },
+        "rl": {
+          "final_anc_mean": 1.0,
+          "rounds_mean": 0.0,
+          "solved_fraction_mean": 1.0,
+          "rounds_when_solved_mean": 0.0
+        }
+      },
+      "rl_vs_best_heuristic_gap": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "positive_fraction": 0.0
+      }
+    },
+    "trivial": {
+      "cell_count": 3,
+      "mean_interestingness_score": 0.0,
+      "mean_budget_sensitivity": 0.0,
+      "winner_counts": {
+        "rl": 3
+      },
+      "policy_means": {
+        "degree": {
+          "final_anc_mean": 1.0,
+          "rounds_mean": 0.0,
+          "solved_fraction_mean": 1.0,
+          "rounds_when_solved_mean": 0.0
+        },
+        "rl": {
+          "final_anc_mean": 1.0,
+          "rounds_mean": 0.0,
+          "solved_fraction_mean": 1.0,
+          "rounds_when_solved_mean": 0.0
+        }
+      },
+      "rl_vs_best_heuristic_gap": {
+        "mean": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "positive_fraction": 0.0
+      }
+    }
+  }
+}
