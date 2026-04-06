@@ -114,10 +114,7 @@ def regime_label_from_heuristic_rollouts(
             **dict(env_kwargs),
         )
         result = rollout_policy(env, policy, seed=failure_seed)
-        summaries[name] = summarize_episode_results(
-            [result],
-            final_anc_failure_threshold=thr,
-        )
+        summaries[name] = summarize_episode_results([result])
     diagnostics = compute_regime_diagnostics(
         summaries,
         hopeless_threshold=hopeless_threshold,

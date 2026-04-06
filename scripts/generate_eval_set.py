@@ -120,7 +120,6 @@ def main() -> None:
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_degree,
-                tau=tau,
             )
             pr_random = rollout_final_anc_on_instance(
                 graph,
@@ -131,7 +130,6 @@ def main() -> None:
                 failure_seed=failure_seed,
                 env_kwargs=env_kwargs,
                 policy=pol_random,
-                tau=tau,
             )
             spread = pr_degree - pr_random
             if spread <= EVAL_SPREAD_FILTER_DEGREE_RANDOM:
