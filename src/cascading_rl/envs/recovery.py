@@ -218,6 +218,7 @@ class RecoveryEnv:
 
         action_round = self.current_round
         action_index_in_round = self.budget - self.remaining_budget + 1
+        previous_nc = normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
         self.remaining_budget -= 1
 
@@ -231,7 +232,7 @@ class RecoveryEnv:
             newly_failed = advance_cascade_round(self.state)
 
         nc_after_cascade = normalized_connectivity(self.state.graph, self.state.active)
-        reward = nc_after_cascade if round_complete else 0.0
+        reward = nc_after_cascade - previous_nc
 
         exhausted_rounds = action_round >= self.max_rounds
         abandoned = self._abandon_due_to_low_nc(nc_after_cascade)
@@ -289,6 +290,7 @@ class RecoveryEnv:
             raise ValueError(f"Invalid recovery actions: {invalid_actions}")
 
         action_round = self.current_round
+        previous_nc = normalized_connectivity(self.state.graph, self.state.active)
 
         for action in actions:
             self.state = reactivate_node(self.state, action)
@@ -301,7 +303,7 @@ class RecoveryEnv:
             newly_failed = advance_cascade_round(self.state)
 
         post_cascade_nc = normalized_connectivity(self.state.graph, self.state.active)
-        reward = post_cascade_nc
+        reward = post_cascade_nc - previous_nc
 
         exhausted_rounds = self.current_round >= self.max_rounds
         abandoned = self._abandon_due_to_low_nc(post_cascade_nc)

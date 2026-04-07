@@ -272,28 +272,31 @@ def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[
     return resolved
 
 
-def serialize_legacy_summary(
-    primary_cell: dict[str, Any],
-    b_star_by_policy: dict[str, int | None],
-) -> dict[str, dict[str, float | int | None]]:
-    policy_summaries = primary_cell["policy_summaries"]
-    return {
-        policy_name: {
-            "final_nc_mean": metrics["final_nc"]["mean"],
-            "final_nc_stderr": metrics["final_nc"]["stderr"],
-            "rounds_mean": metrics["rounds"]["mean"],
-            "solved_fraction_mean": metrics["solved_fraction"]["mean"],
-            "fully_restored_count": metrics["fully_restored_count"],
-            "episode_count": metrics["episode_count"],
-            "rounds_when_solved_mean": (
-                metrics["rounds_when_solved"]["mean"]
-                if metrics.get("rounds_when_solved")
-                else None
-            ),
-            "b_star": b_star_by_policy.get(policy_name),
-        }
-        for policy_name, metrics in policy_summaries.items()
+def serialize_policy_summary(summary: Any, b_star: int | None = None) -> dict[str, Any]:
+    """Serialize a PolicyEvaluationSummary to a JSON-compatible dict."""
+    def agg(m: Any) -> dict[str, float]:
+        return {"mean": m.mean, "stderr": m.stderr}
+
+    out: dict[str, Any] = {
+        "final_nc": agg(summary.final_nc),
+        "anc_fixed": agg(summary.anc_fixed),
+        "anc_adaptive": agg(summary.anc_adaptive),
+        "rounds": agg(summary.rounds),
+        "steps": agg(summary.steps),
+        "solved_fraction": agg(summary.solved_fraction),
+        "rounds_when_solved": agg(summary.rounds_when_solved) if summary.rounds_when_solved is not None else None,
+        "fully_restored_count": summary.fully_restored_count,
+        "episode_count": summary.episode_count,
+        "unsolved_low_final_nc_count": summary.unsolved_low_final_nc_count,
+        "unsolved_low_final_nc_fraction": summary.unsolved_low_final_nc_fraction,
+        "mean_degree_ratio": agg(summary.mean_degree_ratio),
+        "mean_overload_risk": agg(summary.mean_overload_risk),
+        "mean_nc_gain": agg(summary.mean_nc_gain),
+        "mean_greedy_nc_gain": agg(summary.mean_greedy_nc_gain),
+        "mean_action_rank": agg(summary.mean_action_rank),
+        "b_star": b_star,
     }
+    return out
 
 
 def estimate_b_star_for_policies(
@@ -890,24 +893,6 @@ def main() -> None:
         reference_n=reference_n,
     )
 
-    serialized = {
-        policy_name: {
-            "final_anc_mean": summary.final_nc.mean,
-            "final_anc_stderr": summary.final_nc.stderr,
-            "rounds_mean": summary.rounds.mean,
-            "solved_fraction_mean": summary.solved_fraction.mean,
-            "fully_restored_count": summary.fully_restored_count,
-            "episode_count": summary.episode_count,
-            "rounds_when_solved_mean": (
-                summary.rounds_when_solved.mean if summary.rounds_when_solved is not None else None
-            ),
-            "rounds_when_solved_stderr": (
-                summary.rounds_when_solved.stderr if summary.rounds_when_solved is not None else None
-            ),
-        }
-        for policy_name, summary in summaries.items()
-    }
-
     representative_graph = graphs[0]
     evaluation_budgets = evaluation["budgets"]
     b_star = estimate_b_star_for_policies(
@@ -926,8 +911,10 @@ def main() -> None:
         scale_max_rounds=scale_max_rounds_active,
         reference_n=reference_n,
     )
-    for policy_name, value in b_star.items():
-        serialized[policy_name]["b_star"] = value
+    serialized = {
+        policy_name: serialize_policy_summary(summary, b_star=b_star.get(policy_name))
+        for policy_name, summary in summaries.items()
+    }
     serialized["scaling"] = scaling_metadata
 
     grid_budgets = [int(b) for b in grid_spec["budgets"]]
@@ -1045,12 +1032,13 @@ def main() -> None:
             continue
         if not isinstance(metrics, dict) or "b_star" not in metrics:
             continue
-        rws_m = metrics.get("rounds_when_solved_mean")
-        rws_s = f"{rws_m:.2f}" if rws_m is not None else "n/a"
+        rws = metrics.get("rounds_when_solved")
+        rws_s = f"{rws['mean']:.2f}" if isinstance(rws, dict) else "n/a"
+        final_nc_mean = metrics["final_nc"]["mean"] if isinstance(metrics.get("final_nc"), dict) else metrics.get("final_anc_mean", 0.0)
         print(
             f"{policy_name}: fully_restored={metrics['fully_restored_count']}/"
             f"{metrics['episode_count']} mean_rounds_if_restored={rws_s} "
-            f"(mean_anc_all={metrics['final_anc_mean']:.3f}) b_star={metrics['b_star']}"
+            f"(mean_nc_all={final_nc_mean:.3f}) b_star={metrics['b_star']}"
         )
     for bucket_name, bucket in grid_results["bucket_summary"].items():
         rl_gap = bucket["rl_vs_best_heuristic_gap"]

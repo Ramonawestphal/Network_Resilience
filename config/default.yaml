@@ -61,7 +61,7 @@ training:
   hidden_dim: 128
   embed_dim: 128
   num_layers: 2
-  use_global_features: false
+  use_global_features: true
   use_virtual_node: false
   validation_graphs: 2
   validation_seeds: [0, 1, 2]
@@ -71,6 +71,6 @@ training:
   validation_eval_set_path: eval_sets/ds_validation.pkl
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
-  benchmark_graphs: 10
+  benchmark_graphs: 50
   benchmark_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   benchmark_dir: experiments/learner_benchmark

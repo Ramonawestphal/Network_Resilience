@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
@@ -10,6 +11,7 @@ import networkx as nx
 
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
+from cascading_rl.metrics.connectivity import anc_fixed_horizon, anc_adaptive_horizon
 from cascading_rl.policies import (
     choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
@@ -17,12 +19,26 @@ from cascading_rl.policies import (
     choose_highest_overload_risk_node,
     choose_random_failed_node,
 )
+from cascading_rl.policies.greedy_policy import (
+    delta_nc_after_round_batch,
+    observation_to_cascade_state,
+)
 
 PolicyAction = object
 Policy = Callable[[RecoveryObservation], PolicyAction]
 PolicyFactory = Callable[[int, int], Policy]
 
 DEFAULT_FINAL_NC_FAILURE_THRESHOLD = 0.3
+
+
+@dataclass(frozen=True)
+class StepMetrics:
+    round: int
+    degree_ratio: float       # degree(chosen) / max(degree(f) for f in failed)
+    overload_risk: float      # max load/capacity among active neighbors of chosen node
+    nc_gain: float            # NC gain of chosen action (greedy lookahead)
+    greedy_nc_gain: float     # NC gain of the greedy-optimal action
+    action_rank: int          # rank of chosen action by greedy NC gain (1 = optimal)
 
 
 def final_nc_failure_threshold_for_reporting(
@@ -46,6 +62,9 @@ class EpisodeResult:
     remaining_failed_nodes: int
     nc_by_round: list[float] = field(default_factory=list)
     mean_delta_nc_per_round: float = 0.0
+    anc_fixed: float = 0.0
+    anc_adaptive: float = 0.0
+    step_metrics: list[StepMetrics] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -71,6 +90,80 @@ class PolicyEvaluationSummary:
     nc_by_round: list[AggregateMetric] = field(default_factory=list)
     mean_delta_nc_per_round: AggregateMetric = field(
         default_factory=lambda: AggregateMetric(mean=0.0, stderr=0.0)
+    )
+    anc_fixed: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    anc_adaptive: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    mean_degree_ratio: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    mean_overload_risk: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    mean_nc_gain: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    mean_greedy_nc_gain: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+    mean_action_rank: AggregateMetric = field(default_factory=lambda: AggregateMetric(0.0, 0.0))
+
+
+def _compute_step_metrics(
+    observation: RecoveryObservation,
+    action: object,
+    current_round: int,
+) -> StepMetrics:
+    """Compute per-step diagnostic metrics for the chosen action."""
+    graph = observation.graph
+    loads = observation.loads
+    capacities = observation.capacities
+
+    # Normalise action to a list of chosen nodes
+    if isinstance(action, (list, tuple)):
+        chosen_nodes: list = list(action)
+    else:
+        chosen_nodes = [action]
+    chosen = chosen_nodes[0]
+
+    # degree_ratio: degree of chosen node vs max degree among failed nodes
+    if observation.failed:
+        max_failed_degree = max(graph.degree(f) for f in observation.failed)
+        degree_ratio = graph.degree(chosen) / max_failed_degree if max_failed_degree > 0 else 0.0
+    else:
+        degree_ratio = 0.0
+
+    # overload_risk: max load/capacity ratio among active neighbours of chosen node
+    active_neighbours = [n for n in graph.neighbors(chosen) if n in observation.active]
+    if active_neighbours:
+        overload_risk = max(loads[n] / capacities[n] for n in active_neighbours)
+    else:
+        overload_risk = 0.0
+
+    # nc_gain: NC gain of the actual chosen action
+    base_state = observation_to_cascade_state(observation)
+    nc_gain = delta_nc_after_round_batch(base_state, chosen_nodes)
+
+    # Enumerate all valid singleton or budget-matched combos to find greedy ranking
+    valid = list(observation.valid_actions)
+    k = min(int(observation.remaining_budget), len(valid))
+    k = max(k, 1)
+
+    combo_deltas: list[tuple[float, tuple]] = []
+    for combo in itertools.combinations(valid, k):
+        delta = delta_nc_after_round_batch(base_state, list(combo))
+        combo_deltas.append((delta, tuple(sorted(combo, key=str))))
+
+    combo_deltas.sort(key=lambda x: (-x[0], tuple(str(n) for n in x[1])))
+
+    greedy_nc_gain = combo_deltas[0][0] if combo_deltas else nc_gain
+
+    # Determine rank of chosen action (1 = best)
+    chosen_key = tuple(sorted(chosen_nodes, key=str))
+    action_rank = 1
+    for rank, (_, combo_key) in enumerate(combo_deltas, start=1):
+        if combo_key == chosen_key:
+            action_rank = rank
+            break
+
+    return StepMetrics(
+        round=current_round,
+        degree_ratio=degree_ratio,
+        overload_risk=overload_risk,
+        nc_gain=nc_gain,
+        greedy_nc_gain=greedy_nc_gain,
+        action_rank=action_rank,
     )
 
 
@@ -127,6 +220,15 @@ def summarize_episode_results(
         low_frac = 0.0
         thr_used = None
 
+    # Flatten all StepMetrics across every episode
+    all_step_metrics: list[StepMetrics] = [
+        sm for result in episode_results for sm in result.step_metrics
+    ]
+
+    def _agg_step_field(attr: str) -> AggregateMetric:
+        vals = [float(getattr(sm, attr)) for sm in all_step_metrics]
+        return _aggregate(vals) if vals else AggregateMetric(0.0, 0.0)
+
     return PolicyEvaluationSummary(
         final_nc=_aggregate([result.final_nc for result in episode_results]),
         total_reward=_aggregate([result.total_reward for result in episode_results]),
@@ -146,6 +248,13 @@ def summarize_episode_results(
         mean_delta_nc_per_round=_aggregate(
             [result.mean_delta_nc_per_round for result in episode_results]
         ),
+        anc_fixed=_aggregate([result.anc_fixed for result in episode_results]),
+        anc_adaptive=_aggregate([result.anc_adaptive for result in episode_results]),
+        mean_degree_ratio=_agg_step_field("degree_ratio"),
+        mean_overload_risk=_agg_step_field("overload_risk"),
+        mean_nc_gain=_agg_step_field("nc_gain"),
+        mean_greedy_nc_gain=_agg_step_field("greedy_nc_gain"),
+        mean_action_rank=_agg_step_field("action_rank"),
     )
 
 
@@ -160,6 +269,7 @@ def rollout_policy(
     steps = 0
     initial_nc = env.current_nc()
     nc_by_round: list[float] = []
+    step_metrics_list: list[StepMetrics] = []
 
     if not observation.failed:
         return EpisodeResult(
@@ -170,6 +280,9 @@ def rollout_policy(
             remaining_failed_nodes=len(observation.failed),
             nc_by_round=nc_by_round,
             mean_delta_nc_per_round=0.0,
+            anc_fixed=anc_fixed_horizon(nc_by_round, env.max_rounds or 1),
+            anc_adaptive=anc_adaptive_horizon(nc_by_round),
+            step_metrics=step_metrics_list,
         )
 
     done = False
@@ -180,6 +293,9 @@ def rollout_policy(
 
     while not done:
         action = policy(observation)
+        step_metrics_list.append(
+            _compute_step_metrics(observation, action, env.current_round)
+        )
         if isinstance(action, (list, tuple)):
             observation, reward, done, info = env.step_batch(list(action))
         else:
@@ -194,6 +310,7 @@ def rollout_policy(
     if rounds > len(nc_by_round):
         nc_by_round.append(final_nc)
     mean_delta_nc_per_round = (final_nc - initial_nc) / rounds if rounds > 0 else 0.0
+    max_rounds_for_anc = env.max_rounds
 
     return EpisodeResult(
         total_reward=total_reward,
@@ -203,6 +320,9 @@ def rollout_policy(
         remaining_failed_nodes=int(info["failed_nodes"]),
         nc_by_round=nc_by_round,
         mean_delta_nc_per_round=mean_delta_nc_per_round,
+        anc_fixed=anc_fixed_horizon(nc_by_round, max_rounds_for_anc),
+        anc_adaptive=anc_adaptive_horizon(nc_by_round),
+        step_metrics=step_metrics_list,
     )
 
 
