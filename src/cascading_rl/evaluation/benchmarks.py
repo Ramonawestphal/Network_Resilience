@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import itertools
+
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
@@ -135,25 +135,20 @@ def _compute_step_metrics(
     base_state = observation_to_cascade_state(observation)
     nc_gain = delta_nc_after_round_batch(base_state, chosen_nodes)
 
-    # Enumerate all valid singleton or budget-matched combos to find greedy ranking
+    # Rank each valid action individually (O(|failed|) instead of O(|failed|^B))
     valid = list(observation.valid_actions)
-    k = min(int(observation.remaining_budget), len(valid))
-    k = max(k, 1)
+    singleton_deltas: list[tuple[float, object]] = []
+    for node in valid:
+        delta = delta_nc_after_round_batch(base_state, [node])
+        singleton_deltas.append((delta, node))
+    singleton_deltas.sort(key=lambda x: (-x[0], str(x[1])))
 
-    combo_deltas: list[tuple[float, tuple]] = []
-    for combo in itertools.combinations(valid, k):
-        delta = delta_nc_after_round_batch(base_state, list(combo))
-        combo_deltas.append((delta, tuple(sorted(combo, key=str))))
+    greedy_nc_gain = singleton_deltas[0][0] if singleton_deltas else nc_gain
 
-    combo_deltas.sort(key=lambda x: (-x[0], tuple(str(n) for n in x[1])))
-
-    greedy_nc_gain = combo_deltas[0][0] if combo_deltas else nc_gain
-
-    # Determine rank of chosen action (1 = best)
-    chosen_key = tuple(sorted(chosen_nodes, key=str))
+    # Rank of chosen node among all singletons (1 = best)
     action_rank = 1
-    for rank, (_, combo_key) in enumerate(combo_deltas, start=1):
-        if combo_key == chosen_key:
+    for rank, (_, node) in enumerate(singleton_deltas, start=1):
+        if node == chosen:
             action_rank = rank
             break
 

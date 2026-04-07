@@ -1,14 +1,16 @@
 {
-  "generated_at": "2026-04-07T18:00:31.074789+00:00",
+  "generated_at": "2026-04-07T19:18:16.341273+00:00",
   "script": "scripts/train_policy.py",
   "argv": [
     "scripts/train_policy.py",
     "--config",
-    "config/default.yaml"
+    "config/default.yaml",
+    "--episodes",
+    "5"
   ],
   "config_path": "config/default.yaml",
-  "config_sha256": "549278142be2e1e98e3869df71c8be6831b4e293d8b17a7f1764b9e303090ea4",
-  "git_commit": "ac01dfbb98b093d7e82b1c38fe0aaf1bfdb455b1",
+  "config_sha256": "3b1886d2f09457dc12c938245ad634aff0a34e9990443b99bfe0a2541ba0af4b",
+  "git_commit": "1a5e9b26054ab2e4db4f76f3f94397a65f34f050",
   "python_version": "3.14.3 (v3.14.3:323c59a5e34, Feb  3 2026, 11:41:37) [Clang 16.0.0 (clang-1600.0.26.6)]",
   "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
   "torch_version": "2.11.0",

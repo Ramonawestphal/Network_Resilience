@@ -100,11 +100,22 @@ class RecoveryObservation:
 class RecoveryEnv:
     """Budget-constrained recovery environment with batch-per-round cascade waves.
 
-    ``step`` exposes intra-round single-node repairs, while ``step_batch`` performs a
-    full round decision of up to ``B`` repairs followed by one cascade wave. Both use
-    the same reward: net PR/ANC change from the state at the start of the transition to
-    after any repairs in that transition and after the cascade wave (if the round ends
-    and a wave runs). Intra-round steps omit the wave, so reward equals repair-only gain.
+    ``step`` reactivates one node at a time.
+    Reward = NC(post_cascade) - NC(pre_action) at every step. For intra-round steps
+    (budget not yet exhausted) no cascade fires, so the cascade contribution to reward
+    is zero and reward reflects the repair gain only. The cascade wave fires only when
+    the round ends (remaining_budget == 0), at which point the full NC delta including
+    cascade effects is returned as reward.
+
+    ``step_batch`` reactivates up to B nodes at once then fires one cascade wave.
+    Reward = NC(after_cascade) - NC(before_batch). This is equivalent to the sum of
+    per-step rewards that ``step`` would have returned for the same B actions in the
+    same round, so Q-value scales are comparable between the two interfaces.
+
+    In both cases the cascade wave only fires when the round is complete.
+    NC is normalized_connectivity: sum of squared component-size fractions, in [0, 1].
+    After full restoration (no failed nodes), NC = 1.0 and no further failures occur,
+    so padding solved episodes with 1.0 in anc_fixed_horizon is exact.
     """
 
     def __init__(
@@ -149,7 +160,7 @@ class RecoveryEnv:
             if abandonment_nc_threshold is not None
             else None
         )
-        self._rng = Random(seed)
+        self._rng = Random(seed if seed is not None else 0)
         self.state: CascadeState | None = None
         self.remaining_budget = budget
         self.current_round = 1
@@ -319,7 +330,7 @@ class RecoveryEnv:
             self.current_round += 1
             self.remaining_budget = self.budget
         else:
-            self.remaining_budget = max(0, self.remaining_budget - len(actions))
+            self.remaining_budget = 0
 
         info = {
             "nc": post_cascade_nc,

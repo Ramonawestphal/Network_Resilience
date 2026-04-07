@@ -39,10 +39,14 @@ def delta_nc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> fl
 
 
 def choose_greedy_nc_node(observation: RecoveryObservation) -> list[Node]:
-    """Choose up to ``k`` failed nodes maximizing ANC gain after reactivations and one cascade wave.
+    """Choose up to ``k`` failed nodes maximizing NC gain after reactivations and one cascade wave.
 
     ``k = min(remaining_budget, len(valid_actions))``. Returns nodes in ascending ``str(node)`` order
     for deterministic ``step_batch`` application.
+
+    Complexity: O(C(|failed|, k)) NC simulations per call — exponential in budget k.
+    For large graphs or budgets, consider using a greedy sequential approximation instead.
+    With |failed|=30 and k=4 this evaluates ~27,000 combinations per decision step.
     """
     valid = observation.valid_actions
     if not valid:

@@ -26,6 +26,7 @@ from cascading_rl.models import (
     build_greedy_policy,
     observation_to_global_features,
     observation_to_graph_tensor,
+    select_action,
     select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
@@ -33,6 +34,8 @@ from cascading_rl.training.replay import ReplayBuffer, Transition
 Node = Hashable
 
 GRAPH_BUFFER_MAXLEN = 20
+# Large offset ensures graph-generation seeds are statistically independent from
+# episode/failure seeds (which start near 0), avoiding accidental seed collisions.
 FREEZE_GRAPH_SPECS_SEED_OFFSET = 20_000
 
 
@@ -297,12 +300,8 @@ def compute_dqn_loss(
                     next_tensor.node_to_index[node] for node in transition.next_observation.valid_actions
                 ]
                 if valid_next_indices:
-                    next_budget = min(
-                        transition.next_observation.remaining_budget,
-                        len(valid_next_indices),
-                    )
                     valid_next_q = next_q_values[valid_next_indices]
-                    top_next_q = torch.topk(valid_next_q, k=next_budget).values.mean()
+                    top_next_q = valid_next_q.max()
                     target_value = target_value + gamma * top_next_q
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
@@ -875,21 +874,18 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         total_reward = 0.0
 
         while not done and observation.failed:
-            actions = tuple(
-                select_top_b(
-                    model,
-                    observation,
-                    budget=observation.remaining_budget,
-                    epsilon=epsilon,
-                    rng=rng,
-                    device=device,
-                )
+            action = select_action(
+                model,
+                observation,
+                epsilon=epsilon,
+                rng=rng,
+                device=device,
             )
-            next_observation, reward, done, _info = env.step_batch(list(actions))
+            next_observation, reward, done, _info = env.step(action)
             replay_buffer.push(
                 Transition(
                     observation=observation,
-                    action=actions,
+                    action=(action,),
                     reward=reward,
                     next_observation=next_observation,
                     done=done,

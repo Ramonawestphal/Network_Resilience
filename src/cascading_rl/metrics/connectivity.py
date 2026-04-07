@@ -25,15 +25,31 @@ def normalized_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> fl
     return sum((s / total_nodes) ** 2 for s in component_sizes)
 
 def anc_fixed_horizon(nc_by_round: list[float], max_rounds: int) -> float:
-    """ANC normalized by fixed horizon: pad solved episodes with 1.0, divide by max_rounds. Result in [0, 1]."""
+    """**Primary ANC metric.** Accumulated NC over a fixed horizon of max_rounds.
+
+    Episodes solved before max_rounds are padded with NC=1.0 (full connectivity),
+    rewarding faster recovery. Unsolved episodes use their actual NC trajectory.
+    Result is in [0, 1]. Use this for cross-episode comparisons.
+
+    Padding assumption: a fully restored network stays at NC=1.0 indefinitely,
+    which is valid under the no-further-failure assumption after recovery.
+    """
     if not nc_by_round:
         return 1.0
+    if len(nc_by_round) >= max_rounds:
+        return sum(nc_by_round[:max_rounds]) / max_rounds
     padded = nc_by_round + [1.0] * (max_rounds - len(nc_by_round))
     return sum(padded) / max_rounds
 
 
 def anc_adaptive_horizon(nc_by_round: list[float]) -> float:
-    """ANC normalized by actual rounds used: divide by number of rounds taken. Result in [0, 1]."""
+    """**Secondary ANC metric.** Mean NC over rounds actually taken.
+
+    Does not penalise slow recovery — a policy solving in 10 rounds vs 2 rounds
+    can achieve the same score if per-round NC is identical. Use for analysing
+    per-round network quality independent of speed.
+    Result is in [0, 1].
+    """
     if not nc_by_round:
         return 1.0
     return sum(nc_by_round) / len(nc_by_round)

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-07T18:03:32.231497+00:00",
+  "generated_at": "2026-04-07T18:36:37.182927+00:00",
   "script": "scripts/evaluate_policy.py",
   "argv": [
     "scripts/evaluate_policy.py",
@@ -8,19 +8,16 @@
     "--checkpoint",
     "experiments/learner/recovery_q.pt",
     "--num-graphs",
-    "300",
+    "10",
     "--seeds",
     "0",
     "1",
-    "2",
-    "3",
-    "4",
     "--output-dir",
     "experiments/eval_out"
   ],
   "config_path": "config/default.yaml",
   "config_sha256": "549278142be2e1e98e3869df71c8be6831b4e293d8b17a7f1764b9e303090ea4",
-  "git_commit": "ac01dfbb98b093d7e82b1c38fe0aaf1bfdb455b1",
+  "git_commit": "819f885ead9d1d1161c19c4ba757df096b391ce2",
   "python_version": "3.14.3 (v3.14.3:323c59a5e34, Feb  3 2026, 11:41:37) [Clang 16.0.0 (clang-1600.0.26.6)]",
   "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
   "torch_version": "2.11.0",

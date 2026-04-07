@@ -19,7 +19,7 @@ evaluation:
 regime_mapping:
   output_dir: experiments/regime_map
   graph_seed: 123
-  num_graphs: 3
+  num_graphs: 15
   seeds: [0, 1, 2, 3, 4, 5]
   alpha_values: [0.10, 0.15, 0.20, 0.25]
   pfail_values: [0.05, 0.08, 0.10, 0.15]
@@ -43,12 +43,12 @@ training:
     failure_bias: uniform
     action_space: failed
     obs_hops: null
-    abandonment_nc_threshold: 0.30
+    abandonment_nc_threshold: null
   graph:
     n_range: [30, 50]
     m: 2
   # Long training: match epsilon_decay_episodes to num_episodes so ε → epsilon_end by the last episode.
-  num_episodes: 8000
+  num_episodes: 15000
   replay_capacity: 10000
   warmup_transitions: 500
   batch_size: 64
@@ -56,21 +56,21 @@ training:
   learning_rate: 0.0003
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 6000
+  epsilon_decay_episodes: 12000
   target_update_interval: 200
   hidden_dim: 128
   embed_dim: 128
   num_layers: 2
   use_global_features: true
   use_virtual_node: false
-  validation_graphs: 2
-  validation_seeds: [0, 1, 2]
+  validation_graphs: 30
+  validation_seeds: [0, 1, 2, 3, 4, 5, 6]
   validation_seed: 42
   validation_every: 200
   # Fixed eval set for comparable validation across runs (JSON; regenerate with scripts/generate_eval_set.py).
   validation_eval_set_path: eval_sets/ds_validation.pkl
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
-  benchmark_graphs: 50
-  benchmark_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  benchmark_graphs: 100
+  benchmark_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
   benchmark_dir: experiments/learner_benchmark
