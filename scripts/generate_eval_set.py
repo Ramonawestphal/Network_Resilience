@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 from random import Random
@@ -28,7 +29,7 @@ NUM_GRAPHS = 30
 SEEDS_PER_GRAPH = 5
 ALPHA = 0.15
 P_FAIL = 0.18
-B_REF = 3
+B_REF = 2
 N_REF = 40
 
 
@@ -55,10 +56,26 @@ def resolve_env_kwargs(config: dict) -> dict[str, object]:
     }
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate eval_sets/ds_validation.pkl (decision-sensitive instances)."
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite output if it already exists.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = _parse_args()
     out_path = ROOT / OUTPUT_REL
-    if out_path.exists():
-        print(f"Eval set already exists at {out_path}; skipping generation.")
+    if out_path.exists() and not args.force:
+        print(
+            f"Eval set already exists at {out_path}.\n"
+            "Pass --force to regenerate."
+        )
         return
 
     config_path = ROOT / "config" / "default.yaml"
