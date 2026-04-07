@@ -9,7 +9,7 @@ from cascading_rl.dynamics.cascade import (
     reactivate_node,
 )
 from cascading_rl.envs.recovery import RecoveryObservation
-from cascading_rl.metrics.connectivity import accumulated_normalized_connectivity
+from cascading_rl.metrics.connectivity import normalized_connectivity
 
 Node = Hashable
 
@@ -26,20 +26,20 @@ def observation_to_cascade_state(observation: RecoveryObservation) -> CascadeSta
 
 
 def delta_nc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> float:
-    """NC change after reactivating ``nodes`` (in sorted order) then one cascade wave, matching ``step_batch``."""
+    """ANC change after reactivating ``nodes`` (in sorted order) then one cascade wave, matching ``step_batch``."""
     trial = state.copy()
-    previous_anc = accumulated_normalized_connectivity(trial.graph, trial.active)
+    previous_anc = normalized_connectivity(trial.graph, trial.active)
     ordered = sorted(nodes, key=str)
     for node in ordered:
         trial = reactivate_node(trial, node)
     if trial.frontier and trial.failed:
         advance_cascade_round(trial)
-    post_anc = accumulated_normalized_connectivity(trial.graph, trial.active)
+    post_anc = normalized_connectivity(trial.graph, trial.active)
     return post_anc - previous_anc
 
 
 def choose_greedy_nc_node(observation: RecoveryObservation) -> list[Node]:
-    """Choose up to ``k`` failed nodes maximizing NC gain after reactivations and one cascade wave.
+    """Choose up to ``k`` failed nodes maximizing ANC gain after reactivations and one cascade wave.
 
     ``k = min(remaining_budget, len(valid_actions))``. Returns nodes in ascending ``str(node)`` order
     for deterministic ``step_batch`` application.

@@ -1,5 +1,5 @@
 {
-  "checkpoint": "/kaggle/working/ckpts/recovery_q.pt",
+  "checkpoint": "experiments/learner/recovery_q.pt",
   "config": "config/default.yaml",
   "policies": [
     "rl",
@@ -15,18 +15,18 @@
     "failure_bias": "uniform",
     "action_space": "failed",
     "obs_hops": null,
-    "abandonment_anc_threshold": 0.3
+    "abandonment_nc_threshold": 0.3
   },
   "rl": {
-    "final_anc_mean": 0.47248426535739224,
-    "final_anc_stderr": 0.040300001607231226,
-    "rounds_mean": 2.99,
-    "solved_fraction_mean": 0.36,
-    "fully_restored_count": 36,
+    "final_anc_mean": 0.43076717930381675,
+    "final_anc_stderr": 0.04088712298755144,
+    "rounds_mean": 2.81,
+    "solved_fraction_mean": 0.33,
+    "fully_restored_count": 33,
     "episode_count": 100,
-    "rounds_when_solved_mean": 5.416666666666667,
-    "rounds_when_solved_stderr": 0.6086349545799254,
-    "b_star": 4
+    "rounds_when_solved_mean": 5.2727272727272725,
+    "rounds_when_solved_stderr": 0.6661068586251293,
+    "b_star": 5
   },
   "random": {
     "final_anc_mean": 0.19967273776874703,

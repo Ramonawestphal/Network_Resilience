@@ -1,19 +1,17 @@
 {
-  "generated_at": "2026-04-06T11:30:49.994384+00:00",
+  "generated_at": "2026-04-07T18:00:31.074789+00:00",
   "script": "scripts/train_policy.py",
   "argv": [
     "scripts/train_policy.py",
     "--config",
-    "config/default.yaml",
-    "--checkpoint-dir",
-    "/kaggle/working/ckpts"
+    "config/default.yaml"
   ],
   "config_path": "config/default.yaml",
-  "config_sha256": "b52181c1cb7934431e5254f31d0f612f834ab2b4def23a6379c6292609713806",
-  "git_commit": "842ac364cac7b2af02344aa826be36fed5fea39f",
-  "python_version": "3.12.12 (main, Oct 10 2025, 08:52:57) [GCC 11.4.0]",
-  "platform": "Linux-6.6.113+-x86_64-with-glibc2.35",
-  "torch_version": "2.10.0+cpu",
-  "checkpoint_path": "/kaggle/working/ckpts/recovery_q.pt",
-  "summary_path": "/kaggle/working/ckpts/recovery_q.summary.json"
+  "config_sha256": "549278142be2e1e98e3869df71c8be6831b4e293d8b17a7f1764b9e303090ea4",
+  "git_commit": "ac01dfbb98b093d7e82b1c38fe0aaf1bfdb455b1",
+  "python_version": "3.14.3 (v3.14.3:323c59a5e34, Feb  3 2026, 11:41:37) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+  "torch_version": "2.11.0",
+  "checkpoint_path": "experiments/learner/recovery_q.pt",
+  "summary_path": "experiments/learner/recovery_q.summary.json"
 }
