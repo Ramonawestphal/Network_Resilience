@@ -192,7 +192,7 @@ def build_eval_policy_factories(
     rl_policy = None
     if "rl" in selected_policies:
         model, _ = load_q_network(checkpoint_path)
-        rl_policy = build_greedy_policy(model, batch_actions=True)
+        rl_policy = build_greedy_policy(model, batch_actions=False)
     base_factories = build_policy_factories(base_seed=base_seed)
     policy_factories: dict[str, Any] = {}
     for policy_name in selected_policies:
@@ -771,7 +771,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             csv_path = csv_output_dir / "per_round_anc.csv"
             with csv_path.open("w", newline="", encoding="utf-8") as csvf:
                 writer = csv.writer(csvf)
-                writer.writerow(["round", "policy", "mean_anc", "n_episodes"])
+                writer.writerow(["round", "policy", "outcome", "mean_anc", "n_episodes"])
                 for name in selected:
                     if name not in agg_metrics:
                         continue
@@ -779,7 +779,15 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                     for i, (mean_anc, n_ep) in enumerate(
                         zip(am.mean_anc_per_round, am.n_per_round)
                     ):
-                        writer.writerow([i, name, f"{mean_anc:.6f}", n_ep])
+                        writer.writerow([i, name, "all", f"{mean_anc:.6f}", n_ep])
+                    for i, (mean_anc, n_ep) in enumerate(
+                        zip(am.mean_nc_per_round_recovered, am.n_episodes_per_round_recovered)
+                    ):
+                        writer.writerow([i, name, "recovered", f"{mean_anc:.6f}", n_ep])
+                    for i, (mean_anc, n_ep) in enumerate(
+                        zip(am.mean_nc_per_round_failed, am.n_episodes_per_round_failed)
+                    ):
+                        writer.writerow([i, name, "failed", f"{mean_anc:.6f}", n_ep])
             p(f"\nPer-round ANC saved to {csv_path}")
 
         large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}

@@ -58,6 +58,12 @@ class AggregateMetrics:
     mean_anc_per_round: list[float]  # mean ANC at each round index (aligned to max length)
     n_per_round: list[int]  # number of episodes that reached each round index
 
+    # per-round curves split by outcome
+    mean_nc_per_round_recovered: list[float]   # averaged over recovered episodes only
+    n_episodes_per_round_recovered: list[int]
+    mean_nc_per_round_failed: list[float]      # averaged over failed episodes only
+    n_episodes_per_round_failed: list[int]
+
 
 def compute_aggregate_metrics(episodes: Sequence[EpisodeMetrics]) -> AggregateMetrics:
     """Aggregate a list of EpisodeMetrics into summary statistics.
@@ -111,7 +117,7 @@ def compute_aggregate_metrics(episodes: Sequence[EpisodeMetrics]) -> AggregateMe
         mean_anc_uncond = 0.0
         stderr_anc_uncond = 0.0
 
-    # --- per-round ANC alignment ---
+    # --- per-round ANC alignment (all episodes) ---
     max_len = max((len(ep.anc_per_round) for ep in episodes), default=0)
     mean_anc_per_round: list[float] = []
     n_per_round: list[int] = []
@@ -119,6 +125,23 @@ def compute_aggregate_metrics(episodes: Sequence[EpisodeMetrics]) -> AggregateMe
         values = [ep.anc_per_round[i] for ep in episodes if len(ep.anc_per_round) > i]
         mean_anc_per_round.append(_mean(values) if values else 0.0)
         n_per_round.append(len(values))
+
+    # --- per-round curves split by outcome ---
+    max_len_recovered = max((len(ep.anc_per_round) for ep in recovered_episodes), default=0)
+    mean_nc_per_round_recovered: list[float] = []
+    n_episodes_per_round_recovered: list[int] = []
+    for i in range(max_len_recovered):
+        vals = [ep.anc_per_round[i] for ep in recovered_episodes if len(ep.anc_per_round) > i]
+        mean_nc_per_round_recovered.append(_mean(vals) if vals else 0.0)
+        n_episodes_per_round_recovered.append(len(vals))
+
+    max_len_failed = max((len(ep.anc_per_round) for ep in failed_episodes), default=0)
+    mean_nc_per_round_failed: list[float] = []
+    n_episodes_per_round_failed: list[int] = []
+    for i in range(max_len_failed):
+        vals = [ep.anc_per_round[i] for ep in failed_episodes if len(ep.anc_per_round) > i]
+        mean_nc_per_round_failed.append(_mean(vals) if vals else 0.0)
+        n_episodes_per_round_failed.append(len(vals))
 
     return AggregateMetrics(
         n_episodes=n,
@@ -133,4 +156,8 @@ def compute_aggregate_metrics(episodes: Sequence[EpisodeMetrics]) -> AggregateMe
         stderr_anc_unconditional=stderr_anc_uncond,
         mean_anc_per_round=mean_anc_per_round,
         n_per_round=n_per_round,
+        mean_nc_per_round_recovered=mean_nc_per_round_recovered,
+        n_episodes_per_round_recovered=n_episodes_per_round_recovered,
+        mean_nc_per_round_failed=mean_nc_per_round_failed,
+        n_episodes_per_round_failed=n_episodes_per_round_failed,
     )

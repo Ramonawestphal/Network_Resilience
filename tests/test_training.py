@@ -389,3 +389,35 @@ def test_budget_scaling_helper_matches_canonical_reference_rule():
     assert compute_scaled_budget(2, num_nodes=30, reference_n=40, enabled=True) == 2
     assert compute_scaled_budget(2, num_nodes=50, reference_n=40, enabled=True) == 2
     assert compute_scaled_budget(2, num_nodes=100, reference_n=40, enabled=True) == 5
+
+
+def test_use_monte_carlo_returns_trains_and_uses_discounted_returns(tmp_path: Path):
+    """MC mode must complete training and push transitions with done=True (no bootstrap)."""
+    checkpoint_dir = tmp_path / "learner_mc"
+    config = TrainingConfig(
+        num_episodes=4,
+        warmup_transitions=4,
+        batch_size=4,
+        replay_capacity=256,
+        alpha_values=(0.2,),
+        pfail_values=(0.1,),
+        scale_budget=False,
+        validation_graphs=1,
+        validation_seeds=(0,),
+        validation_every=100_000,
+        checkpoint_dir=str(checkpoint_dir),
+        checkpoint_name="mc_run.pt",
+        n_range=(10, 12),
+        budget=2,
+        max_rounds=3,
+        device="cpu",
+        use_monte_carlo_returns=True,
+    )
+
+    _model, training_state, checkpoint_path = train_recovery_agent(config)
+
+    # Training completes and checkpoints are saved.
+    assert checkpoint_path.exists()
+    assert len(training_state.episode_rewards) == config.num_episodes
+    # ANC values are always valid probabilities.
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_final_anc)

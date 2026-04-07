@@ -140,6 +140,16 @@ def test_compute_aggregate_metrics_mixed():
     assert len(am.n_per_round) == 3
     assert all(n == 3 for n in am.n_per_round)
 
+    # split per-round curves: 2 recovered, 1 failed
+    assert len(am.mean_nc_per_round_recovered) == 3
+    assert all(n == 2 for n in am.n_episodes_per_round_recovered)
+    assert len(am.mean_nc_per_round_failed) == 3
+    assert all(n == 1 for n in am.n_episodes_per_round_failed)
+    # recovered curve at round 0: mean(0.4, 0.3) = 0.35
+    assert am.mean_nc_per_round_recovered[0] == pytest.approx(0.35, rel=1e-6)
+    # failed curve at round 0: 0.2
+    assert am.mean_nc_per_round_failed[0] == pytest.approx(0.2, rel=1e-6)
+
 
 def test_per_round_alignment_unequal_lengths():
     episodes = [
@@ -169,3 +179,12 @@ def test_per_round_alignment_unequal_lengths():
     assert am.n_per_round[6] == 1
     # Value at index 6 should equal the single length-7 episode's value at that index
     assert am.mean_anc_per_round[6] == pytest.approx(1.0, rel=1e-6)
+
+    # split curves: 1 failed (len 3), 2 recovered (len 5 and 7)
+    assert len(am.mean_nc_per_round_failed) == 3
+    assert all(n == 1 for n in am.n_episodes_per_round_failed)
+    assert len(am.mean_nc_per_round_recovered) == 7
+    # at round index 2 both recovered episodes contribute
+    assert am.n_episodes_per_round_recovered[2] == 2
+    # at round index 5 only the length-7 episode contributes
+    assert am.n_episodes_per_round_recovered[5] == 1

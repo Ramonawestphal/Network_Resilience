@@ -276,7 +276,16 @@ class RecoveryEnv:
         return self.observe(), reward, done, info
 
     def step_batch(self, actions: list[Node]) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
-        """Reactivate up to the remaining budget at once, then fire one cascade wave."""
+        """Reactivate up to the remaining budget at once, then fire one cascade wave.
+
+        A partial batch (``len(actions) < remaining_budget``) is valid only when
+        there are fewer failed nodes than the budget — i.e. the caller is
+        repairing every remaining failed node.  In that case the cascade fires
+        (and finds nothing to propagate because ``failed`` is now empty or
+        nearly so) and the round advances normally.  Submitting a partial batch
+        while more failed nodes still exist wastes the unused budget and is a
+        caller error; use ``step()`` for intra-round single-action control instead.
+        """
         if self.state is None:
             raise RuntimeError("Environment must be reset before use.")
         if len(actions) > self.remaining_budget:

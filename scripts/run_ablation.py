@@ -202,7 +202,7 @@ def evaluate_config(
     eval_graphs: list,
     eval_seeds: list[int],
 ) -> dict[str, object]:
-    rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=True)
+    rl_policy = build_greedy_policy(model, device=training_config.device, batch_actions=False)
     summary = evaluate_policy_factories_on_graphs(
         eval_graphs,
         {"rl": lambda _graph_index, _seed: rl_policy},

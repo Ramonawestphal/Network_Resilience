@@ -26,6 +26,7 @@ from cascading_rl.models import (
     build_greedy_policy,
     observation_to_global_features,
     observation_to_graph_tensor,
+    select_action,
     select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
@@ -274,14 +275,21 @@ def compute_dqn_loss(
     gamma: float,
     device: torch.device,
 ) -> torch.Tensor:
+    """Standard single-action DQN loss: Q(s,a) ← r + γ·max_a' Q(s',a').
+
+    Each transition must store a single node action.  The target is either the
+    raw reward (when ``done=True``, e.g. episode end or MC return) or the
+    reward plus the discounted max Q-value of the next valid action.
+    """
     losses: list[torch.Tensor] = []
     for transition in transitions:
         graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
         global_features = _global_features_for_model(model, transition.observation, device=device)
         q_values = model(graph_tensor, global_features)
 
-        action_indices = [graph_tensor.node_to_index[action] for action in _normalize_action_batch(transition.action)]
-        q_selected = torch.stack([q_values[index] for index in action_indices]).mean()
+        # Single action — take the Q-value for that node directly.
+        action_index = graph_tensor.node_to_index[_normalize_action_batch(transition.action)[0]]
+        q_selected = q_values[action_index]
 
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
@@ -297,17 +305,44 @@ def compute_dqn_loss(
                     next_tensor.node_to_index[node] for node in transition.next_observation.valid_actions
                 ]
                 if valid_next_indices:
-                    next_budget = min(
-                        transition.next_observation.remaining_budget,
-                        len(valid_next_indices),
-                    )
+                    # Standard max-Q bootstrap.
                     valid_next_q = next_q_values[valid_next_indices]
-                    top_next_q = torch.topk(valid_next_q, k=next_budget).values.mean()
-                    target_value = target_value + gamma * top_next_q
+                    target_value = target_value + gamma * valid_next_q.max()
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
 
     return torch.stack(losses).mean()
+
+
+def _maybe_update(
+    model: RecoveryQNetwork,
+    target_model: RecoveryQNetwork,
+    optimizer: Any,
+    replay_buffer: Any,
+    config: "TrainingConfig",
+    device: torch.device,
+    training_state: "TrainingState",
+    rng: Random,
+) -> None:
+    """Sample a mini-batch and apply one gradient update if the buffer is ready."""
+    if len(replay_buffer) < max(config.batch_size, config.warmup_transitions):
+        return
+    batch = replay_buffer.sample(config.batch_size, rng=rng)
+    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device)
+    optimizer.zero_grad()
+    loss.backward()  # type: ignore[no-untyped-call]
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    optimizer.step()
+    if config.log_grad_norm:
+        grad_norm = sum(
+            p.grad.norm().item()
+            for p in model.parameters()
+            if p.grad is not None
+        )
+        print(f"[diag] grad_norm={grad_norm:.4f}", flush=True)
+    training_state.losses.append(float(loss.item()))
+    if training_state.total_steps % config.target_update_interval == 0:
+        target_model.load_state_dict(model.state_dict())
 
 
 def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
@@ -518,10 +553,13 @@ def validate_policy_on_eval_set(
     instances: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Run greedy RL on a saved eval set file (same protocol as ``--eval-set``)."""
+    from collections import defaultdict
+
     from cascading_rl.evaluation.saved_eval_sets import evaluate_policies_on_saved_instances
 
     env_kwargs = _env_kwargs_from_config(config)
-    policy = build_greedy_policy(model, device=device, batch_actions=True)
+    # Single-step policy: consistent with training and with heuristic baselines.
+    policy = build_greedy_policy(model, device=device, batch_actions=False)
     factories: dict[str, Callable[[int, int], Any]] = {
         "rl": lambda _gi, _se: policy,
     }
@@ -545,10 +583,25 @@ def validate_policy_on_eval_set(
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
     }
+
+    # Group instances by the alpha stored in each instance and compute per-alpha
+    # performance separately, instead of mapping the global mean to every alpha.
+    instances_by_alpha: dict[float, list] = defaultdict(list)
+    for inst in instances:
+        instances_by_alpha[float(inst.get("alpha", config.alpha))].append(inst)
+    per_alpha_anc: dict[float, float] = {}
+    for alpha_val, alpha_insts in instances_by_alpha.items():
+        a_overall, *_ = evaluate_policies_on_saved_instances(
+            alpha_insts,
+            factories,
+            env_kwargs=env_kwargs,
+            policy_names=["rl"],
+        )
+        per_alpha_anc[alpha_val] = a_overall["rl"].final_anc.mean
+
     mean_anc = summary.final_anc.mean
-    per_alpha_anc = {float(a): mean_anc for a in config.alpha_values}
     return {
-        "final_anc_mean": summary.final_anc.mean,
+        "final_anc_mean": mean_anc,
         "final_anc_stderr": summary.final_anc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
@@ -575,7 +628,7 @@ def validate_policy(
     device: torch.device,
     validation_graphs: Sequence[Any],
 ) -> dict[str, Any]:
-    policy = build_greedy_policy(model, device=device, batch_actions=True)
+    policy = build_greedy_policy(model, device=device, batch_actions=False)
     env_kwargs = _env_kwargs_from_config(config)
     reference_summaries = evaluate_policy_factories_on_graphs(
         validation_graphs,
@@ -873,57 +926,49 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             )
         done = False
         total_reward = 0.0
+        episode_buffer: list[Transition] = []
 
+        # --- Single-step DQN: one transition per repair action ---
         while not done and observation.failed:
-            actions = tuple(
-                select_top_b(
-                    model,
-                    observation,
-                    budget=observation.remaining_budget,
-                    epsilon=epsilon,
-                    rng=rng,
-                    device=device,
-                )
+            action = select_action(
+                model,
+                observation,
+                epsilon=epsilon,
+                rng=rng,
+                device=device,
             )
-            next_observation, reward, done, _info = env.step_batch(list(actions))
-            replay_buffer.push(
-                Transition(
-                    observation=observation,
-                    action=actions,
-                    reward=reward,
-                    next_observation=next_observation,
-                    done=done,
-                )
+            next_observation, reward, done, _info = env.step(action)
+            transition = Transition(
+                observation=observation,
+                action=action,
+                reward=reward,
+                next_observation=next_observation,
+                done=done,
             )
-
+            episode_buffer.append(transition)
             observation = next_observation
             total_reward += reward
             training_state.total_steps += 1
 
-            if len(replay_buffer) >= max(config.batch_size, config.warmup_transitions):
-                batch = replay_buffer.sample(config.batch_size, rng=rng)
-                loss = compute_dqn_loss(
-                    model,
-                    target_model,
-                    batch,
-                    gamma=config.gamma,
-                    device=device,
-                )
-                optimizer.zero_grad()
-                loss.backward()  # type: ignore[no-untyped-call]
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
-                if config.log_grad_norm:
-                    grad_norm = sum(
-                        p.grad.norm().item()
-                        for p in model.parameters()
-                        if p.grad is not None
-                    )
-                    print(f"[diag] grad_norm={grad_norm:.4f}", flush=True)
-                training_state.losses.append(float(loss.item()))
+            # TD(0): push immediately and update after each step.
+            if not config.use_monte_carlo_returns:
+                replay_buffer.push(transition)
+                _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
-                if training_state.total_steps % config.target_update_interval == 0:
-                    target_model.load_state_dict(model.state_dict())
+        # MC returns: compute discounted returns backward and push at episode end.
+        if config.use_monte_carlo_returns and episode_buffer:
+            G = 0.0
+            for trans in reversed(episode_buffer):
+                G = trans.reward + config.gamma * G
+                # done=True prevents bootstrap in compute_dqn_loss → target = G directly.
+                replay_buffer.push(Transition(
+                    observation=trans.observation,
+                    action=trans.action,
+                    reward=G,
+                    next_observation=trans.next_observation,
+                    done=True,
+                ))
+            _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
         training_state.episode_rewards.append(total_reward)
         training_state.episode_final_anc.append(env.current_anc())
