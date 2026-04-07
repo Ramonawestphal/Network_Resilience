@@ -18,7 +18,7 @@ from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.evaluation.saved_eval_sets import (
     DIAGNOSTIC_POLICY_NAMES,
     regime_label_from_heuristic_rollouts,
-    rollout_final_anc_on_instance,
+    rollout_final_nc_on_instance,
     save_eval_instances,
 )
 
@@ -50,13 +50,13 @@ def load_config(path: Path) -> dict:
 def resolve_env_kwargs(config: dict) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
-    abandon_raw = regime.get("abandonment_anc_threshold")
+    abandon_raw = regime.get("abandonment_nc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
-        "abandonment_anc_threshold": (
+        "abandonment_nc_threshold": (
             float(abandon_raw) if abandon_raw is not None else None
         ),
     }
@@ -112,7 +112,7 @@ def build_filtered_instances(
             initial_failures = frozenset(obs.failed)
             pol_degree = factories["degree"](gi, failure_seed)
             pol_random = factories["random"](gi, failure_seed)
-            pr_degree = rollout_final_anc_on_instance(
+            pr_degree = rollout_final_nc_on_instance(
                 graph,
                 alpha=ALPHA,
                 p_fail=p_fail,
@@ -122,7 +122,7 @@ def build_filtered_instances(
                 env_kwargs=env_kwargs,
                 policy=pol_degree,
             )
-            pr_random = rollout_final_anc_on_instance(
+            pr_random = rollout_final_nc_on_instance(
                 graph,
                 alpha=ALPHA,
                 p_fail=p_fail,

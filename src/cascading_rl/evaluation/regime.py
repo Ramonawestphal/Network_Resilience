@@ -11,12 +11,12 @@ from cascading_rl.budgeting import DEFAULT_REFERENCE_N, compute_scaled_budget, c
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     PolicyEvaluationSummary,
-    final_anc_failure_threshold_for_reporting,
+    final_nc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
 from cascading_rl.policies import (
-    choose_greedy_anc_node,
+    choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
     choose_highest_degree_failed_node,
     choose_highest_overload_risk_node,
@@ -66,7 +66,7 @@ def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
         "random": random_factory,
         "degree": lambda graph_index, seed: choose_highest_degree_failed_node,
         "risk": lambda graph_index, seed: choose_highest_overload_risk_node,
-        "greedy": lambda graph_index, seed: choose_greedy_anc_node,
+        "greedy": lambda graph_index, seed: choose_greedy_nc_node,
         "betweenness": lambda graph_index, seed: choose_highest_betweenness_failed_node,
     }
 
@@ -89,7 +89,7 @@ def evaluate_policy_factories_on_graphs(
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
     resolved_env_kwargs = dict(env_kwargs or {})
     seeds_seq = tuple(seeds)
-    thr = final_anc_failure_threshold_for_reporting(resolved_env_kwargs)
+    thr = final_nc_failure_threshold_for_reporting(resolved_env_kwargs)
 
     for graph_index, graph in enumerate(graphs):
         resolved_budget = compute_scaled_budget(
@@ -126,7 +126,7 @@ def evaluate_policy_factories_on_graphs(
     return {
         policy_name: summarize_episode_results(
             episode_results,
-            final_anc_failure_threshold=thr,
+            final_nc_failure_threshold=thr,
         )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
@@ -165,7 +165,7 @@ def filter_interesting_graphs(
             scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
         )
-        final_anc_values = [summary.final_anc.mean for summary in summaries.values()]
+        final_anc_values = [summary.final_nc.mean for summary in summaries.values()]
         if max(final_anc_values) - min(final_anc_values) > spread_threshold:
             filtered_graphs.append(graph)
 
@@ -182,7 +182,7 @@ def compute_regime_diagnostics(
 ) -> RegimeDiagnostics:
     """Summarize whether a parameter cell is trivial, hopeless, ambiguous, or DS."""
     final_anc_by_policy = {
-        policy_name: summary.final_anc.mean
+        policy_name: summary.final_nc.mean
         for policy_name, summary in policy_summaries.items()
     }
     solved_fraction_by_policy = {
@@ -311,7 +311,7 @@ def build_regime_cells(
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
                 grouped_best_anc.setdefault((alpha, pfail), []).append(
-                    max(summary.final_anc.mean for summary in policy_summaries.values())
+                    max(summary.final_nc.mean for summary in policy_summaries.values())
                 )
 
     for (alpha, pfail), budget_summaries in grouped_cells.items():
@@ -352,7 +352,7 @@ def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, obje
     ep = summary.episode_count
     fully_frac = summary.fully_restored_count / ep if ep else 0.0
     return {
-        "final_anc": serialize_metric(summary.final_anc),
+        "final_nc": serialize_metric(summary.final_nc),
         "total_reward": serialize_metric(summary.total_reward),
         "steps": serialize_metric(summary.steps),
         "rounds": serialize_metric(summary.rounds),
@@ -361,9 +361,9 @@ def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, obje
         "fully_restored_count": summary.fully_restored_count,
         "fully_restored_fraction": fully_frac,
         "episode_count": summary.episode_count,
-        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
-        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
-        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
+        "unsolved_low_final_nc_count": summary.unsolved_low_final_nc_count,
+        "unsolved_low_final_nc_fraction": summary.unsolved_low_final_nc_fraction,
+        "final_nc_failure_threshold_used": summary.final_nc_failure_threshold_used,
     }
 
 
@@ -447,8 +447,8 @@ def summarize_regime_buckets(
                 if summary.rounds_when_solved is not None
             ]
             policy_means[policy_name] = {
-                "final_anc_mean": _mean(
-                    [summary.final_anc.mean for summary in matching_summaries]
+                "final_nc_mean": _mean(
+                    [summary.final_nc.mean for summary in matching_summaries]
                 ),
                 "rounds_mean": _mean(
                     [summary.rounds.mean for summary in matching_summaries]

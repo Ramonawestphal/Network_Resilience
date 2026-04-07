@@ -92,8 +92,8 @@ def _extract_policy_summaries(cell: dict[str, object]) -> dict[str, dict[str, fl
             raise ValueError(f"Unexpected summary format for policy {policy_name!r}.")
         rws = summary.get("rounds_when_solved")
         serialized[str(policy_name)] = {
-            "final_anc_mean": float(summary["final_anc"]["mean"]),
-            "final_anc_stderr": float(summary["final_anc"]["stderr"]),
+            "final_nc_mean": float(summary["final_nc"]["mean"]),
+            "final_nc_stderr": float(summary["final_nc"]["stderr"]),
             "rounds_mean": float(summary["rounds"]["mean"]),
             "rounds_stderr": float(summary["rounds"]["stderr"]),
             "solved_fraction_mean": float(summary["solved_fraction"]["mean"]),
@@ -185,7 +185,7 @@ def main() -> None:
             }
         )
         policy_text = "  ".join(
-            f"{name}: final_anc={summary['final_anc_mean']:.3f}"
+            f"{name}: final_nc={summary['final_nc_mean']:.3f}"
             for name, summary in size_results[-1]["policy_summaries"].items()
         )
         print(f"[scaling] n={graph_size} elapsed={elapsed_seconds:.1f}s {policy_text}", flush=True)

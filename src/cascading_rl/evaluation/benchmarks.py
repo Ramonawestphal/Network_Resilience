@@ -11,7 +11,7 @@ import networkx as nx
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.policies import (
-    choose_greedy_anc_node,
+    choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
     choose_highest_degree_failed_node,
     choose_highest_overload_risk_node,
@@ -22,30 +22,30 @@ PolicyAction = object
 Policy = Callable[[RecoveryObservation], PolicyAction]
 PolicyFactory = Callable[[int, int], Policy]
 
-DEFAULT_FINAL_ANC_FAILURE_THRESHOLD = 0.3
+DEFAULT_FINAL_NC_FAILURE_THRESHOLD = 0.3
 
 
-def final_anc_failure_threshold_for_reporting(
+def final_nc_failure_threshold_for_reporting(
     env_kwargs: Mapping[str, object] | None,
 ) -> float:
-    """Threshold for ``unsolved_low_final_anc`` stats: env abandonment value, else 0.3."""
+    """Threshold for ``unsolved_low_final_nc`` stats: env abandonment value, else 0.3."""
     if not env_kwargs:
-        return DEFAULT_FINAL_ANC_FAILURE_THRESHOLD
-    raw = env_kwargs.get("abandonment_anc_threshold")
+        return DEFAULT_FINAL_NC_FAILURE_THRESHOLD
+    raw = env_kwargs.get("abandonment_nc_threshold")
     if raw is None:
-        return DEFAULT_FINAL_ANC_FAILURE_THRESHOLD
+        return DEFAULT_FINAL_NC_FAILURE_THRESHOLD
     return float(raw)
 
 
 @dataclass(frozen=True)
 class EpisodeResult:
     total_reward: float
-    final_anc: float
+    final_nc: float
     steps: int
     rounds: int
     remaining_failed_nodes: int
-    anc_by_round: list[float] = field(default_factory=list)
-    mean_delta_anc_per_round: float = 0.0
+    nc_by_round: list[float] = field(default_factory=list)
+    mean_delta_nc_per_round: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ class AggregateMetric:
 
 @dataclass(frozen=True)
 class PolicyEvaluationSummary:
-    final_anc: AggregateMetric
+    final_nc: AggregateMetric
     total_reward: AggregateMetric
     steps: AggregateMetric
     rounds: AggregateMetric
@@ -64,12 +64,12 @@ class PolicyEvaluationSummary:
     rounds_when_solved: AggregateMetric | None
     fully_restored_count: int
     episode_count: int
-    unsolved_low_final_anc_count: int = 0
-    unsolved_low_final_anc_fraction: float = 0.0
-    final_anc_failure_threshold_used: float | None = None
-    mean_anc_on_failed: AggregateMetric | None = None
-    anc_by_round: list[AggregateMetric] = field(default_factory=list)
-    mean_delta_anc_per_round: AggregateMetric = field(
+    unsolved_low_final_nc_count: int = 0
+    unsolved_low_final_nc_fraction: float = 0.0
+    final_nc_failure_threshold_used: float | None = None
+    mean_nc_on_failed: AggregateMetric | None = None
+    nc_by_round: list[AggregateMetric] = field(default_factory=list)
+    mean_delta_nc_per_round: AggregateMetric = field(
         default_factory=lambda: AggregateMetric(mean=0.0, stderr=0.0)
     )
 
@@ -85,7 +85,7 @@ def _aggregate(values: list[float]) -> AggregateMetric:
 def summarize_episode_results(
     episode_results: Sequence[EpisodeResult],
     *,
-    final_anc_failure_threshold: float | None = None,
+    final_nc_failure_threshold: float | None = None,
 ) -> PolicyEvaluationSummary:
     """Aggregate per-episode results into one policy summary."""
     solved_rounds = [
@@ -97,28 +97,28 @@ def summarize_episode_results(
         1 for result in episode_results if result.remaining_failed_nodes == 0
     )
     episode_count = len(episode_results)
-    failed_episode_anc = [
-        result.final_anc
+    failed_episode_nc = [
+        result.final_nc
         for result in episode_results
         if result.remaining_failed_nodes > 0
     ]
-    max_rounds_observed = max((len(result.anc_by_round) for result in episode_results), default=0)
-    anc_by_round = [
+    max_rounds_observed = max((len(result.nc_by_round) for result in episode_results), default=0)
+    nc_by_round = [
         _aggregate(
             [
-                result.anc_by_round[round_index]
+                result.nc_by_round[round_index]
                 for result in episode_results
-                if len(result.anc_by_round) > round_index
+                if len(result.nc_by_round) > round_index
             ]
         )
         for round_index in range(max_rounds_observed)
     ]
-    if final_anc_failure_threshold is not None:
-        thr = float(final_anc_failure_threshold)
+    if final_nc_failure_threshold is not None:
+        thr = float(final_nc_failure_threshold)
         unsolved_low = sum(
             1
             for result in episode_results
-            if result.remaining_failed_nodes > 0 and result.final_anc < thr
+            if result.remaining_failed_nodes > 0 and result.final_nc < thr
         )
         low_frac = unsolved_low / episode_count if episode_count else 0.0
         thr_used: float | None = thr
@@ -128,7 +128,7 @@ def summarize_episode_results(
         thr_used = None
 
     return PolicyEvaluationSummary(
-        final_anc=_aggregate([result.final_anc for result in episode_results]),
+        final_nc=_aggregate([result.final_nc for result in episode_results]),
         total_reward=_aggregate([result.total_reward for result in episode_results]),
         steps=_aggregate([float(result.steps) for result in episode_results]),
         rounds=_aggregate([float(result.rounds) for result in episode_results]),
@@ -138,13 +138,13 @@ def summarize_episode_results(
         rounds_when_solved=_aggregate(solved_rounds) if solved_rounds else None,
         fully_restored_count=fully_restored_count,
         episode_count=episode_count,
-        unsolved_low_final_anc_count=unsolved_low,
-        unsolved_low_final_anc_fraction=low_frac,
-        final_anc_failure_threshold_used=thr_used,
-        mean_anc_on_failed=_aggregate(failed_episode_anc) if failed_episode_anc else None,
-        anc_by_round=anc_by_round,
-        mean_delta_anc_per_round=_aggregate(
-            [result.mean_delta_anc_per_round for result in episode_results]
+        unsolved_low_final_nc_count=unsolved_low,
+        unsolved_low_final_nc_fraction=low_frac,
+        final_nc_failure_threshold_used=thr_used,
+        mean_nc_on_failed=_aggregate(failed_episode_nc) if failed_episode_nc else None,
+        nc_by_round=nc_by_round,
+        mean_delta_nc_per_round=_aggregate(
+            [result.mean_delta_nc_per_round for result in episode_results]
         ),
     )
 
@@ -158,23 +158,23 @@ def rollout_policy(
     observation = env.reset(seed=seed)
     total_reward = 0.0
     steps = 0
-    initial_anc = env.current_anc()
-    anc_by_round: list[float] = []
+    initial_nc = env.current_nc()
+    nc_by_round: list[float] = []
 
     if not observation.failed:
         return EpisodeResult(
             total_reward=total_reward,
-            final_anc=initial_anc,
+            final_nc=initial_nc,
             steps=steps,
             rounds=0,
             remaining_failed_nodes=len(observation.failed),
-            anc_by_round=anc_by_round,
-            mean_delta_anc_per_round=0.0,
+            nc_by_round=nc_by_round,
+            mean_delta_nc_per_round=0.0,
         )
 
     done = False
     info = {
-        "anc": initial_anc,
+        "nc": initial_nc,
         "failed_nodes": len(observation.failed),
     }
 
@@ -187,22 +187,22 @@ def rollout_policy(
         total_reward += reward
         steps += 1
         if bool(info.get("round_complete")):
-            anc_by_round.append(float(info["anc"]))
+            nc_by_round.append(float(info["nc"]))
 
-    final_anc = float(info["anc"])
+    final_nc = float(info["nc"])
     rounds = env.current_round
-    if rounds > len(anc_by_round):
-        anc_by_round.append(final_anc)
-    mean_delta_anc_per_round = (final_anc - initial_anc) / rounds if rounds > 0 else 0.0
+    if rounds > len(nc_by_round):
+        nc_by_round.append(final_nc)
+    mean_delta_nc_per_round = (final_nc - initial_nc) / rounds if rounds > 0 else 0.0
 
     return EpisodeResult(
         total_reward=total_reward,
-        final_anc=final_anc,
+        final_nc=final_nc,
         steps=steps,
         rounds=rounds,
         remaining_failed_nodes=int(info["failed_nodes"]),
-        anc_by_round=anc_by_round,
-        mean_delta_anc_per_round=mean_delta_anc_per_round,
+        nc_by_round=nc_by_round,
+        mean_delta_nc_per_round=mean_delta_nc_per_round,
     )
 
 
@@ -216,8 +216,8 @@ def evaluate_policies(
     summaries: dict[str, PolicyEvaluationSummary] = {}
     probe_seed = seeds_list[0] if seeds_list else 0
     probe_env = env_factory(probe_seed)
-    thr = final_anc_failure_threshold_for_reporting(
-        {"abandonment_anc_threshold": probe_env.abandonment_anc_threshold}
+    thr = final_nc_failure_threshold_for_reporting(
+        {"abandonment_nc_threshold": probe_env.abandonment_nc_threshold}
     )
 
     for policy_name, policy in policy_map.items():
@@ -227,7 +227,7 @@ def evaluate_policies(
         ]
         summaries[policy_name] = summarize_episode_results(
             episode_results,
-            final_anc_failure_threshold=thr,
+            final_nc_failure_threshold=thr,
         )
 
     return summaries
@@ -244,7 +244,7 @@ def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
         "random": random_factory,
         "degree": lambda graph_index, seed: choose_highest_degree_failed_node,
         "risk": lambda graph_index, seed: choose_highest_overload_risk_node,
-        "greedy": lambda graph_index, seed: choose_greedy_anc_node,
+        "greedy": lambda graph_index, seed: choose_greedy_nc_node,
         "betweenness": lambda graph_index, seed: choose_highest_betweenness_failed_node,
     }
 
@@ -269,7 +269,7 @@ def evaluate_policy_factories_on_graphs(
         name: [] for name in policy_factories
     }
     env_kwargs = dict(env_kwargs or {})
-    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
+    thr = final_nc_failure_threshold_for_reporting(env_kwargs)
 
     for graph_index, graph in enumerate(graphs):
         resolved_budget = compute_scaled_budget(
@@ -306,7 +306,7 @@ def evaluate_policy_factories_on_graphs(
     return {
         policy_name: summarize_episode_results(
             episode_results,
-            final_anc_failure_threshold=thr,
+            final_nc_failure_threshold=thr,
         )
         for policy_name, episode_results in episode_results_by_policy.items()
     }

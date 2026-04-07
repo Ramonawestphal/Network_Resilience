@@ -3,7 +3,7 @@ import networkx as nx
 from cascading_rl.envs.recovery import RecoveryEnv
 
 
-def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
+def test_abandonment_when_post_cascade_nc_below_threshold_step_and_batch():
     """Episode ends with info['abandoned'] when ANC stays below threshold and failures remain."""
     graph = nx.path_graph(10)
     env = RecoveryEnv(
@@ -12,7 +12,7 @@ def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
         pfail=0.0,
         budget=1,
         max_rounds=10,
-        abandonment_anc_threshold=0.30,
+        abandonment_nc_threshold=0.30,
     )
     env.reset()
     env.state.active = {0, 1}
@@ -27,7 +27,7 @@ def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
     _, _, done, info = env.step(2)
     assert done is True
     assert info["abandoned"] is True
-    assert info["anc_after_cascade"] < 0.30
+    assert info["nc_after_cascade"] < 0.30
     assert env.state.failed
 
     env2 = RecoveryEnv(
@@ -36,7 +36,7 @@ def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
         pfail=0.0,
         budget=1,
         max_rounds=10,
-        abandonment_anc_threshold=0.30,
+        abandonment_nc_threshold=0.30,
     )
     env2.reset()
     env2.state.active = {0, 1}
@@ -68,7 +68,7 @@ def test_environment_step_rewards_connectivity_gain():
 
     assert reward > 0.0
     assert 0 in observation.active
-    assert info["anc"] == 9 / 16
+    assert info["nc"] == 9 / 16
     assert info["cascade_executed"] is False
     assert done is False
 
@@ -185,10 +185,10 @@ def test_environment_step_batch_repairs_full_round_before_cascade():
     env.remaining_budget = 2
     env.current_round = 1
 
-    prev_anc = env.current_anc()
+    prev_anc = env.current_nc()
     observation, reward, done, info = env.step_batch([3, 4])
 
-    assert reward == info["anc_after_cascade"] - prev_anc
+    assert reward == info["nc_after_cascade"] - prev_anc
     assert done is False
     assert info["cascade_executed"] is True
     assert info["actions"] == [3, 4]

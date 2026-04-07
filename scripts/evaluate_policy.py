@@ -28,7 +28,7 @@ from cascading_rl.evaluation import (
     summarize_episode_results,
     summarize_regime_buckets,
 )
-from cascading_rl.evaluation.benchmarks import final_anc_failure_threshold_for_reporting
+from cascading_rl.evaluation.benchmarks import final_nc_failure_threshold_for_reporting
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.models import build_greedy_policy, load_q_network
 from cascading_rl.reproducibility import portable_artifact_path, write_run_metadata
@@ -208,13 +208,13 @@ def build_eval_policy_factories(
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
-    abandon_raw = regime.get("abandonment_anc_threshold")
+    abandon_raw = regime.get("abandonment_nc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
-        "abandonment_anc_threshold": (
+        "abandonment_nc_threshold": (
             float(abandon_raw) if abandon_raw is not None else None
         ),
     }
@@ -279,8 +279,8 @@ def serialize_legacy_summary(
     policy_summaries = primary_cell["policy_summaries"]
     return {
         policy_name: {
-            "final_anc_mean": metrics["final_anc"]["mean"],
-            "final_anc_stderr": metrics["final_anc"]["stderr"],
+            "final_nc_mean": metrics["final_nc"]["mean"],
+            "final_nc_stderr": metrics["final_nc"]["stderr"],
             "rounds_mean": metrics["rounds"]["mean"],
             "solved_fraction_mean": metrics["solved_fraction"]["mean"],
             "fully_restored_count": metrics["fully_restored_count"],
@@ -484,11 +484,11 @@ def evaluate_policy_factories_with_optional_scaling(
                 result = rollout_policy(env, policy, seed=seed)
                 episode_results_by_policy[policy_name].append(result)
 
-    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
+    thr = final_nc_failure_threshold_for_reporting(env_kwargs)
     return {
         policy_name: summarize_episode_results(
             episode_results,
-            final_anc_failure_threshold=thr,
+            final_nc_failure_threshold=thr,
         )
         for policy_name, episode_results in episode_results_by_policy.items()
     }
@@ -554,7 +554,7 @@ def build_regime_cells_with_optional_scaling(
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
                 grouped_best_anc.setdefault((alpha, pfail), []).append(
-                    max(summary.final_anc.mean for summary in policy_summaries.values())
+                    max(summary.final_nc.mean for summary in policy_summaries.values())
                 )
 
     for (alpha, pfail), budget_summaries in grouped_cells.items():
@@ -611,7 +611,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
     from cascading_rl.evaluation.saved_eval_sets import (
         evaluate_policies_on_saved_instances,
         load_eval_instances,
-        mean_final_anc_from_summaries,
+        mean_final_nc_from_summaries,
     )
 
     log_path = getattr(args, "eval_set_log", None)
@@ -713,7 +713,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             p(
                 f"{name}: fully_restored={summary.fully_restored_count}/{summary.episode_count} "
                 f"mean_rounds_if_restored={rws_s} "
-                f"(mean_anc_all_episodes={summary.final_anc.mean:.3f}±{summary.final_anc.stderr:.3f})"
+                f"(mean_anc_all_episodes={summary.final_nc.mean:.3f}±{summary.final_nc.stderr:.3f})"
             )
 
         for label in sorted(per_bucket.keys()):
@@ -727,7 +727,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                 rws_bs = f"{rws_b.mean:.2f}" if rws_b is not None else "n/a"
                 p(
                     f"  {name}: restored={s.fully_restored_count}/{s.episode_count} "
-                    f"mean_rounds_if_restored={rws_bs} final_anc_mean={s.final_anc.mean:.3f}"
+                    f"mean_rounds_if_restored={rws_bs} final_nc_mean={s.final_nc.mean:.3f}"
                 )
 
         large_names = {"large_graph_medium.pkl", "large_graph_large.pkl"}
@@ -758,7 +758,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                 table_rows.append(
                     (
                         "validation (n~30-50)",
-                        mean_final_anc_from_summaries(base_overall, t_names),
+                        mean_final_nc_from_summaries(base_overall, t_names),
                     )
                 )
             else:
@@ -780,7 +780,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             else:
                 row_label = f"current ({eval_path.name})"
             table_rows.append(
-                (row_label, mean_final_anc_from_summaries(cur_overall, t_names)),
+                (row_label, mean_final_nc_from_summaries(cur_overall, t_names)),
             )
 
             p("\n=== Zero-shot transfer (mean final_anc / PR)")
@@ -892,8 +892,8 @@ def main() -> None:
 
     serialized = {
         policy_name: {
-            "final_anc_mean": summary.final_anc.mean,
-            "final_anc_stderr": summary.final_anc.stderr,
+            "final_anc_mean": summary.final_nc.mean,
+            "final_anc_stderr": summary.final_nc.stderr,
             "rounds_mean": summary.rounds.mean,
             "solved_fraction_mean": summary.solved_fraction.mean,
             "fully_restored_count": summary.fully_restored_count,

@@ -53,7 +53,7 @@ class TrainingConfig:
     failure_bias: str = "uniform"
     action_space: str = "failed"
     obs_hops: int | None = None
-    abandonment_anc_threshold: float | None = None
+    abandonment_nc_threshold: float | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
     num_episodes: int = 10000
@@ -96,7 +96,7 @@ class TrainingConfig:
 @dataclass
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
-    episode_final_anc: list[float] = field(default_factory=list)
+    episode_final_nc: list[float] = field(default_factory=list)
     episode_alpha: list[float] = field(default_factory=list)
     episode_pfail: list[float] = field(default_factory=list)
     episode_spreads: list[float] = field(default_factory=list)
@@ -233,7 +233,7 @@ def _render_progress_line(
     filled = int(bar_width * progress)
     bar = "#" * filled + "-" * (bar_width - filled)
     recent_reward = _mean_recent(training_state.episode_rewards)
-    recent_anc = _mean_recent(training_state.episode_final_anc)
+    recent_anc = _mean_recent(training_state.episode_final_nc)
     recent_loss = _mean_recent(training_state.losses)
     return (
         f"\r[{bar}] {completed:>4}/{total_episodes} "
@@ -316,7 +316,7 @@ def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
         "failure_bias": config.failure_bias,
         "action_space": config.action_space,
         "obs_hops": config.obs_hops,
-        "abandonment_anc_threshold": config.abandonment_anc_threshold,
+        "abandonment_nc_threshold": config.abandonment_nc_threshold,
     }
 
 
@@ -482,12 +482,12 @@ def _degree_minus_random_spread(
 ) -> float:
     """Heuristic spread for the same graph template and failure seed as the training episode."""
     from cascading_rl.evaluation.regime import build_policy_factories
-    from cascading_rl.evaluation.saved_eval_sets import rollout_final_anc_on_instance
+    from cascading_rl.evaluation.saved_eval_sets import rollout_final_nc_on_instance
 
     factories = build_policy_factories(base_seed=factory_base_seed)
     pol_degree = factories["degree"](episode_index, failure_seed)
     pol_random = factories["random"](episode_index, failure_seed)
-    pr_degree = rollout_final_anc_on_instance(
+    pr_degree = rollout_final_nc_on_instance(
         graph,
         alpha=alpha,
         p_fail=pfail,
@@ -497,7 +497,7 @@ def _degree_minus_random_spread(
         env_kwargs=env_kwargs,
         policy=pol_degree,
     )
-    pr_random = rollout_final_anc_on_instance(
+    pr_random = rollout_final_nc_on_instance(
         graph,
         alpha=alpha,
         p_fail=pfail,
@@ -540,16 +540,16 @@ def validate_policy_on_eval_set(
         "scale_max_rounds": config.scale_max_rounds,
         "budget_reference_n": config.budget_reference_n,
         "max_rounds": config.max_rounds,
-        "final_anc_mean": summary.final_anc.mean,
-        "final_anc_stderr": summary.final_anc.stderr,
+        "final_anc_mean": summary.final_nc.mean,
+        "final_anc_stderr": summary.final_nc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
     }
-    mean_anc = summary.final_anc.mean
+    mean_anc = summary.final_nc.mean
     per_alpha_anc = {float(a): mean_anc for a in config.alpha_values}
     return {
-        "final_anc_mean": summary.final_anc.mean,
-        "final_anc_stderr": summary.final_anc.stderr,
+        "final_anc_mean": summary.final_nc.mean,
+        "final_anc_stderr": summary.final_nc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
         "reference": reference,
@@ -611,7 +611,7 @@ def validate_policy(
                 {
                     "alpha": alpha,
                     "pfail": pfail,
-                    "final_anc_mean": grid_summary.final_anc.mean,
+                    "final_anc_mean": grid_summary.final_nc.mean,
                     "solved_fraction_mean": grid_summary.solved_fraction.mean,
                     "rounds_mean": grid_summary.rounds.mean,
                 }
@@ -637,11 +637,11 @@ def validate_policy(
             scale_max_rounds=config.scale_max_rounds,
             reference_n=config.budget_reference_n,
         )["rl"]
-        per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
+        per_alpha_anc[float(alpha)] = per_alpha_summary.final_nc.mean
 
     return {
-        "final_anc_mean": reference_summary.final_anc.mean,
-        "final_anc_stderr": reference_summary.final_anc.stderr,
+        "final_anc_mean": reference_summary.final_nc.mean,
+        "final_anc_stderr": reference_summary.final_nc.stderr,
         "solved_fraction_mean": reference_summary.solved_fraction.mean,
         "rounds_mean": reference_summary.rounds.mean,
         "reference": {
@@ -652,8 +652,8 @@ def validate_policy(
             "scale_max_rounds": config.scale_max_rounds,
             "budget_reference_n": config.budget_reference_n,
             "max_rounds": config.max_rounds,
-            "final_anc_mean": reference_summary.final_anc.mean,
-            "final_anc_stderr": reference_summary.final_anc.stderr,
+            "final_anc_mean": reference_summary.final_nc.mean,
+            "final_anc_stderr": reference_summary.final_nc.stderr,
             "solved_fraction_mean": reference_summary.solved_fraction.mean,
             "rounds_mean": reference_summary.rounds.mean,
         },
@@ -689,7 +689,7 @@ def save_checkpoint(
             "training_config": asdict(config),
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
-                "episode_final_anc": training_state.episode_final_anc,
+                "episode_final_nc": training_state.episode_final_nc,
                 "episode_alpha": training_state.episode_alpha,
                 "episode_pfail": training_state.episode_pfail,
                 "episode_spreads": training_state.episode_spreads,
@@ -926,7 +926,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                     target_model.load_state_dict(model.state_dict())
 
         training_state.episode_rewards.append(total_reward)
-        training_state.episode_final_anc.append(env.current_anc())
+        training_state.episode_final_nc.append(env.current_nc())
         training_state.episode_alpha.append(alpha)
         training_state.episode_pfail.append(pfail)
         print(

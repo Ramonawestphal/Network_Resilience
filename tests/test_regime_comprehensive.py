@@ -148,7 +148,7 @@ def test_pr_metric_used_correctly():
     env.state.failed = set()
     env.state.frontier = set()
 
-    assert math.isclose(env.current_anc(), 1.0)
+    assert math.isclose(env.current_nc(), 1.0)
 
 
 def test_instance_label_from_heuristic_outcomes():

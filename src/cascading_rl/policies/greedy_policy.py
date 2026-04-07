@@ -25,8 +25,8 @@ def observation_to_cascade_state(observation: RecoveryObservation) -> CascadeSta
     )
 
 
-def delta_anc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> float:
-    """ANC change after reactivating ``nodes`` (in sorted order) then one cascade wave, matching ``step_batch``."""
+def delta_nc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> float:
+    """NC change after reactivating ``nodes`` (in sorted order) then one cascade wave, matching ``step_batch``."""
     trial = state.copy()
     previous_anc = accumulated_normalized_connectivity(trial.graph, trial.active)
     ordered = sorted(nodes, key=str)
@@ -38,8 +38,8 @@ def delta_anc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> f
     return post_anc - previous_anc
 
 
-def choose_greedy_anc_node(observation: RecoveryObservation) -> list[Node]:
-    """Choose up to ``k`` failed nodes maximizing ANC gain after reactivations and one cascade wave.
+def choose_greedy_nc_node(observation: RecoveryObservation) -> list[Node]:
+    """Choose up to ``k`` failed nodes maximizing NC gain after reactivations and one cascade wave.
 
     ``k = min(remaining_budget, len(valid_actions))``. Returns nodes in ascending ``str(node)`` order
     for deterministic ``step_batch`` application.
@@ -58,7 +58,7 @@ def choose_greedy_anc_node(observation: RecoveryObservation) -> list[Node]:
     best_nodes: tuple[Node, ...] | None = None
 
     for combo in itertools.combinations(valid, k):
-        delta = delta_anc_after_round_batch(base, combo)
+        delta = delta_nc_after_round_batch(base, combo)
         sorted_combo = tuple(sorted(combo, key=str))
         tie_key = tuple(str(n) for n in sorted_combo)
         if best_nodes is None:

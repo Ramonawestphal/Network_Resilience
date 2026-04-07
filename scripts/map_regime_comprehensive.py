@@ -38,7 +38,7 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.policies.betweenness_policy import choose_highest_betweenness_failed_node
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
-from cascading_rl.policies.greedy_policy import choose_greedy_anc_node
+from cascading_rl.policies.greedy_policy import choose_greedy_nc_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
 from cascading_rl.policies.risk_policy import choose_highest_overload_risk_node
 
@@ -367,7 +367,7 @@ def policy_action(observation: RecoveryObservation, policy_name: str, *, rng: Ra
     if policy_name == "betweenness":
         return choose_highest_betweenness_failed_node(observation)
     if policy_name == "greedy":
-        return choose_greedy_anc_node(observation)
+        return choose_greedy_nc_node(observation)
     if policy_name == "risk":
         return choose_highest_overload_risk_node(observation)
     if policy_name == "random":
@@ -403,7 +403,7 @@ def run_policy_episode(
         return {
             "failed_at_reset": failed_at_reset,
             "active_at_reset": active_at_reset,
-            "final_pr": float(env.current_anc()),
+            "final_pr": float(env.current_nc()),
             "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
             "solved": True,
             "rounds_when_solved": 0,
@@ -422,7 +422,7 @@ def run_policy_episode(
     return {
         "failed_at_reset": failed_at_reset,
         "active_at_reset": active_at_reset,
-        "final_pr": float(env.current_anc()),
+        "final_pr": float(env.current_nc()),
         "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
         "solved": solved,
         "rounds_when_solved": rounds_when_solved,

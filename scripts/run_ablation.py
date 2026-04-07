@@ -112,7 +112,7 @@ ABLATION_RUNS = build_ablation_runs()
 def serialize_policy_summary(summary) -> dict[str, object]:
     rws = summary.rounds_when_solved
     return {
-        "final_anc": {"mean": summary.final_anc.mean, "stderr": summary.final_anc.stderr},
+        "final_nc": {"mean": summary.final_nc.mean, "stderr": summary.final_nc.stderr},
         "solved_fraction": {
             "mean": summary.solved_fraction.mean,
             "stderr": summary.solved_fraction.stderr,
@@ -124,19 +124,19 @@ def serialize_policy_summary(summary) -> dict[str, object]:
             else 0.0
         ),
         "episode_count": summary.episode_count,
-        "unsolved_low_final_anc_count": summary.unsolved_low_final_anc_count,
-        "unsolved_low_final_anc_fraction": summary.unsolved_low_final_anc_fraction,
-        "final_anc_failure_threshold_used": summary.final_anc_failure_threshold_used,
+        "unsolved_low_final_nc_count": summary.unsolved_low_final_nc_count,
+        "unsolved_low_final_nc_fraction": summary.unsolved_low_final_nc_fraction,
+        "final_nc_failure_threshold_used": summary.final_nc_failure_threshold_used,
         "rounds_when_solved": (
             {"mean": rws.mean, "stderr": rws.stderr} if rws is not None else None
         ),
-        "mean_delta_anc_per_round": {
-            "mean": summary.mean_delta_anc_per_round.mean,
-            "stderr": summary.mean_delta_anc_per_round.stderr,
+        "mean_delta_nc_per_round": {
+            "mean": summary.mean_delta_nc_per_round.mean,
+            "stderr": summary.mean_delta_nc_per_round.stderr,
         },
-        "mean_anc_on_failed": (
-            {"mean": summary.mean_anc_on_failed.mean, "stderr": summary.mean_anc_on_failed.stderr}
-            if summary.mean_anc_on_failed is not None
+        "mean_nc_on_failed": (
+            {"mean": summary.mean_nc_on_failed.mean, "stderr": summary.mean_nc_on_failed.stderr}
+            if summary.mean_nc_on_failed is not None
             else None
         ),
     }
@@ -223,11 +223,11 @@ def print_comparison_table(results: list[dict[str, object]]) -> None:
     print("")
     print(
         f"{'config':<28} {'node':<6} {'global':<8} {'virtual':<8} "
-        f"{'final_anc':<18} {'solved':<18} {'restored':<14} {'rws_mean':<10}"
+        f"{'final_nc':<18} {'solved':<18} {'restored':<14} {'rws_mean':<10}"
     )
     print("-" * 108)
     for item in results:
-        final_anc = item["results"]["final_anc"]
+        final_nc = item["results"]["final_nc"]
         solved = item["results"]["solved_fraction"]
         rws = item["results"]["rounds_when_solved"]
         rws_m = rws["mean"] if rws else float("nan")
@@ -238,7 +238,7 @@ def print_comparison_table(results: list[dict[str, object]]) -> None:
             f"{len(item['active_node_features']):<6} "
             f"{len(item['active_global_features']):<8} "
             f"{str(item['use_virtual_node']):<8} "
-            f"{final_anc['mean']:.3f}+/-{final_anc['stderr']:.3f}   "
+            f"{final_nc['mean']:.3f}+/-{final_nc['stderr']:.3f}   "
             f"{solved['mean']:.3f}+/-{solved['stderr']:.3f}   "
             f"{restored}/{ep_n}  "
             f"{rws_m:.2f}"

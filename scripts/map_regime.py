@@ -36,13 +36,13 @@ from scripts.reproducibility import write_run_metadata
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
-    abandon_raw = regime.get("abandonment_anc_threshold")
+    abandon_raw = regime.get("abandonment_nc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
-        "abandonment_anc_threshold": (
+        "abandonment_nc_threshold": (
             float(abandon_raw) if abandon_raw is not None else None
         ),
     }
@@ -75,15 +75,15 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
     for policy_name in policies:
         fieldnames.extend(
             [
-                f"{policy_name}_final_anc_mean",
-                f"{policy_name}_final_anc_stderr",
+                f"{policy_name}_final_nc_mean",
+                f"{policy_name}_final_nc_stderr",
                 f"{policy_name}_solved_fraction_mean",
                 f"{policy_name}_fully_restored_count",
                 f"{policy_name}_fully_restored_fraction",
                 f"{policy_name}_episode_count",
-                f"{policy_name}_unsolved_low_anc_count",
-                f"{policy_name}_unsolved_low_anc_fraction",
-                f"{policy_name}_final_anc_failure_threshold_used",
+                f"{policy_name}_unsolved_low_nc_count",
+                f"{policy_name}_unsolved_low_nc_fraction",
+                f"{policy_name}_final_nc_failure_threshold_used",
                 f"{policy_name}_rounds_when_solved_mean",
                 f"{policy_name}_rounds_mean",
             ]
@@ -114,8 +114,8 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
             }
             for policy_name in policies:
                 policy_summary = row["policy_summaries"][policy_name]
-                csv_row[f"{policy_name}_final_anc_mean"] = policy_summary["final_anc"]["mean"]
-                csv_row[f"{policy_name}_final_anc_stderr"] = policy_summary["final_anc"]["stderr"]
+                csv_row[f"{policy_name}_final_nc_mean"] = policy_summary["final_nc"]["mean"]
+                csv_row[f"{policy_name}_final_nc_stderr"] = policy_summary["final_nc"]["stderr"]
                 csv_row[f"{policy_name}_solved_fraction_mean"] = policy_summary[
                     "solved_fraction"
                 ]["mean"]
@@ -131,14 +131,14 @@ def write_csv(rows: list[dict], output_path: Path, policies: list[str]) -> None:
                     ),
                 )
                 csv_row[f"{policy_name}_episode_count"] = policy_summary["episode_count"]
-                csv_row[f"{policy_name}_unsolved_low_anc_count"] = policy_summary.get(
-                    "unsolved_low_final_anc_count", 0
+                csv_row[f"{policy_name}_unsolved_low_nc_count"] = policy_summary.get(
+                    "unsolved_low_final_nc_count", 0
                 )
-                csv_row[f"{policy_name}_unsolved_low_anc_fraction"] = policy_summary.get(
-                    "unsolved_low_final_anc_fraction", 0.0
+                csv_row[f"{policy_name}_unsolved_low_nc_fraction"] = policy_summary.get(
+                    "unsolved_low_final_nc_fraction", 0.0
                 )
-                thr_used = policy_summary.get("final_anc_failure_threshold_used")
-                csv_row[f"{policy_name}_final_anc_failure_threshold_used"] = (
+                thr_used = policy_summary.get("final_nc_failure_threshold_used")
+                csv_row[f"{policy_name}_final_nc_failure_threshold_used"] = (
                     thr_used if thr_used is not None else ""
                 )
                 rws = policy_summary.get("rounds_when_solved")
@@ -200,13 +200,13 @@ def write_regime_heuristic_summary(
     thr_note = ""
     if serialized_cells and policies:
         ps0 = serialized_cells[0]["policy_summaries"][policies[0]]
-        t_raw = ps0.get("final_anc_failure_threshold_used")
+        t_raw = ps0.get(“final_nc_failure_threshold_used”)
         if t_raw is not None:
             thr = float(t_raw)
             thr_note = (
-                f"“Unsolved low-ANC” counts episodes with remaining failed nodes and final ANC "
-                f"strictly below **{thr:g}** (from `abandonment_anc_threshold` when set in config, "
-                f"else 0.3).\n\n"
+                f””Unsolved low-NC” counts episodes with remaining failed nodes and final NC “
+                f”strictly below **{thr:g}** (from `abandonment_nc_threshold` when set in config, “
+                f”else 0.3).\n\n”
             )
 
     lines = [
@@ -228,7 +228,7 @@ def write_regime_heuristic_summary(
         for cell in serialized_cells:
             ps = cell["policy_summaries"][policy]
             solved_acc += float(ps["solved_fraction"]["mean"])
-            low_acc += float(ps.get("unsolved_low_final_anc_fraction", 0.0))
+            low_acc += float(ps.get("unsolved_low_final_nc_fraction", 0.0))
         lines.append(
             f"| {policy} | {solved_acc / n_cells:.4f} | {low_acc / n_cells:.4f} |"
         )
@@ -252,8 +252,8 @@ def write_note(
             f"{minimum_budget_solved_target}\n"
         )
         file.write(
-            f"- env stopping: `abandonment_anc_threshold` = "
-            f"{env_kwargs.get('abandonment_anc_threshold')!r}\n"
+            f"- env stopping: `abandonment_nc_threshold` = "
+            f"{env_kwargs.get('abandonment_nc_threshold')!r}\n"
         )
         file.write(f"- fixed graph instances per cell: {num_graphs}\n")
         file.write(f"- matched seeds per graph: {len(seeds)}\n\n")
@@ -417,7 +417,7 @@ def main() -> None:
         suptitle="Unsolved low-final-ANC fraction (failed & final ANC < threshold)",
         colorbar_label="fraction of episodes",
         value_fn=lambda cell, pol: float(
-            cell["policy_summaries"][pol].get("unsolved_low_final_anc_fraction", 0.0)
+            cell["policy_summaries"][pol].get("unsolved_low_final_nc_fraction", 0.0)
         ),
     )
     write_regime_heuristic_summary(

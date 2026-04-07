@@ -3,7 +3,7 @@ from cascading_rl.evaluation.benchmarks import (
     EpisodeResult,
     PolicyEvaluationSummary,
     evaluate_policies,
-    final_anc_failure_threshold_for_reporting,
+    final_nc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
@@ -32,7 +32,7 @@ __all__ = [
     "compute_regime_diagnostics",
     "estimate_minimum_budget",
     "evaluate_policies",
-    "final_anc_failure_threshold_for_reporting",
+    "final_nc_failure_threshold_for_reporting",
     "evaluate_policy_factories_on_graphs",
     "filter_interesting_graphs",
     "rollout_policy",
