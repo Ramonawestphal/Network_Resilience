@@ -1,0 +1,1865 @@
+{
+  "checkpoint_path": "experiments/learner/recovery_q.pt",
+  "training_config": {
+    "seed": 7,
+    "device": "cpu",
+    "alpha": 0.15,
+    "pfail": 0.18,
+    "alpha_values": [
+      0.15
+    ],
+    "pfail_values": [
+      0.18
+    ],
+    "budget": 2,
+    "scale_budget": true,
+    "budget_reference_n": 40,
+    "max_rounds": 20,
+    "scale_max_rounds": true,
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null,
+    "abandonment_anc_threshold": 0.3,
+    "n_range": [
+      30,
+      50
+    ],
+    "m": 2,
+    "num_episodes": 8000,
+    "replay_capacity": 10000,
+    "warmup_transitions": 500,
+    "batch_size": 64,
+    "gamma": 0.99,
+    "use_monte_carlo_returns": false,
+    "learning_rate": 0.0003,
+    "epsilon_start": 1.0,
+    "epsilon_end": 0.05,
+    "epsilon_decay_episodes": 6000,
+    "target_update_interval": 200,
+    "hidden_dim": 128,
+    "embed_dim": 128,
+    "num_layers": 2,
+    "use_global_features": false,
+    "active_node_features": [
+      "load_norm",
+      "capacity_norm",
+      "load_capacity_ratio",
+      "failed_flag",
+      "active_flag",
+      "frontier_flag",
+      "budget_coverage",
+      "degree_norm"
+    ],
+    "active_global_features": [
+      "failed_fraction",
+      "mean_load_capacity_ratio",
+      "max_load_capacity_ratio",
+      "current_round_norm"
+    ],
+    "use_virtual_node": false,
+    "use_imitation_warmstart": false,
+    "imitation_graphs": 500,
+    "imitation_seeds": 5,
+    "imitation_epochs": 10,
+    "validation_graphs": 2,
+    "validation_seeds": [
+      0,
+      1,
+      2
+    ],
+    "validation_seed": 42,
+    "validation_every": 200,
+    "validation_tau": 0.8,
+    "checkpoint_dir": "experiments/learner",
+    "checkpoint_name": "recovery_q.pt",
+    "freeze_graphs": false,
+    "episode_graph_specs": null,
+    "log_episode_spread": false,
+    "log_grad_norm": false,
+    "validation_eval_set_path": "eval_sets/ds_validation.pkl"
+  },
+  "num_episodes": 8000,
+  "alpha_values": [
+    0.15
+  ],
+  "pfail_values": [
+    0.18
+  ],
+  "env": {
+    "capacity_noise": 0.0,
+    "failure_bias": "uniform",
+    "action_space": "failed",
+    "obs_hops": null
+  },
+  "final_reward_mean_last_10": -0.42185777653099965,
+  "final_anc_mean_last_10": 0.21323515286167508,
+  "rolling_recovered_fraction": 0.365,
+  "rolling_mean_anc_unconditional": 0.45301267054499206,
+  "rolling_metrics_episodes": 200,
+  "final_loss_mean_last_10": 0.01841429928317666,
+  "num_updates": 18365,
+  "total_steps": 36465,
+  "validation_history": [
+    {
+      "final_anc_mean": 0.2723524467297401,
+      "final_anc_stderr": 0.0322120936634881,
+      "solved_fraction_mean": 0.13636363636363635,
+      "rounds_mean": 2.534090909090909,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.2723524467297401,
+        "final_anc_stderr": 0.0322120936634881,
+        "solved_fraction_mean": 0.13636363636363635,
+        "rounds_mean": 2.534090909090909
+      },
+      "per_alpha_anc": {
+        "0.15": 0.2723524467297401
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.2723524467297401,
+        "solved_fraction_mean": 0.13636363636363635,
+        "rounds_mean": 2.534090909090909,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 200
+    },
+    {
+      "final_anc_mean": 0.2438104574620767,
+      "final_anc_stderr": 0.03032336059055821,
+      "solved_fraction_mean": 0.11363636363636363,
+      "rounds_mean": 2.590909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.2438104574620767,
+        "final_anc_stderr": 0.03032336059055821,
+        "solved_fraction_mean": 0.11363636363636363,
+        "rounds_mean": 2.590909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.2438104574620767
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.2438104574620767,
+        "solved_fraction_mean": 0.11363636363636363,
+        "rounds_mean": 2.590909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 400
+    },
+    {
+      "final_anc_mean": 0.3958045987881154,
+      "final_anc_stderr": 0.03798292965529177,
+      "solved_fraction_mean": 0.25,
+      "rounds_mean": 3.5568181818181817,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3958045987881154,
+        "final_anc_stderr": 0.03798292965529177,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.5568181818181817
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3958045987881154
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3958045987881154,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.5568181818181817,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 600
+    },
+    {
+      "final_anc_mean": 0.442117919915481,
+      "final_anc_stderr": 0.04138060705125962,
+      "solved_fraction_mean": 0.3181818181818182,
+      "rounds_mean": 3.5681818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.442117919915481,
+        "final_anc_stderr": 0.04138060705125962,
+        "solved_fraction_mean": 0.3181818181818182,
+        "rounds_mean": 3.5681818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.442117919915481
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.442117919915481,
+        "solved_fraction_mean": 0.3181818181818182,
+        "rounds_mean": 3.5681818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 800
+    },
+    {
+      "final_anc_mean": 0.4255958955012328,
+      "final_anc_stderr": 0.0415247907956443,
+      "solved_fraction_mean": 0.3068181818181818,
+      "rounds_mean": 3.465909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4255958955012328,
+        "final_anc_stderr": 0.0415247907956443,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.465909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4255958955012328
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4255958955012328,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.465909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 1000
+    },
+    {
+      "final_anc_mean": 0.3414012059745974,
+      "final_anc_stderr": 0.03654733037268078,
+      "solved_fraction_mean": 0.20454545454545456,
+      "rounds_mean": 2.965909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3414012059745974,
+        "final_anc_stderr": 0.03654733037268078,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 2.965909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3414012059745974
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3414012059745974,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 2.965909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 1200
+    },
+    {
+      "final_anc_mean": 0.25919513892189705,
+      "final_anc_stderr": 0.03266001077980799,
+      "solved_fraction_mean": 0.13636363636363635,
+      "rounds_mean": 2.590909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.25919513892189705,
+        "final_anc_stderr": 0.03266001077980799,
+        "solved_fraction_mean": 0.13636363636363635,
+        "rounds_mean": 2.590909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.25919513892189705
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.25919513892189705,
+        "solved_fraction_mean": 0.13636363636363635,
+        "rounds_mean": 2.590909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 1400
+    },
+    {
+      "final_anc_mean": 0.29459012616768315,
+      "final_anc_stderr": 0.035213393505987664,
+      "solved_fraction_mean": 0.17045454545454544,
+      "rounds_mean": 2.852272727272727,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.29459012616768315,
+        "final_anc_stderr": 0.035213393505987664,
+        "solved_fraction_mean": 0.17045454545454544,
+        "rounds_mean": 2.852272727272727
+      },
+      "per_alpha_anc": {
+        "0.15": 0.29459012616768315
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.29459012616768315,
+        "solved_fraction_mean": 0.17045454545454544,
+        "rounds_mean": 2.852272727272727,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 1600
+    },
+    {
+      "final_anc_mean": 0.3516343721266633,
+      "final_anc_stderr": 0.0372373702700906,
+      "solved_fraction_mean": 0.2159090909090909,
+      "rounds_mean": 2.9431818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3516343721266633,
+        "final_anc_stderr": 0.0372373702700906,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 2.9431818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3516343721266633
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3516343721266633,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 2.9431818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 1800
+    },
+    {
+      "final_anc_mean": 0.354826819604887,
+      "final_anc_stderr": 0.03831702617568794,
+      "solved_fraction_mean": 0.22727272727272727,
+      "rounds_mean": 3.227272727272727,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.354826819604887,
+        "final_anc_stderr": 0.03831702617568794,
+        "solved_fraction_mean": 0.22727272727272727,
+        "rounds_mean": 3.227272727272727
+      },
+      "per_alpha_anc": {
+        "0.15": 0.354826819604887
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.354826819604887,
+        "solved_fraction_mean": 0.22727272727272727,
+        "rounds_mean": 3.227272727272727,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 2000
+    },
+    {
+      "final_anc_mean": 0.27979832956104206,
+      "final_anc_stderr": 0.033106964507906976,
+      "solved_fraction_mean": 0.14772727272727273,
+      "rounds_mean": 2.840909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.27979832956104206,
+        "final_anc_stderr": 0.033106964507906976,
+        "solved_fraction_mean": 0.14772727272727273,
+        "rounds_mean": 2.840909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.27979832956104206
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.27979832956104206,
+        "solved_fraction_mean": 0.14772727272727273,
+        "rounds_mean": 2.840909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 2200
+    },
+    {
+      "final_anc_mean": 0.3592555640835195,
+      "final_anc_stderr": 0.03683036638968953,
+      "solved_fraction_mean": 0.2159090909090909,
+      "rounds_mean": 3.2954545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3592555640835195,
+        "final_anc_stderr": 0.03683036638968953,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.2954545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3592555640835195
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3592555640835195,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.2954545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 2400
+    },
+    {
+      "final_anc_mean": 0.36592361257114503,
+      "final_anc_stderr": 0.03882407811846003,
+      "solved_fraction_mean": 0.23863636363636365,
+      "rounds_mean": 3.0681818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.36592361257114503,
+        "final_anc_stderr": 0.03882407811846003,
+        "solved_fraction_mean": 0.23863636363636365,
+        "rounds_mean": 3.0681818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.36592361257114503
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.36592361257114503,
+        "solved_fraction_mean": 0.23863636363636365,
+        "rounds_mean": 3.0681818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 2600
+    },
+    {
+      "final_anc_mean": 0.3589033947117136,
+      "final_anc_stderr": 0.03675532258587483,
+      "solved_fraction_mean": 0.2159090909090909,
+      "rounds_mean": 3.2386363636363638,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3589033947117136,
+        "final_anc_stderr": 0.03675532258587483,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.2386363636363638
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3589033947117136
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3589033947117136,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.2386363636363638,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 2800
+    },
+    {
+      "final_anc_mean": 0.3494838699943922,
+      "final_anc_stderr": 0.03609703208681395,
+      "solved_fraction_mean": 0.20454545454545456,
+      "rounds_mean": 3.2045454545454546,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3494838699943922,
+        "final_anc_stderr": 0.03609703208681395,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 3.2045454545454546
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3494838699943922
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3494838699943922,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 3.2045454545454546,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 3000
+    },
+    {
+      "final_anc_mean": 0.34422888770445886,
+      "final_anc_stderr": 0.03773185786910094,
+      "solved_fraction_mean": 0.2159090909090909,
+      "rounds_mean": 2.909090909090909,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.34422888770445886,
+        "final_anc_stderr": 0.03773185786910094,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 2.909090909090909
+      },
+      "per_alpha_anc": {
+        "0.15": 0.34422888770445886
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.34422888770445886,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 2.909090909090909,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 3200
+    },
+    {
+      "final_anc_mean": 0.3823067321568685,
+      "final_anc_stderr": 0.039008668016650275,
+      "solved_fraction_mean": 0.25,
+      "rounds_mean": 3.215909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3823067321568685,
+        "final_anc_stderr": 0.039008668016650275,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.215909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3823067321568685
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3823067321568685,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.215909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 3400
+    },
+    {
+      "final_anc_mean": 0.3699391994580434,
+      "final_anc_stderr": 0.037322762872730585,
+      "solved_fraction_mean": 0.22727272727272727,
+      "rounds_mean": 3.4204545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3699391994580434,
+        "final_anc_stderr": 0.037322762872730585,
+        "solved_fraction_mean": 0.22727272727272727,
+        "rounds_mean": 3.4204545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3699391994580434
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3699391994580434,
+        "solved_fraction_mean": 0.22727272727272727,
+        "rounds_mean": 3.4204545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 3600
+    },
+    {
+      "final_anc_mean": 0.451226811510981,
+      "final_anc_stderr": 0.039550241528863155,
+      "solved_fraction_mean": 0.3068181818181818,
+      "rounds_mean": 3.8636363636363638,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.451226811510981,
+        "final_anc_stderr": 0.039550241528863155,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.8636363636363638
+      },
+      "per_alpha_anc": {
+        "0.15": 0.451226811510981
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.451226811510981,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.8636363636363638,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 3800
+    },
+    {
+      "final_anc_mean": 0.42470611810073033,
+      "final_anc_stderr": 0.03935350063984986,
+      "solved_fraction_mean": 0.2840909090909091,
+      "rounds_mean": 3.772727272727273,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.42470611810073033,
+        "final_anc_stderr": 0.03935350063984986,
+        "solved_fraction_mean": 0.2840909090909091,
+        "rounds_mean": 3.772727272727273
+      },
+      "per_alpha_anc": {
+        "0.15": 0.42470611810073033
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.42470611810073033,
+        "solved_fraction_mean": 0.2840909090909091,
+        "rounds_mean": 3.772727272727273,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 4000
+    },
+    {
+      "final_anc_mean": 0.43687872298468994,
+      "final_anc_stderr": 0.040754118100715025,
+      "solved_fraction_mean": 0.3068181818181818,
+      "rounds_mean": 3.5454545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.43687872298468994,
+        "final_anc_stderr": 0.040754118100715025,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.5454545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.43687872298468994
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.43687872298468994,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.5454545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 4200
+    },
+    {
+      "final_anc_mean": 0.4412207607308034,
+      "final_anc_stderr": 0.04039947599332261,
+      "solved_fraction_mean": 0.3068181818181818,
+      "rounds_mean": 3.6363636363636362,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4412207607308034,
+        "final_anc_stderr": 0.04039947599332261,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.6363636363636362
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4412207607308034
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4412207607308034,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.6363636363636362,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 4400
+    },
+    {
+      "final_anc_mean": 0.36651916169985904,
+      "final_anc_stderr": 0.03642332453367549,
+      "solved_fraction_mean": 0.2159090909090909,
+      "rounds_mean": 3.0568181818181817,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.36651916169985904,
+        "final_anc_stderr": 0.03642332453367549,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.0568181818181817
+      },
+      "per_alpha_anc": {
+        "0.15": 0.36651916169985904
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.36651916169985904,
+        "solved_fraction_mean": 0.2159090909090909,
+        "rounds_mean": 3.0568181818181817,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 4600
+    },
+    {
+      "final_anc_mean": 0.4549547651742496,
+      "final_anc_stderr": 0.04155393077647076,
+      "solved_fraction_mean": 0.32954545454545453,
+      "rounds_mean": 3.8636363636363638,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4549547651742496,
+        "final_anc_stderr": 0.04155393077647076,
+        "solved_fraction_mean": 0.32954545454545453,
+        "rounds_mean": 3.8636363636363638
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4549547651742496
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4549547651742496,
+        "solved_fraction_mean": 0.32954545454545453,
+        "rounds_mean": 3.8636363636363638,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 4800
+    },
+    {
+      "final_anc_mean": 0.37912093551271836,
+      "final_anc_stderr": 0.039097091960407164,
+      "solved_fraction_mean": 0.25,
+      "rounds_mean": 3.1704545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.37912093551271836,
+        "final_anc_stderr": 0.039097091960407164,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.1704545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.37912093551271836
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.37912093551271836,
+        "solved_fraction_mean": 0.25,
+        "rounds_mean": 3.1704545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 5000
+    },
+    {
+      "final_anc_mean": 0.4134550937213373,
+      "final_anc_stderr": 0.041384926363625826,
+      "solved_fraction_mean": 0.29545454545454547,
+      "rounds_mean": 3.3181818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4134550937213373,
+        "final_anc_stderr": 0.041384926363625826,
+        "solved_fraction_mean": 0.29545454545454547,
+        "rounds_mean": 3.3181818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4134550937213373
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4134550937213373,
+        "solved_fraction_mean": 0.29545454545454547,
+        "rounds_mean": 3.3181818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 5200
+    },
+    {
+      "final_anc_mean": 0.3450377509202535,
+      "final_anc_stderr": 0.03632123245807879,
+      "solved_fraction_mean": 0.20454545454545456,
+      "rounds_mean": 3.125,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.3450377509202535,
+        "final_anc_stderr": 0.03632123245807879,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 3.125
+      },
+      "per_alpha_anc": {
+        "0.15": 0.3450377509202535
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.3450377509202535,
+        "solved_fraction_mean": 0.20454545454545456,
+        "rounds_mean": 3.125,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 5400
+    },
+    {
+      "final_anc_mean": 0.4735973537507507,
+      "final_anc_stderr": 0.043334832169878074,
+      "solved_fraction_mean": 0.36363636363636365,
+      "rounds_mean": 3.602272727272727,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4735973537507507,
+        "final_anc_stderr": 0.043334832169878074,
+        "solved_fraction_mean": 0.36363636363636365,
+        "rounds_mean": 3.602272727272727
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4735973537507507
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4735973537507507,
+        "solved_fraction_mean": 0.36363636363636365,
+        "rounds_mean": 3.602272727272727,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 5600
+    },
+    {
+      "final_anc_mean": 0.4344125154129293,
+      "final_anc_stderr": 0.04100222201184672,
+      "solved_fraction_mean": 0.3068181818181818,
+      "rounds_mean": 3.590909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4344125154129293,
+        "final_anc_stderr": 0.04100222201184672,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.590909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4344125154129293
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4344125154129293,
+        "solved_fraction_mean": 0.3068181818181818,
+        "rounds_mean": 3.590909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 5800
+    },
+    {
+      "final_anc_mean": 0.49014265772766286,
+      "final_anc_stderr": 0.04496380596111265,
+      "solved_fraction_mean": 0.3977272727272727,
+      "rounds_mean": 3.965909090909091,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.49014265772766286,
+        "final_anc_stderr": 0.04496380596111265,
+        "solved_fraction_mean": 0.3977272727272727,
+        "rounds_mean": 3.965909090909091
+      },
+      "per_alpha_anc": {
+        "0.15": 0.49014265772766286
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.49014265772766286,
+        "solved_fraction_mean": 0.3977272727272727,
+        "rounds_mean": 3.965909090909091,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 6000
+    },
+    {
+      "final_anc_mean": 0.47756953322501033,
+      "final_anc_stderr": 0.04296662114193079,
+      "solved_fraction_mean": 0.36363636363636365,
+      "rounds_mean": 3.477272727272727,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.47756953322501033,
+        "final_anc_stderr": 0.04296662114193079,
+        "solved_fraction_mean": 0.36363636363636365,
+        "rounds_mean": 3.477272727272727
+      },
+      "per_alpha_anc": {
+        "0.15": 0.47756953322501033
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.47756953322501033,
+        "solved_fraction_mean": 0.36363636363636365,
+        "rounds_mean": 3.477272727272727,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 6200
+    },
+    {
+      "final_anc_mean": 0.5233093462643418,
+      "final_anc_stderr": 0.041933799109829584,
+      "solved_fraction_mean": 0.3977272727272727,
+      "rounds_mean": 4.409090909090909,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.5233093462643418,
+        "final_anc_stderr": 0.041933799109829584,
+        "solved_fraction_mean": 0.3977272727272727,
+        "rounds_mean": 4.409090909090909
+      },
+      "per_alpha_anc": {
+        "0.15": 0.5233093462643418
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.5233093462643418,
+        "solved_fraction_mean": 0.3977272727272727,
+        "rounds_mean": 4.409090909090909,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 6400
+    },
+    {
+      "final_anc_mean": 0.4508298629563124,
+      "final_anc_stderr": 0.04090800383977278,
+      "solved_fraction_mean": 0.3181818181818182,
+      "rounds_mean": 3.602272727272727,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4508298629563124,
+        "final_anc_stderr": 0.04090800383977278,
+        "solved_fraction_mean": 0.3181818181818182,
+        "rounds_mean": 3.602272727272727
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4508298629563124
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4508298629563124,
+        "solved_fraction_mean": 0.3181818181818182,
+        "rounds_mean": 3.602272727272727,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 6600
+    },
+    {
+      "final_anc_mean": 0.45354957914701716,
+      "final_anc_stderr": 0.04272089165080411,
+      "solved_fraction_mean": 0.3409090909090909,
+      "rounds_mean": 3.6704545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.45354957914701716,
+        "final_anc_stderr": 0.04272089165080411,
+        "solved_fraction_mean": 0.3409090909090909,
+        "rounds_mean": 3.6704545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.45354957914701716
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.45354957914701716,
+        "solved_fraction_mean": 0.3409090909090909,
+        "rounds_mean": 3.6704545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 6800
+    },
+    {
+      "final_anc_mean": 0.5355641391878244,
+      "final_anc_stderr": 0.04281294381343319,
+      "solved_fraction_mean": 0.42045454545454547,
+      "rounds_mean": 4.079545454545454,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.5355641391878244,
+        "final_anc_stderr": 0.04281294381343319,
+        "solved_fraction_mean": 0.42045454545454547,
+        "rounds_mean": 4.079545454545454
+      },
+      "per_alpha_anc": {
+        "0.15": 0.5355641391878244
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.5355641391878244,
+        "solved_fraction_mean": 0.42045454545454547,
+        "rounds_mean": 4.079545454545454,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 7000
+    },
+    {
+      "final_anc_mean": 0.4727786706910026,
+      "final_anc_stderr": 0.043178848289828285,
+      "solved_fraction_mean": 0.3522727272727273,
+      "rounds_mean": 3.897727272727273,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4727786706910026,
+        "final_anc_stderr": 0.043178848289828285,
+        "solved_fraction_mean": 0.3522727272727273,
+        "rounds_mean": 3.897727272727273
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4727786706910026
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4727786706910026,
+        "solved_fraction_mean": 0.3522727272727273,
+        "rounds_mean": 3.897727272727273,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 7200
+    },
+    {
+      "final_anc_mean": 0.528482941827749,
+      "final_anc_stderr": 0.043591425181318616,
+      "solved_fraction_mean": 0.42045454545454547,
+      "rounds_mean": 3.9431818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.528482941827749,
+        "final_anc_stderr": 0.043591425181318616,
+        "solved_fraction_mean": 0.42045454545454547,
+        "rounds_mean": 3.9431818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.528482941827749
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.528482941827749,
+        "solved_fraction_mean": 0.42045454545454547,
+        "rounds_mean": 3.9431818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 7400
+    },
+    {
+      "final_anc_mean": 0.5810614315299292,
+      "final_anc_stderr": 0.04333672761725729,
+      "solved_fraction_mean": 0.4772727272727273,
+      "rounds_mean": 4.761363636363637,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.5810614315299292,
+        "final_anc_stderr": 0.04333672761725729,
+        "solved_fraction_mean": 0.4772727272727273,
+        "rounds_mean": 4.761363636363637
+      },
+      "per_alpha_anc": {
+        "0.15": 0.5810614315299292
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.5810614315299292,
+        "solved_fraction_mean": 0.4772727272727273,
+        "rounds_mean": 4.761363636363637,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 7600
+    },
+    {
+      "final_anc_mean": 0.5510325857866571,
+      "final_anc_stderr": 0.04335202720046067,
+      "solved_fraction_mean": 0.4431818181818182,
+      "rounds_mean": 4.238636363636363,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.5510325857866571,
+        "final_anc_stderr": 0.04335202720046067,
+        "solved_fraction_mean": 0.4431818181818182,
+        "rounds_mean": 4.238636363636363
+      },
+      "per_alpha_anc": {
+        "0.15": 0.5510325857866571
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.5510325857866571,
+        "solved_fraction_mean": 0.4431818181818182,
+        "rounds_mean": 4.238636363636363,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 7800
+    },
+    {
+      "final_anc_mean": 0.4578776425079211,
+      "final_anc_stderr": 0.041245126131796164,
+      "solved_fraction_mean": 0.32954545454545453,
+      "rounds_mean": 3.9431818181818183,
+      "reference": {
+        "alpha": 0.15,
+        "pfail": 0.18,
+        "budget": 2,
+        "scale_budget": true,
+        "scale_max_rounds": true,
+        "budget_reference_n": 40,
+        "max_rounds": 20,
+        "final_anc_mean": 0.4578776425079211,
+        "final_anc_stderr": 0.041245126131796164,
+        "solved_fraction_mean": 0.32954545454545453,
+        "rounds_mean": 3.9431818181818183
+      },
+      "per_alpha_anc": {
+        "0.15": 0.4578776425079211
+      },
+      "grid": {
+        "alpha_values": [
+          0.15
+        ],
+        "pfail_values": [
+          0.18
+        ],
+        "cell_count": 1,
+        "final_anc_mean": 0.4578776425079211,
+        "solved_fraction_mean": 0.32954545454545453,
+        "rounds_mean": 3.9431818181818183,
+        "cells": []
+      },
+      "env": {
+        "capacity_noise": 0.0,
+        "failure_bias": "uniform",
+        "action_space": "failed",
+        "obs_hops": null,
+        "abandonment_anc_threshold": 0.3
+      },
+      "validation_source": "eval_set_file",
+      "episode": 8000
+    }
+  ]
+}
