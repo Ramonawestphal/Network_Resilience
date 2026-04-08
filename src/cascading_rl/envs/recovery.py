@@ -164,6 +164,13 @@ class RecoveryEnv:
         self.state: CascadeState | None = None
         self.remaining_budget = budget
         self.current_round = 1
+        # NC at the start of the current round, set in reset() and updated whenever a
+        # round closes. Used to compute homogenised per-round rewards in step(): intra-
+        # round steps receive reward=0 so that the replay buffer contains only one
+        # structurally meaningful signal per round (the full cascade-inclusive delta),
+        # preventing the mixed-target problem caused by the reward asymmetry between
+        # intra-round steps (b < B, no cascade) and last steps (b = B, cascade fires).
+        self._round_start_nc: float = 0.0
 
     def reset(self, seed: int | None = None) -> RecoveryObservation:
         # When ``seed`` is given, the environment RNG is fully re-seeded before
@@ -182,6 +189,7 @@ class RecoveryEnv:
         )
         self.remaining_budget = self.budget
         self.current_round = 1
+        self._round_start_nc = normalized_connectivity(self.state.graph, self.state.active)
         return self.observe()
 
     def observe(self) -> RecoveryObservation:
@@ -229,7 +237,6 @@ class RecoveryEnv:
 
         action_round = self.current_round
         action_index_in_round = self.budget - self.remaining_budget + 1
-        previous_nc = normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
         self.remaining_budget -= 1
 
@@ -243,7 +250,22 @@ class RecoveryEnv:
             newly_failed = advance_cascade_round(self.state)
 
         nc_after_cascade = normalized_connectivity(self.state.graph, self.state.active)
-        reward = nc_after_cascade - previous_nc
+
+        # Homogenised reward: zero for all intra-round steps (b < B), full
+        # round-level delta NC for the last step (b = B) only. This ensures
+        # every transition in the replay buffer carries rewards of the same
+        # structural type: either 0 (no cascade yet) or the complete cascade-
+        # inclusive delta relative to the start of the round. Without this,
+        # the last step absorbs the entire cascade penalty while earlier steps
+        # receive only small repair gains, creating conflicting Bellman targets
+        # for states that are indistinguishable without budget_coverage.
+        # The total episode reward (sum over all steps) equals the cumulative
+        # NC gain over rounds, identical to step_batch semantics.
+        if round_complete:
+            reward = nc_after_cascade - self._round_start_nc
+            self._round_start_nc = nc_after_cascade
+        else:
+            reward = 0.0
 
         exhausted_rounds = action_round >= self.max_rounds
         abandoned = self._abandon_due_to_low_nc(nc_after_cascade)

@@ -8,6 +8,7 @@ from random import Random
 from statistics import mean, stdev
 
 import networkx as nx
+from scipy import stats as _scipy_stats
 
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
@@ -71,6 +72,287 @@ class EpisodeResult:
 class AggregateMetric:
     mean: float
     stderr: float
+
+
+@dataclass(frozen=True)
+class PolicyComparisonResult:
+    """Pairwise statistical comparison between two policies on matched episodes.
+
+    Episodes are matched by their position in the evaluation list, which
+    corresponds to identical (graph_index, seed) pairs when produced by
+    evaluate_policy_factories_on_graphs. The comparison is therefore a
+    paired test: each observation is the per-episode difference d_i = A_i - B_i
+    on the same environmental realisation.
+
+    wilcoxon_statistic / wilcoxon_p_value: two-sided Wilcoxon signed-rank test
+        H0: median(d_i) = 0  vs  H1: median(d_i) ≠ 0
+        Non-parametric; does not assume normality of differences. Appropriate
+        for ANC scores which are bounded in [0,1] and may be skewed.
+
+    bootstrap_ci_low / bootstrap_ci_high: percentile bootstrap CI for E[d_i].
+        Uses n_boot resamples with replacement from {d_i}. Parametric-free;
+        valid under mild regularity conditions regardless of ANC distribution.
+    """
+
+    policy_a: str
+    policy_b: str
+    metric: str
+    n_pairs: int
+    mean_difference: float       # E[A_i - B_i]: positive means A > B
+    bootstrap_ci_low: float      # lower bound of (1-alpha)% CI for mean difference
+    bootstrap_ci_high: float     # upper bound of (1-alpha)% CI for mean difference
+    ci_level: float              # e.g. 0.95
+    wilcoxon_statistic: float
+    wilcoxon_p_value: float
+    alpha_level: float           # significance threshold used
+    significant: bool            # wilcoxon_p_value < alpha_level
+
+
+def _extract_metric(result: "EpisodeResult", metric: str) -> float:
+    """Extract a scalar metric from an EpisodeResult by name."""
+    if metric == "anc_fixed":
+        return result.anc_fixed
+    if metric == "anc_adaptive":
+        return result.anc_adaptive
+    if metric == "final_nc":
+        return result.final_nc
+    if metric == "total_reward":
+        return result.total_reward
+    if metric == "rounds":
+        return float(result.rounds)
+    if metric == "solved":
+        return 1.0 if result.remaining_failed_nodes == 0 else 0.0
+    raise ValueError(
+        f"Unknown metric '{metric}'. Choose from: anc_fixed, anc_adaptive, "
+        "final_nc, total_reward, rounds, solved."
+    )
+
+
+def bootstrap_mean_ci(
+    differences: list[float],
+    *,
+    n_boot: int = 10_000,
+    ci: float = 0.95,
+    rng: Random | None = None,
+) -> tuple[float, float]:
+    """Percentile bootstrap confidence interval for the mean paired difference.
+
+    Resamples differences with replacement n_boot times. Returns the
+    (alpha/2, 1-alpha/2) empirical quantiles of the bootstrap distribution of
+    the sample mean, where alpha = 1 - ci.
+
+    This estimator is consistent under mild regularity conditions and requires
+    no parametric assumption about the distribution of d_i = A_i - B_i.
+
+    Parameters
+    ----------
+    differences : list of d_i = metric(A_i) - metric(B_i) for matched pairs i
+    n_boot      : number of bootstrap replicates (default 10 000)
+    ci          : nominal coverage level, e.g. 0.95 for 95% CI
+    rng         : optional Random instance for reproducibility
+
+    Returns
+    -------
+    (ci_low, ci_high) : lower and upper percentile bounds
+    """
+    if not differences:
+        raise ValueError("differences must be non-empty.")
+    rng = rng or Random(0)
+    n = len(differences)
+    boot_means: list[float] = []
+    for _ in range(n_boot):
+        resample = [differences[rng.randint(0, n - 1)] for _ in range(n)]
+        boot_means.append(sum(resample) / n)
+    boot_means.sort()
+    lo_idx = int((1.0 - ci) / 2.0 * n_boot)
+    hi_idx = min(int((1.0 + ci) / 2.0 * n_boot), n_boot - 1)
+    return boot_means[lo_idx], boot_means[hi_idx]
+
+
+def compare_policy_pair(
+    episodes_a: list["EpisodeResult"],
+    episodes_b: list["EpisodeResult"],
+    *,
+    name_a: str,
+    name_b: str,
+    metric: str = "anc_fixed",
+    n_boot: int = 10_000,
+    ci: float = 0.95,
+    alpha_level: float = 0.05,
+    rng: Random | None = None,
+) -> PolicyComparisonResult:
+    """Paired statistical comparison between two policy episode lists.
+
+    Episodes must be aligned: episodes_a[i] and episodes_b[i] must correspond
+    to the same (graph, seed) pair. evaluate_policy_factories_on_graphs
+    guarantees this when both policies are evaluated in the same call.
+
+    Statistical procedure
+    ---------------------
+    1. Compute paired differences d_i = metric(A_i) - metric(B_i).
+    2. Wilcoxon signed-rank test (two-sided):
+       H0: median(d_i) = 0  vs  H1: median(d_i) ≠ 0
+       Chosen over paired t-test because ANC scores are bounded in [0,1] and
+       may not satisfy normality; Wilcoxon is distribution-free.
+    3. Percentile bootstrap CI for E[d_i] with n_boot resamples.
+    """
+    if len(episodes_a) != len(episodes_b):
+        raise ValueError(
+            f"Episode lists must have equal length for paired comparison. "
+            f"Got {len(episodes_a)} for '{name_a}' and {len(episodes_b)} for '{name_b}'."
+        )
+    n = len(episodes_a)
+    values_a = [_extract_metric(r, metric) for r in episodes_a]
+    values_b = [_extract_metric(r, metric) for r in episodes_b]
+    differences = [a - b for a, b in zip(values_a, values_b)]
+    mean_diff = sum(differences) / n
+
+    ci_low, ci_high = bootstrap_mean_ci(differences, n_boot=n_boot, ci=ci, rng=rng)
+
+    try:
+        wstat, wpval = _scipy_stats.wilcoxon(differences, alternative="two-sided")
+    except ValueError:
+        # All differences are zero: the test is degenerate (p=1.0 by convention).
+        wstat, wpval = 0.0, 1.0
+
+    return PolicyComparisonResult(
+        policy_a=name_a,
+        policy_b=name_b,
+        metric=metric,
+        n_pairs=n,
+        mean_difference=mean_diff,
+        bootstrap_ci_low=ci_low,
+        bootstrap_ci_high=ci_high,
+        ci_level=ci,
+        wilcoxon_statistic=float(wstat),
+        wilcoxon_p_value=float(wpval),
+        alpha_level=alpha_level,
+        significant=float(wpval) < alpha_level,
+    )
+
+
+def compare_all_pairs(
+    episodes_by_policy: Mapping[str, list["EpisodeResult"]],
+    *,
+    baseline: str,
+    metric: str = "anc_fixed",
+    n_boot: int = 10_000,
+    ci: float = 0.95,
+    alpha_level: float = 0.05,
+    rng: Random | None = None,
+) -> list[PolicyComparisonResult]:
+    """Compare every policy against a designated baseline policy.
+
+    Parameters
+    ----------
+    episodes_by_policy : dict mapping policy name → list of EpisodeResult,
+        where lists are aligned (same index = same graph/seed pair).
+    baseline           : name of the reference policy (e.g. 'degree').
+        Each non-baseline policy is compared as (policy, baseline).
+    metric             : episode-level scalar to compare (default 'anc_fixed').
+    n_boot             : bootstrap replicates (default 10 000).
+    ci                 : CI coverage, e.g. 0.95.
+    alpha_level        : significance threshold for Wilcoxon test.
+    rng                : optional Random for reproducibility.
+
+    Returns
+    -------
+    List of PolicyComparisonResult, one per non-baseline policy, sorted by
+    mean_difference descending (best improvement over baseline first).
+    """
+    if baseline not in episodes_by_policy:
+        raise ValueError(
+            f"Baseline policy '{baseline}' not found in episodes_by_policy. "
+            f"Available policies: {list(episodes_by_policy.keys())}"
+        )
+    baseline_episodes = episodes_by_policy[baseline]
+    results = []
+    for name, episodes in episodes_by_policy.items():
+        if name == baseline:
+            continue
+        results.append(
+            compare_policy_pair(
+                episodes,
+                baseline_episodes,
+                name_a=name,
+                name_b=baseline,
+                metric=metric,
+                n_boot=n_boot,
+                ci=ci,
+                alpha_level=alpha_level,
+                rng=rng,
+            )
+        )
+    results.sort(key=lambda r: r.mean_difference, reverse=True)
+    return results
+
+
+def collect_matched_episodes(
+    graphs: Sequence[nx.Graph],
+    policy_factories: Mapping[str, "PolicyFactory"],
+    *,
+    alpha: float,
+    pfail: float,
+    budget: int,
+    max_rounds: int | None = None,
+    seeds: Iterable[int],
+    env_kwargs: Mapping[str, object] | None = None,
+    scale_budget: bool = False,
+    scale_max_rounds: bool = False,
+    reference_n: int = 40,
+) -> dict[str, list["EpisodeResult"]]:
+    """Evaluate policy factories across fixed graphs and return per-episode results.
+
+    Returns a dict mapping policy name → list[EpisodeResult] where all lists
+    have equal length and are index-aligned: index i corresponds to the same
+    (graph_index, seed) pair for every policy. This alignment is required for
+    the paired statistical tests in compare_policy_pair and compare_all_pairs.
+
+    Unlike evaluate_policy_factories_on_graphs, this function does not
+    aggregate — it preserves the full episode-level resolution needed for
+    paired Wilcoxon and bootstrap CI computations.
+    """
+    from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
+
+    seeds_list = list(seeds)
+    episode_results_by_policy: dict[str, list[EpisodeResult]] = {
+        name: [] for name in policy_factories
+    }
+    env_kw = dict(env_kwargs or {})
+
+    for graph_index, graph in enumerate(graphs):
+        resolved_budget = compute_scaled_budget(
+            budget,
+            num_nodes=graph.number_of_nodes(),
+            reference_n=reference_n,
+            enabled=scale_budget,
+        )
+        resolved_max_rounds = (
+            compute_scaled_max_rounds(
+                max_rounds,
+                num_nodes=graph.number_of_nodes(),
+                reference_n=reference_n,
+                enabled=scale_max_rounds,
+            )
+            if max_rounds is not None
+            else None
+        )
+        for seed in seeds_list:
+            for policy_name, policy_factory in policy_factories.items():
+                env = RecoveryEnv(
+                    graph,
+                    alpha=alpha,
+                    pfail=pfail,
+                    budget=resolved_budget,
+                    max_rounds=resolved_max_rounds,
+                    seed=seed,
+                    **env_kw,
+                )
+                policy = policy_factory(graph_index, seed)
+                result = rollout_policy(env, policy, seed=seed)
+                episode_results_by_policy[policy_name].append(result)
+
+    return episode_results_by_policy
 
 
 @dataclass(frozen=True)

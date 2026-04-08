@@ -277,6 +277,20 @@ def compute_dqn_loss(
     gamma: float,
     device: torch.device,
 ) -> torch.Tensor:
+    # Guard: budget_coverage is the only node feature that distinguishes
+    # intra-round states (b < B, reward=0, no cascade) from last-step states
+    # (b = B, cascade-inclusive reward). Without it the Q-network receives
+    # conflicting Bellman targets for observationally identical inputs, and
+    # the loss converges to a biased mixture of the two reward regimes.
+    if "budget_coverage" not in model.feature_names:
+        raise ValueError(
+            "budget_coverage must be present in active node features when "
+            "training with the single-step (env.step) interface. It is the "
+            "only input that lets the Q-network distinguish intra-round steps "
+            "(reward=0) from last-round steps (cascade-inclusive reward). "
+            "Remove it only from step_batch training where remaining_budget "
+            "is constant within each call. See docs/architecture.md §0."
+        )
     losses: list[torch.Tensor] = []
     for transition in transitions:
         graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
@@ -385,9 +399,19 @@ def generate_imitation_data(
             observation = _reset_with_non_empty_failures(env, rollout_seed, rng)
             done = False
             while not done and observation.failed:
-                action = _normalize_action_batch(policy(observation))
-                samples.append(ImitationSample(observation=observation, action=action))
-                observation, _reward, done, _info = env.step_batch(list(action))
+                # Take one action at a time (env.step) rather than the full
+                # batch (env.step_batch). This is required so that the imitation
+                # dataset covers budget_coverage values in {1/n, 2/n, ..., B/n},
+                # matching the RL training distribution P_RL(beta) = Uniform.
+                # With step_batch, every observation has remaining_budget=B so
+                # budget_coverage = B/n always — a point mass that leaves the
+                # network unable to generalise to intra-round budget states seen
+                # during RL fine-tuning (KL divergence = log B, infinite in the
+                # strict sense for values b < B).
+                action_batch = _normalize_action_batch(policy(observation))
+                single_action = action_batch[0]
+                samples.append(ImitationSample(observation=observation, action=(single_action,)))
+                observation, _reward, done, _info = env.step(single_action)
     return samples
 
 

@@ -69,6 +69,9 @@ def test_environment_reward_matches_anc_gain_on_manual_state():
 
     _, reward, _, info = env.step(0)
 
-    previous_anc = 2 / 16
-    assert reward == info["nc_after_cascade"] - previous_anc
+    # Intra-round step (b=1 of B=2, budget=2): reward is 0 under the
+    # homogenised reward scheme. The full round delta NC is assigned only at
+    # the last step (b=B) when the cascade fires. This ensures the replay
+    # buffer contains structurally homogeneous Bellman targets.
+    assert reward == 0.0
     assert info["nc"] == info["nc_after_cascade"]

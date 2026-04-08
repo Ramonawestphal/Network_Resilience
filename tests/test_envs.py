@@ -66,7 +66,11 @@ def test_environment_step_rewards_connectivity_gain():
 
     observation, reward, done, info = env.step(0)
 
-    assert reward > 0.0
+    # Intra-round steps (b < B) now return reward=0 under the homogenised
+    # reward scheme: the full round-level NC delta is concentrated at the
+    # last step of the round (when the cascade fires) to avoid mixed Bellman
+    # targets in the replay buffer. The repair still happened (0 is active).
+    assert reward == 0.0
     assert 0 in observation.active
     assert info["nc"] == 9 / 16
     assert info["cascade_executed"] is False

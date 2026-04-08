@@ -31,6 +31,13 @@ ABLATION_OUTPUT_DIR = ROOT / "experiments" / "ablation"
 ABLATION_OUTPUT_PATH = ABLATION_OUTPUT_DIR / "ablation_comparison.json"
 EVAL_GRAPH_SEED_OFFSET = 30_000
 
+# budget_coverage is the only node feature that distinguishes intra-round
+# steps (b < B, reward=0) from last-round steps (b = B, cascade fires).
+# Dropping it makes states with different Bellman targets observationally
+# identical to the Q-network — this collapses the MDP rather than testing a
+# modelling hypothesis. It must never appear in the drop-one-node ablation.
+NON_ABLATABLE_NODE_FEATURES: frozenset[str] = frozenset({"budget_coverage"})
+
 
 def build_ablation_runs() -> list[dict[str, object]]:
     runs: list[dict[str, object]] = [
@@ -80,6 +87,7 @@ def build_ablation_runs() -> list[dict[str, object]]:
             "use_virtual_node": False,
         }
         for feature_name in FEATURE_NAMES
+        if feature_name not in NON_ABLATABLE_NODE_FEATURES
     )
     runs.extend(
         {
@@ -102,6 +110,7 @@ def build_ablation_runs() -> list[dict[str, object]]:
             "use_virtual_node": True,
         }
         for feature_name in FEATURE_NAMES
+        if feature_name not in NON_ABLATABLE_NODE_FEATURES
     )
     return runs
 
