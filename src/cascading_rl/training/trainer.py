@@ -298,7 +298,8 @@ def compute_dqn_loss(
 
     Each transition must store a single node action.  The target is either the
     raw reward (when ``done=True``, e.g. episode end or MC return) or the
-    reward plus the discounted max Q-value of the next valid action.
+    reward plus the discounted max Q-value of the next valid action. Collapsed
+    transitions use ``bootstrap_steps`` to control the bootstrap exponent.
     """
     losses: list[torch.Tensor] = []
     for transition in transitions:
@@ -326,7 +327,8 @@ def compute_dqn_loss(
                 if valid_next_indices:
                     # Standard max-Q bootstrap.
                     valid_next_q = next_q_values[valid_next_indices]
-                    target_value = target_value + gamma * valid_next_q.max()
+                    bootstrap_discount = gamma ** transition.bootstrap_steps
+                    target_value = target_value + bootstrap_discount * valid_next_q.max()
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
 
@@ -375,7 +377,8 @@ def rewrite_round(
         reward[k] = r_k + γ·r_{k+1} + ... + γ^{n-1-k}·r_cascade
 
     Every rewritten transition bootstraps from s_post_cascade, making the
-    cascade outcome directly visible in every step's Q-target.
+    cascade outcome directly visible in every step's Q-target. The number of
+    collapsed steps to that bootstrap state is stored in ``bootstrap_steps``.
     done is taken from the last transition (True if episode ended here).
     """
     if not transitions:
@@ -396,6 +399,7 @@ def rewrite_round(
             reward=suffix_rewards[i],       # suffix-discounted reward from step i to cascade
             next_observation=s_post_cascade, # bootstrap from post-cascade state for all steps
             done=done,
+            bootstrap_steps=n - i,
         )
         for i, t in enumerate(transitions)
     ]
@@ -1011,6 +1015,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 reward=reward,
                 next_observation=next_observation,
                 done=done,
+                bootstrap_steps=1,
             )
             round_buffer.append(transition)
             episode_buffer.append(transition)
@@ -1040,6 +1045,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                     reward=G,
                     next_observation=trans.next_observation,
                     done=True,
+                    bootstrap_steps=1,
                 ))
             _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 

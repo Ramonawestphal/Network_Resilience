@@ -14,6 +14,7 @@ class Transition:
     reward: float
     next_observation: RecoveryObservation
     done: bool
+    bootstrap_steps: int = 1
 
 
 class ReplayBuffer:

@@ -1,9 +1,11 @@
 from pathlib import Path
 from collections import Counter
+from types import SimpleNamespace
 
 import networkx as nx
 import pytest
 import torch
+from torch import nn
 
 from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
@@ -19,11 +21,28 @@ from cascading_rl.training import TrainingConfig, train_recovery_agent
 from cascading_rl.training.replay import Transition
 from cascading_rl.training.trainer import (
     _imitation_agreement_rate,
+    compute_dqn_loss,
     generate_imitation_data,
     pretrain_by_imitation,
     rewrite_round,
     validate_policy,
 )
+
+
+class DummyQModel(nn.Module):
+    def __init__(self, q_values_by_node: dict[int, float]) -> None:
+        super().__init__()
+        self.config = SimpleNamespace(use_virtual_node=False, use_global_features=False)
+        self.feature_names = FEATURE_NAMES
+        self.global_feature_names: tuple[str, ...] = ()
+        self.q_values_by_node = q_values_by_node
+
+    def forward(self, graph_tensor, global_features=None) -> torch.Tensor:  # type: ignore[override]
+        return torch.tensor(
+            [self.q_values_by_node[node] for node in graph_tensor.node_ids],
+            dtype=torch.float32,
+            device=graph_tensor.node_features.device,
+        )
 
 
 def test_observation_to_graph_tensor_builds_features_and_mask():
@@ -463,6 +482,7 @@ def test_rewrite_round_correct_gamma_exponents():
     assert rewritten[0].reward == pytest.approx(0.45)
     assert rewritten[1].reward == pytest.approx(0.7)
     assert rewritten[2].reward == pytest.approx(1.0)
+    assert [t.bootstrap_steps for t in rewritten] == [3, 2, 1]
     # Every step bootstraps from the post-cascade state.
     assert all(t.next_observation is s_post for t in rewritten)
     # done propagated from the last (cascade) transition.
@@ -489,6 +509,7 @@ def test_rewrite_round_single_step():
     assert rewritten[0].reward == pytest.approx(0.75)
     assert rewritten[0].next_observation is s_post
     assert rewritten[0].done is False
+    assert rewritten[0].bootstrap_steps == 1
 
 
 def test_rewrite_round_empty():
@@ -498,3 +519,80 @@ def test_rewrite_round_empty():
     obs = env.reset(seed=0)
 
     assert rewrite_round([], s_post_cascade=obs, gamma=0.99) == []
+
+
+def test_compute_dqn_loss_uses_bootstrap_steps_exponent():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 1.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 1.0, 3: 1.0}
+    observation = env.observe()
+
+    env.state.active = {0, 1, 2}
+    env.state.failed = {3}
+    env.state.frontier = {3}
+    next_observation = env.observe()
+
+    model = DummyQModel({0: -1e9, 1: -1e9, 2: 1.5, 3: 0.0})
+    target_model = DummyQModel({0: -1e9, 1: -1e9, 2: -1e9, 3: 4.0})
+    transition = Transition(
+        observation=observation,
+        action=2,
+        reward=1.0,
+        next_observation=next_observation,
+        done=False,
+        bootstrap_steps=3,
+    )
+
+    loss = compute_dqn_loss(
+        model,
+        target_model,
+        [transition],
+        gamma=0.5,
+        device=torch.device("cpu"),
+    )
+
+    assert loss.item() == pytest.approx(0.0)
+
+
+def test_compute_dqn_loss_defaults_to_standard_one_step_td():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 1.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 1.0, 3: 1.0}
+    observation = env.observe()
+
+    env.state.active = {0, 1, 2}
+    env.state.failed = {3}
+    env.state.frontier = {3}
+    next_observation = env.observe()
+
+    model = DummyQModel({0: -1e9, 1: -1e9, 2: 3.0, 3: 0.0})
+    target_model = DummyQModel({0: -1e9, 1: -1e9, 2: -1e9, 3: 4.0})
+    transition = Transition(
+        observation=observation,
+        action=2,
+        reward=1.0,
+        next_observation=next_observation,
+        done=False,
+    )
+
+    loss = compute_dqn_loss(
+        model,
+        target_model,
+        [transition],
+        gamma=0.5,
+        device=torch.device("cpu"),
+    )
+
+    assert loss.item() == pytest.approx(0.0)
