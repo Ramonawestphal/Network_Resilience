@@ -158,7 +158,7 @@ def parse_args() -> argparse.Namespace:
         "--eval-set",
         type=Path,
         default=None,
-        help="Load fixed eval instances from a pickle file (e.g. eval_sets/ds_validation.pkl).",
+        help="Load fixed eval instances from JSON/YAML or a .pkl override (e.g. eval_sets/ds_validation.json).",
     )
     parser.add_argument(
         "--eval-set-log",
@@ -823,7 +823,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
                 )
             else:
                 p(
-                    "\nNote: eval_sets/ds_validation.pkl not found; transfer table has only "
+                    "\nNote: eval_sets/ds_validation.json not found; transfer table has only "
                     "the current set."
                 )
 

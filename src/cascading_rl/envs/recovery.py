@@ -304,6 +304,10 @@ class RecoveryEnv:
         for action in actions:
             self.state = reactivate_node(self.state, action)
         repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        if len(actions) < self.remaining_budget and self.state.failed:
+            raise ValueError(
+                "Partial step_batch is only valid when it repairs every remaining failed node."
+            )
 
         newly_failed: list[Node] = []
         cascade_executed = False

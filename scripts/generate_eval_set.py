@@ -24,13 +24,11 @@ from cascading_rl.evaluation.saved_eval_sets import (
     save_eval_instances,
 )
 
-OUTPUT_REL = Path("eval_sets") / "ds_validation.pkl"
+OUTPUT_REL = Path("eval_sets") / "ds_validation.json"
 NUM_GRAPHS = 30
 SEEDS_PER_GRAPH = 5
 ALPHA = 0.15
 P_FAIL = 0.18
-B_REF = 2
-N_REF = 40
 
 
 def load_config(path: Path) -> dict:
@@ -58,7 +56,7 @@ def resolve_env_kwargs(config: dict) -> dict[str, object]:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate eval_sets/ds_validation.pkl (decision-sensitive instances)."
+        description="Generate eval_sets/ds_validation.json (decision-sensitive instances)."
     )
     parser.add_argument(
         "--force",
@@ -82,8 +80,11 @@ def main() -> None:
     config = load_config(config_path)
     training = config["training"]
     evaluation = config["evaluation"]
+    budget_scaling = config["budget_scaling"]
     regime_mapping = config["regime_mapping"]
     m = int(training["graph"]["m"])
+    b_ref = int(training["regime"]["budget"])
+    n_ref = int(budget_scaling["reference_n"])
     max_rounds = int(training["regime"]["max_rounds"])
     env_kwargs = resolve_env_kwargs(config)
 
@@ -104,9 +105,9 @@ def main() -> None:
 
     for gi, (graph, n, graph_seed) in enumerate(graphs_meta):
         b_scaled = compute_scaled_budget(
-            B_REF,
+            b_ref,
             num_nodes=n,
-            reference_n=N_REF,
+            reference_n=n_ref,
             enabled=True,
         )
         for s in range(SEEDS_PER_GRAPH):
@@ -175,8 +176,8 @@ def main() -> None:
                     "p_fail": P_FAIL,
                     "budget": b_scaled,
                     "b_scaled": b_scaled,
-                    "b_ref": B_REF,
-                    "n_ref": N_REF,
+                    "b_ref": b_ref,
+                    "n_ref": n_ref,
                     "n": n,
                     "graph_seed": graph_seed,
                     "failure_seed": failure_seed,

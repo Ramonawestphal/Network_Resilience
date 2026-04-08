@@ -1,4 +1,5 @@
 import networkx as nx
+import pytest
 
 from cascading_rl.envs.recovery import RecoveryEnv
 
@@ -194,6 +195,23 @@ def test_environment_step_batch_repairs_full_round_before_cascade():
     assert info["actions"] == [3, 4]
     assert observation.current_round == 2
     assert observation.remaining_budget == 2
+
+
+def test_step_batch_rejects_partial_batch_when_failed_nodes_remain():
+    graph = nx.path_graph(5)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=3)
+
+    env.reset()
+    env.state.active = {0}
+    env.state.failed = {1, 2, 3, 4}
+    env.state.frontier = set()
+    env.state.loads = {node: 0.0 for node in graph.nodes()}
+    env.state.capacities = {node: 2.0 for node in graph.nodes()}
+    env.remaining_budget = 2
+    env.current_round = 1
+
+    with pytest.raises(ValueError, match="Partial step_batch is only valid"):
+        env.step_batch([1])
 
 
 def test_recovery_env_reset_reseeds_rng_independent_of_constructor_seed():

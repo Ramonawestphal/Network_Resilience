@@ -68,7 +68,7 @@ training:
   validation_seed: 42
   validation_every: 200
   # Fixed eval set for comparable validation across runs (regenerate: python scripts/generate_eval_set.py --force).
-  validation_eval_set_path: eval_sets/ds_validation.pkl
+  validation_eval_set_path: eval_sets/ds_validation.json
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
   benchmark_graphs: 10

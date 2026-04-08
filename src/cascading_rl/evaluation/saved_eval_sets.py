@@ -102,6 +102,7 @@ def regime_label_from_heuristic_rollouts(
 ) -> str:
     factories = build_policy_factories(base_seed=base_seed)
     summaries: dict[str, Any] = {}
+    final_anc_threshold = final_anc_failure_threshold_for_reporting(env_kwargs)
     for name in DIAGNOSTIC_POLICY_NAMES:
         policy = factories[name](graph_index, failure_seed)
         env = RecoveryEnv(
@@ -114,7 +115,10 @@ def regime_label_from_heuristic_rollouts(
             **dict(env_kwargs),
         )
         result = rollout_policy(env, policy, seed=failure_seed)
-        summaries[name] = summarize_episode_results([result])
+        summaries[name] = summarize_episode_results(
+            [result],
+            final_anc_failure_threshold=final_anc_threshold,
+        )
     diagnostics = compute_regime_diagnostics(
         summaries,
         hopeless_threshold=hopeless_threshold,

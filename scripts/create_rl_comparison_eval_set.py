@@ -297,9 +297,13 @@ def main() -> None:
     for label, count in sorted(label_counts.items()):
         print(f"  {label}: {count}")
     print(f"\nHeuristic policies used for labelling: {', '.join(DIAGNOSTIC_POLICY_NAMES)}")
+    try:
+        display_path = out_path.relative_to(ROOT)
+    except ValueError:
+        display_path = out_path
     print(
         "\nEvaluate with:\n"
-        f"  python scripts/evaluate_policy.py --eval-set {out_path.relative_to(ROOT)} "
+        f"  python scripts/evaluate_policy.py --eval-set {display_path} "
         "--policies rl degree random risk greedy betweenness"
     )
 
