@@ -17,6 +17,7 @@ from torch.optim import Adam
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
+from cascading_rl.evaluation.metrics import compute_episode_metrics
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
 from cascading_rl.models import (
     FEATURE_NAMES,
@@ -35,6 +36,9 @@ Node = Hashable
 
 GRAPH_BUFFER_MAXLEN = 20
 FREEZE_GRAPH_SPECS_SEED_OFFSET = 20_000
+# Rolling window for progress-line recovery rate and mean ANC (same construction as
+# ``compute_episode_metrics`` / ``evaluate_policy.py`` aggregate ``mean_anc_unconditional``).
+ROLLING_TRAIN_METRICS_EPISODES = 200
 
 
 @dataclass(frozen=True)
@@ -98,6 +102,8 @@ class TrainingConfig:
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
     episode_final_anc: list[float] = field(default_factory=list)
+    episode_recovered: list[bool] = field(default_factory=list)
+    episode_mean_anc_unconditional: list[float] = field(default_factory=list)
     episode_alpha: list[float] = field(default_factory=list)
     episode_pfail: list[float] = field(default_factory=list)
     episode_spreads: list[float] = field(default_factory=list)
@@ -154,6 +160,13 @@ def _mean_recent(values: list[float], window: int = 10) -> float:
         return 0.0
     recent = values[-window:]
     return sum(recent) / len(recent)
+
+
+def _rolling_recovered_fraction(flags: list[bool], window: int) -> float:
+    if not flags:
+        return 0.0
+    chunk = flags[-window:]
+    return sum(1 for f in chunk if f) / len(chunk)
 
 
 def _normalize_action_batch(action: object) -> tuple[Node, ...]:
@@ -227,6 +240,7 @@ def _render_progress_line(
     *,
     epsilon: float,
     training_state: TrainingState,
+    rolling_episodes: int = ROLLING_TRAIN_METRICS_EPISODES,
     bar_width: int = 28,
 ) -> str:
     completed = episode + 1
@@ -234,13 +248,18 @@ def _render_progress_line(
     filled = int(bar_width * progress)
     bar = "#" * filled + "-" * (bar_width - filled)
     recent_reward = _mean_recent(training_state.episode_rewards)
-    recent_anc = _mean_recent(training_state.episode_final_anc)
     recent_loss = _mean_recent(training_state.losses)
+    w = max(1, rolling_episodes)
+    recov_frac = _rolling_recovered_fraction(training_state.episode_recovered, w)
+    mean_anc_u = _mean_recent(training_state.episode_mean_anc_unconditional, w)
+    n_roll = min(w, len(training_state.episode_recovered))
+    roll_tag = f"{n_roll}" if n_roll < w else str(w)
     return (
         f"\r[{bar}] {completed:>4}/{total_episodes} "
         f"eps={epsilon:.3f} "
         f"reward10={recent_reward:.3f} "
-        f"anc10={recent_anc:.3f} "
+        f"recov{roll_tag}={recov_frac:.3f} "
+        f"mean_anc{roll_tag}={mean_anc_u:.3f} "
         f"loss10={recent_loss:.4f}"
     )
 
@@ -343,6 +362,43 @@ def _maybe_update(
     training_state.losses.append(float(loss.item()))
     if training_state.total_steps % config.target_update_interval == 0:
         target_model.load_state_dict(model.state_dict())
+
+
+def rewrite_round(
+    transitions: list[Transition],
+    s_post_cascade: RecoveryObservation,
+    gamma: float,
+) -> list[Transition]:
+    """Rewrite buffered intra-round transitions with suffix-discounted rewards.
+
+    For a round with steps k=0..n-1 (k=n-1 is the cascade step):
+        reward[k] = r_k + γ·r_{k+1} + ... + γ^{n-1-k}·r_cascade
+
+    Every rewritten transition bootstraps from s_post_cascade, making the
+    cascade outcome directly visible in every step's Q-target.
+    done is taken from the last transition (True if episode ended here).
+    """
+    if not transitions:
+        return []
+    done = transitions[-1].done
+    n = len(transitions)
+    # Build suffix sums right-to-left.
+    # suffix[i] accumulates r_i + γ·r_{i+1} + ... + γ^{n-1-i}·r_cascade
+    suffix_rewards: list[float] = [0.0] * n
+    suffix_rewards[-1] = transitions[-1].reward  # r_cascade with γ^0
+    for i in range(n - 2, -1, -1):
+        # γ^1 applied per step away from the cascade
+        suffix_rewards[i] = transitions[i].reward + gamma * suffix_rewards[i + 1]
+    return [
+        Transition(
+            observation=t.observation,
+            action=t.action,
+            reward=suffix_rewards[i],       # suffix-discounted reward from step i to cascade
+            next_observation=s_post_cascade, # bootstrap from post-cascade state for all steps
+            done=done,
+        )
+        for i, t in enumerate(transitions)
+    ]
 
 
 def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
@@ -743,6 +799,8 @@ def save_checkpoint(
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
                 "episode_final_anc": training_state.episode_final_anc,
+                "episode_recovered": training_state.episode_recovered,
+                "episode_mean_anc_unconditional": training_state.episode_mean_anc_unconditional,
                 "episode_alpha": training_state.episode_alpha,
                 "episode_pfail": training_state.episode_pfail,
                 "episode_spreads": training_state.episode_spreads,
@@ -927,8 +985,14 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         done = False
         total_reward = 0.0
         episode_buffer: list[Transition] = []
+        anc_by_round: list[float] = []
+        info: dict[str, object] = {
+            "anc": env.current_anc(),
+            "failed_nodes": len(observation.failed),
+        }
 
-        # --- Single-step DQN: one transition per repair action ---
+        # --- Single-step DQN with round-bounded n-step returns ---
+        round_buffer: list[Transition] = []  # intra-round transitions; flushed at each round end
         while not done and observation.failed:
             action = select_action(
                 model,
@@ -937,7 +1001,10 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 rng=rng,
                 device=device,
             )
-            next_observation, reward, done, _info = env.step(action)
+            next_observation, reward, done, info = env.step(action)
+            round_complete = bool(info.get("round_complete"))
+            if round_complete:
+                anc_by_round.append(float(info["anc"]))
             transition = Transition(
                 observation=observation,
                 action=action,
@@ -945,15 +1012,21 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 next_observation=next_observation,
                 done=done,
             )
+            round_buffer.append(transition)
             episode_buffer.append(transition)
             observation = next_observation
             total_reward += reward
             training_state.total_steps += 1
 
-            # TD(0): push immediately and update after each step.
+            # N-step returns: flush at round boundary so every intra-round transition
+            # gets suffix-discounted reward (r_k + γ·r_{k+1} + ... + γ^{n-k}·r_cascade)
+            # and bootstraps from the post-cascade state s_post_cascade.
             if not config.use_monte_carlo_returns:
-                replay_buffer.push(transition)
-                _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
+                if round_complete or done:
+                    for t in rewrite_round(round_buffer, next_observation, config.gamma):
+                        replay_buffer.push(t)
+                    round_buffer = []
+                    _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
         # MC returns: compute discounted returns backward and push at episode end.
         if config.use_monte_carlo_returns and episode_buffer:
@@ -970,8 +1043,17 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 ))
             _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
+        final_anc = float(info["anc"])
+        rounds = env.current_round
+        if rounds > len(anc_by_round):
+            anc_by_round.append(final_anc)
+        recovered = int(info["failed_nodes"]) == 0
+        ep_metrics = compute_episode_metrics(anc_by_round, recovered)
+
         training_state.episode_rewards.append(total_reward)
-        training_state.episode_final_anc.append(env.current_anc())
+        training_state.episode_final_anc.append(final_anc)
+        training_state.episode_recovered.append(recovered)
+        training_state.episode_mean_anc_unconditional.append(ep_metrics.mean_anc_unconditional)
         training_state.episode_alpha.append(alpha)
         training_state.episode_pfail.append(pfail)
         print(

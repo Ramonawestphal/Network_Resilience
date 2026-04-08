@@ -16,10 +16,12 @@ from cascading_rl.models import (
     observation_to_graph_tensor,
 )
 from cascading_rl.training import TrainingConfig, train_recovery_agent
+from cascading_rl.training.replay import Transition
 from cascading_rl.training.trainer import (
     _imitation_agreement_rate,
     generate_imitation_data,
     pretrain_by_imitation,
+    rewrite_round,
     validate_policy,
 )
 
@@ -147,6 +149,9 @@ def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path
     assert checkpoint_path.exists()
     assert training_state.losses
     assert all(0.0 <= value <= 1.0 for value in training_state.episode_final_anc)
+    assert len(training_state.episode_recovered) == config.num_episodes
+    assert len(training_state.episode_mean_anc_unconditional) == config.num_episodes
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_mean_anc_unconditional)
 
 
 def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):
@@ -421,3 +426,75 @@ def test_use_monte_carlo_returns_trains_and_uses_discounted_returns(tmp_path: Pa
     assert len(training_state.episode_rewards) == config.num_episodes
     # ANC values are always valid probabilities.
     assert all(0.0 <= v <= 1.0 for v in training_state.episode_final_anc)
+    assert len(training_state.episode_recovered) == config.num_episodes
+    assert all(r in (True, False) for r in training_state.episode_recovered)
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_mean_anc_unconditional)
+
+
+# ---------------------------------------------------------------------------
+# rewrite_round unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_round_correct_gamma_exponents():
+    """rewrite_round produces suffix-discounted rewards with correct γ exponents.
+
+    Three-step round: rewards [0.1, 0.2, 1.0], gamma=0.5
+      step 0: 0.1 + 0.5*(0.2 + 0.5*1.0) = 0.1 + 0.35 = 0.45
+      step 1: 0.2 + 0.5*1.0              = 0.7
+      step 2: 1.0                         = 1.0  (cascade step, γ^0)
+    """
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+    # Use the same observation object for all transitions — rewrite_round only
+    # reads .reward and .done, so the observation content doesn't matter here.
+    obs = env.reset(seed=0)
+    s_post = env.observe()
+
+    transitions = [
+        Transition(observation=obs, action=0, reward=0.1, next_observation=obs, done=False),
+        Transition(observation=obs, action=1, reward=0.2, next_observation=obs, done=False),
+        Transition(observation=obs, action=2, reward=1.0, next_observation=obs, done=True),
+    ]
+
+    rewritten = rewrite_round(transitions, s_post_cascade=s_post, gamma=0.5)
+
+    assert len(rewritten) == 3
+    assert rewritten[0].reward == pytest.approx(0.45)
+    assert rewritten[1].reward == pytest.approx(0.7)
+    assert rewritten[2].reward == pytest.approx(1.0)
+    # Every step bootstraps from the post-cascade state.
+    assert all(t.next_observation is s_post for t in rewritten)
+    # done propagated from the last (cascade) transition.
+    assert all(t.done is True for t in rewritten)
+    # Observations and actions are preserved unchanged.
+    assert all(t.observation is obs for t in rewritten)
+    assert [t.action for t in rewritten] == [0, 1, 2]
+
+
+def test_rewrite_round_single_step():
+    """Single-step round (budget=1): reward unchanged, next_obs replaced."""
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=1, max_rounds=3, seed=0)
+    obs = env.reset(seed=0)
+    s_post = env.observe()
+
+    transitions = [
+        Transition(observation=obs, action=0, reward=0.75, next_observation=obs, done=False),
+    ]
+
+    rewritten = rewrite_round(transitions, s_post_cascade=s_post, gamma=0.99)
+
+    assert len(rewritten) == 1
+    assert rewritten[0].reward == pytest.approx(0.75)
+    assert rewritten[0].next_observation is s_post
+    assert rewritten[0].done is False
+
+
+def test_rewrite_round_empty():
+    """Empty list returns empty list without error."""
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=1, max_rounds=3, seed=0)
+    obs = env.reset(seed=0)
+
+    assert rewrite_round([], s_post_cascade=obs, gamma=0.99) == []

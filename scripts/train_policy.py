@@ -22,6 +22,7 @@ from cascading_rl.training import (
     TrainingConfig,
     train_recovery_agent,
 )
+from cascading_rl.training.trainer import ROLLING_TRAIN_METRICS_EPISODES
 from scripts.reproducibility import write_run_metadata
 
 
@@ -270,6 +271,10 @@ def main() -> None:
 
     _, training_state, checkpoint_path = train_recovery_agent(training_config)
 
+    _w = ROLLING_TRAIN_METRICS_EPISODES
+    _rec_tail = training_state.episode_recovered[-_w:]
+    _anc_tail = training_state.episode_mean_anc_unconditional[-_w:]
+
     summary_path = checkpoint_path.with_suffix(".summary.json")
     summary = {
         "checkpoint_path": portable_artifact_path(checkpoint_path),
@@ -291,6 +296,13 @@ def main() -> None:
             sum(training_state.episode_final_anc[-10:])
             / max(1, len(training_state.episode_final_anc[-10:]))
         ),
+        "rolling_recovered_fraction": (
+            sum(1 for x in _rec_tail if x) / len(_rec_tail) if _rec_tail else 0.0
+        ),
+        "rolling_mean_anc_unconditional": (
+            sum(_anc_tail) / len(_anc_tail) if _anc_tail else 0.0
+        ),
+        "rolling_metrics_episodes": _w,
         "final_loss_mean_last_10": (
             sum(training_state.losses[-10:]) / max(1, len(training_state.losses[-10:]))
         ),
