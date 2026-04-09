@@ -120,7 +120,12 @@ def _parse_args() -> argparse.Namespace:
         default=ROOT / "eval_sets" / "rl_comparison.pkl",
         help="Output path for the eval set (default: eval_sets/rl_comparison.pkl).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.num_graphs <= 0:
+        parser.error("--num-graphs must be a positive integer.")
+    if args.seeds_per_graph <= 0:
+        parser.error("--seeds-per-graph must be a positive integer.")
+    return args
 
 
 def main() -> None:
