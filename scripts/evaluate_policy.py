@@ -805,7 +805,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             )
             t_names = list(t_factories.keys())
 
-            baseline_path = ROOT / "eval_sets" / "ds_validation.pkl"
+            baseline_path = ROOT / "eval_sets" / "ds_validation.json"
             table_rows: list[tuple[str, dict[str, float]]] = []
             if baseline_path.exists():
                 base_instances = load_eval_instances(baseline_path)

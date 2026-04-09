@@ -65,6 +65,7 @@ def build_filtered_instances(
     n_range: tuple[int, int],
     b_ref: int,
     n_ref: int,
+    scale_budget: bool,
     m: int,
     max_rounds: int,
     env_kwargs: dict[str, object],
@@ -91,7 +92,7 @@ def build_filtered_instances(
             b_ref,
             num_nodes=n,
             reference_n=n_ref,
-            enabled=True,
+            enabled=scale_budget,
         )
         for s in range(SEEDS_PER_GRAPH):
             generated += 1
@@ -195,6 +196,7 @@ def run_one_set(
     m = int(training["graph"]["m"])
     b_ref = int(training["regime"]["budget"])
     n_ref = int(budget_scaling["reference_n"])
+    scale_budget = bool(budget_scaling.get("enabled", False))
     max_rounds = int(training["regime"]["max_rounds"])
     env_kwargs = resolve_env_kwargs(config)
     master_seed = int(training["seed"]) + seed_offset
@@ -203,6 +205,7 @@ def run_one_set(
         n_range=n_range,
         b_ref=b_ref,
         n_ref=n_ref,
+        scale_budget=scale_budget,
         m=m,
         max_rounds=max_rounds,
         env_kwargs=env_kwargs,
@@ -222,6 +225,7 @@ def run_one_set(
             n_range=n_range,
             b_ref=b_ref,
             n_ref=n_ref,
+            scale_budget=scale_budget,
             m=m,
             max_rounds=max_rounds,
             env_kwargs=env_kwargs,
