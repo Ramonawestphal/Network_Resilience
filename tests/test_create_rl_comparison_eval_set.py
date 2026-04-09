@@ -35,6 +35,27 @@ def test_resolve_budget_scaling_prefers_explicit_shared_budget_scaling_config():
     assert scale_budget is True
 
 
+def test_resolve_env_kwargs_accepts_legacy_abandonment_key_with_warning(caplog):
+    config = {
+        "training": {
+            "regime": {
+                "capacity_noise": 0.1,
+                "failure_bias": "uniform",
+                "action_space": "failed",
+                "obs_hops": None,
+                "abandonment_anc_threshold": 0.25,
+            }
+        }
+    }
+
+    with caplog.at_level("WARNING"):
+        env_kwargs = create_rl_comparison_eval_set._resolve_env_kwargs(config)
+
+    assert env_kwargs["abandonment_nc_threshold"] == 0.25
+    assert "abandonment_anc_threshold" in caplog.text
+    assert "abandonment_nc_threshold" in caplog.text
+
+
 @pytest.mark.parametrize(
     ("argv", "expected_message"),
     [

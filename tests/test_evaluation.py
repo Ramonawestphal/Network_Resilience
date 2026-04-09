@@ -4,6 +4,7 @@ import pytest
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     EpisodeResult,
+    _compute_step_metrics,
     evaluate_policies,
     final_nc_failure_threshold_for_reporting,
     rollout_policy,
@@ -89,6 +90,42 @@ def test_rollout_policy_supports_batch_actions():
 
     assert result.steps >= 1
     assert result.rounds >= 1
+
+
+def test_compute_step_metrics_ranks_batches_against_same_size_candidates(monkeypatch):
+    graph = nx.path_graph(4)
+    observation = RecoveryObservation(
+        graph=graph,
+        loads={0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0},
+        capacities={0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0},
+        active=frozenset({0}),
+        failed=frozenset({1, 2, 3}),
+        frontier=frozenset({1}),
+        remaining_budget=2,
+        budget=2,
+        current_round=1,
+        max_rounds=3,
+    )
+
+    delta_by_batch = {
+        (1, 2): 0.6,
+        (1, 3): 0.9,
+        (2, 3): 0.4,
+    }
+
+    def fake_delta_nc_after_round_batch(_base_state, candidate_batch):
+        return delta_by_batch[tuple(sorted(candidate_batch))]
+
+    monkeypatch.setattr(
+        "cascading_rl.evaluation.benchmarks.delta_nc_after_round_batch",
+        fake_delta_nc_after_round_batch,
+    )
+
+    metrics = _compute_step_metrics(observation, [1, 2], current_round=1)
+
+    assert metrics.nc_gain == pytest.approx(0.6)
+    assert metrics.greedy_nc_gain == pytest.approx(0.9)
+    assert metrics.action_rank == 2
 
 
 def test_final_nc_failure_threshold_for_reporting_respects_env_and_default():

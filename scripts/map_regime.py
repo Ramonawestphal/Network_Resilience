@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +37,26 @@ from scripts.reproducibility import write_run_metadata
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
-    abandon_raw = regime.get("abandonment_nc_threshold")
+    abandon_nc_raw = regime.get("abandonment_nc_threshold")
+    abandon_anc_raw = regime.get("abandonment_anc_threshold")
+    if abandon_nc_raw is not None and abandon_anc_raw is not None:
+        if float(abandon_nc_raw) != float(abandon_anc_raw):
+            raise ValueError(
+                "Config provides both 'abandonment_nc_threshold' and "
+                "'abandonment_anc_threshold' with different values."
+            )
+    if abandon_nc_raw is not None:
+        abandon_raw = abandon_nc_raw
+    elif abandon_anc_raw is not None:
+        warnings.warn(
+            "Config key 'abandonment_anc_threshold' is deprecated; "
+            "migrate to 'abandonment_nc_threshold'.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        abandon_raw = abandon_anc_raw
+    else:
+        abandon_raw = None
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),

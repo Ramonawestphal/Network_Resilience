@@ -47,16 +47,18 @@ def _mean_err(data: dict, policy: str, key: str) -> tuple[float, float]:
         return float(p[key]["mean"]), float(p[key].get("stderr", 0.0))
     # old flat format fallbacks
     flat_map = {
-        "final_nc": ("final_anc_mean", "final_anc_stderr"),
+        "final_nc": ("final_nc_mean", "final_nc_stderr"),
         "solved_fraction": ("solved_fraction_mean", None),
         "rounds": ("rounds_mean", None),
     }
     if key in flat_map:
         mk, ek = flat_map[key]
-        mean = float(p.get(mk, 0.0))
-        err = float(p.get(ek, 0.0)) if ek else 0.0
+        if mk not in p:
+            return None, None
+        mean = float(p[mk]) if p[mk] is not None else None
+        err = float(p[ek]) if ek and p.get(ek) is not None else None
         return mean, err
-    return 0.0, 0.0
+    return None, None
 
 
 def _scalar(data: dict, policy: str, key: str) -> float | None:
@@ -238,6 +240,11 @@ def main():
 
     data = load_summary(args.summary)
     policies = get_policies(data)
+    if not policies:
+        sys.stderr.write(
+            f"No plottable policies found in summary: {args.summary}\n"
+        )
+        sys.exit(1)
     out_dir = args.output_dir or args.summary.parent
     out_dir.mkdir(parents=True, exist_ok=True)
 

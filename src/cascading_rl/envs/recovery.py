@@ -101,16 +101,13 @@ class RecoveryEnv:
     """Budget-constrained recovery environment with batch-per-round cascade waves.
 
     ``step`` reactivates one node at a time.
-    Reward = NC(post_cascade) - NC(pre_action) at every step. For intra-round steps
-    (budget not yet exhausted) no cascade fires, so the cascade contribution to reward
-    is zero and reward reflects the repair gain only. The cascade wave fires only when
-    the round ends (remaining_budget == 0), at which point the full NC delta including
-    cascade effects is returned as reward.
+    For intra-round steps (budget not yet exhausted) no cascade fires and the
+    reward is 0.0. Only when the round closes (remaining_budget == 0) does the
+    cascade wave fire, and the reward is NC(after_cascade) - NC(before_round).
 
     ``step_batch`` reactivates up to B nodes at once then fires one cascade wave.
-    Reward = NC(after_cascade) - NC(before_batch). This is equivalent to the sum of
-    per-step rewards that ``step`` would have returned for the same B actions in the
-    same round, so Q-value scales are comparable between the two interfaces.
+    Reward = NC(after_cascade) - NC(before_batch), which equals the sum of the
+    per-step end-of-round deltas over the same round.
 
     In both cases the cascade wave only fires when the round is complete.
     NC is normalized_connectivity: sum of squared component-size fractions, in [0, 1].

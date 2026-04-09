@@ -2,10 +2,51 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import warnings
 
+import pytest
 import yaml
 
 from scripts import map_regime
+
+
+def test_resolve_env_kwargs_accepts_legacy_abandonment_key_with_warning():
+    config = {
+        "training": {
+            "regime": {
+                "capacity_noise": 0.0,
+                "failure_bias": "uniform",
+                "action_space": "failed",
+                "obs_hops": None,
+                "abandonment_anc_threshold": 0.25,
+            }
+        }
+    }
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        env_kwargs = map_regime.resolve_env_kwargs(config)
+
+    assert env_kwargs["abandonment_nc_threshold"] == 0.25
+    assert any("abandonment_anc_threshold" in str(w.message) for w in caught)
+
+
+def test_resolve_env_kwargs_raises_when_legacy_and_new_thresholds_differ():
+    config = {
+        "training": {
+            "regime": {
+                "capacity_noise": 0.0,
+                "failure_bias": "uniform",
+                "action_space": "failed",
+                "obs_hops": None,
+                "abandonment_nc_threshold": 0.2,
+                "abandonment_anc_threshold": 0.3,
+            }
+        }
+    }
+
+    with pytest.raises(ValueError, match="different values"):
+        map_regime.resolve_env_kwargs(config)
 
 
 def test_map_regime_writes_expected_outputs(tmp_path: Path, monkeypatch):

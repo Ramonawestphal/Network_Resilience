@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
+import warnings
 
 import networkx as nx
 
@@ -23,6 +24,19 @@ def normalized_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> fl
         return 0.0
     component_sizes = connected_component_sizes(graph, active_nodes)
     return sum((s / total_nodes) ** 2 for s in component_sizes)
+
+
+def accumulated_normalized_connectivity(
+    graph: nx.Graph, active_nodes: Iterable[Node]
+) -> float:
+    """Deprecated alias for `normalized_connectivity`."""
+    warnings.warn(
+        "'accumulated_normalized_connectivity' is deprecated; use "
+        "'normalized_connectivity' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return normalized_connectivity(graph, active_nodes)
 
 def anc_fixed_horizon(nc_by_round: list[float], max_rounds: int) -> float:
     """**Primary ANC metric.** Accumulated NC over a fixed horizon of max_rounds.

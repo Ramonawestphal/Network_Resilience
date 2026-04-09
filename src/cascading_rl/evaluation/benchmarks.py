@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 
+import itertools
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from math import sqrt
@@ -417,22 +418,45 @@ def _compute_step_metrics(
     base_state = observation_to_cascade_state(observation)
     nc_gain = delta_nc_after_round_batch(base_state, chosen_nodes)
 
-    # Rank each valid action individually (O(|failed|) instead of O(|failed|^B))
     valid = list(observation.valid_actions)
-    singleton_deltas: list[tuple[float, object]] = []
-    for node in valid:
-        delta = delta_nc_after_round_batch(base_state, [node])
-        singleton_deltas.append((delta, node))
-    singleton_deltas.sort(key=lambda x: (-x[0], str(x[1])))
+    if len(chosen_nodes) == 1:
+        # Rank each valid singleton action.
+        singleton_deltas: list[tuple[float, object]] = []
+        for node in valid:
+            delta = delta_nc_after_round_batch(base_state, [node])
+            singleton_deltas.append((delta, node))
+        singleton_deltas.sort(key=lambda x: (-x[0], str(x[1])))
 
-    greedy_nc_gain = singleton_deltas[0][0] if singleton_deltas else nc_gain
+        greedy_nc_gain = singleton_deltas[0][0] if singleton_deltas else nc_gain
 
-    # Rank of chosen node among all singletons (1 = best)
-    action_rank = 1
-    for rank, (_, node) in enumerate(singleton_deltas, start=1):
-        if node == chosen:
-            action_rank = rank
-            break
+        # Rank of chosen node among all singletons (1 = best)
+        action_rank = 1
+        for rank, (_, node) in enumerate(singleton_deltas, start=1):
+            if node == chosen:
+                action_rank = rank
+                break
+    else:
+        batch_size = len(chosen_nodes)
+        chosen_key = tuple(str(node) for node in sorted(chosen_nodes, key=str))
+        batch_deltas: list[tuple[float, tuple[object, ...], tuple[str, ...]]] = []
+        for candidate_batch in itertools.combinations(valid, batch_size):
+            normalized_batch = tuple(sorted(candidate_batch, key=str))
+            delta = delta_nc_after_round_batch(base_state, normalized_batch)
+            batch_deltas.append(
+                (
+                    delta,
+                    normalized_batch,
+                    tuple(str(node) for node in normalized_batch),
+                )
+            )
+        batch_deltas.sort(key=lambda x: (-x[0], x[2]))
+
+        greedy_nc_gain = batch_deltas[0][0] if batch_deltas else nc_gain
+        action_rank = 1
+        for rank, (_, _batch, batch_key) in enumerate(batch_deltas, start=1):
+            if batch_key == chosen_key:
+                action_rank = rank
+                break
 
     return StepMetrics(
         round=current_round,
@@ -587,7 +611,7 @@ def rollout_policy(
     if rounds > len(nc_by_round):
         nc_by_round.append(final_nc)
     mean_delta_nc_per_round = (final_nc - initial_nc) / rounds if rounds > 0 else 0.0
-    max_rounds_for_anc = env.max_rounds
+    max_rounds_for_anc = env.max_rounds if env.max_rounds is not None else (rounds or len(nc_by_round) or 1)
 
     return EpisodeResult(
         total_reward=total_reward,
