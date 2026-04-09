@@ -167,7 +167,9 @@ def _instance_from_decoded(item: Mapping[str, Any]) -> dict[str, Any]:
                 "Each instance dict must encode 'graph' as networkx node_link_data "
                 "(requires 'edges' or 'links')."
             )
-        out["graph"] = json_graph.node_link_graph(graph_raw)
+        # networkx defaults to link='links'; some saved sets use 'edges' (valid node-link JSON).
+        link_key = "links" if "links" in graph_raw else "edges"
+        out["graph"] = json_graph.node_link_graph(graph_raw, link=link_key)
     elif isinstance(graph_raw, nx.Graph):
         pass
     elif graph_raw is not None:

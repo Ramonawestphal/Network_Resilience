@@ -66,7 +66,7 @@ training:
   validation_graphs: 30
   validation_seeds: [0, 1, 2, 3, 4, 5, 6]
   validation_seed: 42
-  validation_every: 200
+  validation_every: 1000
   # Fixed eval set for comparable validation across runs (regenerate: python scripts/generate_eval_set.py --force).
   validation_eval_set_path: eval_sets/ds_validation.json
   checkpoint_dir: experiments/learner
