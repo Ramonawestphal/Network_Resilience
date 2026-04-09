@@ -84,36 +84,38 @@ def bar_chart(ax, policies, values, errors, title, ylabel, colors):
 
 
 def plot_main_metrics(data: dict, policies: list[str], out_dir: Path):
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    fig.suptitle("Policy Evaluation — Main Metrics", fontsize=13, fontweight="bold")
-
     metrics = [
-        ("final_nc",        "Final NC (snapshot)",         "NC"),
-        ("anc_fixed",       "ANC Fixed Horizon",           "ANC"),
-        ("anc_adaptive",    "ANC Adaptive Horizon",        "ANC"),
-        ("solved_fraction", "Solved Fraction",             "Fraction"),
-        ("rounds",          "Mean Rounds Taken",           "Rounds"),
+        ("final_nc",        "Final NC (snapshot)",         "NC",       "final_nc"),
+        ("anc_fixed",       "ANC Fixed Horizon",           "ANC",      "anc_fixed"),
+        ("anc_adaptive",    "ANC Adaptive Horizon",        "ANC",      "anc_adaptive"),
+        ("solved_fraction", "Solved Fraction",             "Fraction", "solved_fraction"),
+        ("rounds",          "Mean Rounds Taken",           "Rounds",   "rounds"),
     ]
 
-    for ax, (key, title, ylabel) in zip(axes.flat, metrics):
+    for key, title, ylabel, filename in metrics:
+        fig, ax = plt.subplots(figsize=(7, 4))
         vals = [_mean_err(data, p, key)[0] for p in policies]
         errs = [_mean_err(data, p, key)[1] for p in policies]
         bar_chart(ax, policies, vals, errs, title, ylabel, POLICY_COLORS)
+        plt.tight_layout()
+        path = out_dir / f"{filename}.png"
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"Saved {path}")
 
-    # b_star in last panel
-    ax = axes.flat[5]
+    # b_star — separate file
+    fig, ax = plt.subplots(figsize=(7, 4))
     b_stars = [_scalar(data, p, "b_star") for p in policies]
     vals = [b if b is not None else 0 for b in b_stars]
     labels = [str(int(b)) if b is not None else "N/A" for b in b_stars]
-    bars = bar_chart(ax, policies, vals, [0]*len(policies),
+    bars = bar_chart(ax, policies, vals, [0] * len(policies),
                      "Minimum Budget (b*)", "Budget", POLICY_COLORS)
     for bar, label in zip(bars, labels):
         if label == "N/A":
             ax.text(bar.get_x() + bar.get_width() / 2, 0.05, "N/A",
                     ha="center", va="bottom", fontsize=8, color="gray")
-
     plt.tight_layout()
-    path = out_dir / "main_metrics.png"
+    path = out_dir / "b_star.png"
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved {path}")
@@ -121,34 +123,31 @@ def plot_main_metrics(data: dict, policies: list[str], out_dir: Path):
 
 def plot_decision_quality(data: dict, policies: list[str], out_dir: Path):
     new_metrics = [
-        ("mean_degree_ratio",    "Degree Ratio\n(chosen / max failed degree)", "Ratio"),
-        ("mean_overload_risk",   "Overload Risk\n(max load/capacity of neighbors)", "Risk"),
-        ("mean_nc_gain",         "NC Gain of Chosen Action",  "ΔNC"),
-        ("mean_greedy_nc_gain",  "NC Gain of Greedy Oracle",  "ΔNC"),
-        ("mean_action_rank",     "Action Rank\n(1 = optimal)", "Rank"),
+        ("mean_degree_ratio",   "Degree Ratio\n(chosen / max failed degree)",    "Ratio", "degree_ratio"),
+        ("mean_overload_risk",  "Overload Risk\n(max load/capacity of neighbors)","Risk",  "overload_risk"),
+        ("mean_nc_gain",        "NC Gain of Chosen Action",                       "ΔNC",   "nc_gain"),
+        ("mean_greedy_nc_gain", "NC Gain of Greedy Oracle",                       "ΔNC",   "greedy_nc_gain"),
+        ("mean_action_rank",    "Action Rank\n(1 = optimal)",                     "Rank",  "action_rank"),
     ]
 
     has_new = any(
         isinstance(data.get(policies[0], {}).get(key), dict)
-        for key, _, _ in new_metrics
+        for key, _, _, _ in new_metrics
     )
     if not has_new:
         print("Decision-quality metrics not in summary (re-run evaluation to generate them).")
         return
 
-    fig, axes = plt.subplots(1, 5, figsize=(18, 4))
-    fig.suptitle("Policy Decision Quality", fontsize=13, fontweight="bold")
-
-    for ax, (key, title, ylabel) in zip(axes, new_metrics):
+    for key, title, ylabel, filename in new_metrics:
+        fig, ax = plt.subplots(figsize=(7, 4))
         vals = [_mean_err(data, p, key)[0] for p in policies]
         errs = [_mean_err(data, p, key)[1] for p in policies]
         bar_chart(ax, policies, vals, errs, title, ylabel, POLICY_COLORS)
-
-    plt.tight_layout()
-    path = out_dir / "decision_quality.png"
-    plt.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"Saved {path}")
+        plt.tight_layout()
+        path = out_dir / f"{filename}.png"
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"Saved {path}")
 
 
 def plot_nc_gain_comparison(data: dict, policies: list[str], out_dir: Path):
