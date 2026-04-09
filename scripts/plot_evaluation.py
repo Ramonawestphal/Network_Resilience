@@ -170,16 +170,54 @@ def plot_nc_gain_comparison(data: dict, policies: list[str], out_dir: Path):
     x = np.arange(len(policies))
     width = 0.35
 
-    chosen_means = [_mean_err(data, p, "mean_nc_gain")[0] for p in policies]
-    chosen_errs  = [_mean_err(data, p, "mean_nc_gain")[1] for p in policies]
-    greedy_means = [_mean_err(data, p, "mean_greedy_nc_gain")[0] for p in policies]
-    greedy_errs  = [_mean_err(data, p, "mean_greedy_nc_gain")[1] for p in policies]
+    chosen_idx: list[int] = []
+    chosen_means: list[float] = []
+    chosen_errs: list[float] = []
+    greedy_idx: list[int] = []
+    greedy_means: list[float] = []
+    greedy_errs: list[float] = []
 
-    ax.bar(x - width/2, chosen_means, width, yerr=chosen_errs, capsize=4,
-           label="Chosen action", color=[POLICY_COLORS.get(p, "#607D8B") for p in policies],
-           alpha=0.85, edgecolor="white")
-    ax.bar(x + width/2, greedy_means, width, yerr=greedy_errs, capsize=4,
-           label="Greedy oracle", color="lightgray", alpha=0.85, edgecolor="white")
+    for idx, policy in enumerate(policies):
+        chosen_mean, chosen_err = _mean_err(data, policy, "mean_nc_gain")
+        if chosen_mean is not None and chosen_err is not None:
+            chosen_idx.append(idx)
+            chosen_means.append(chosen_mean)
+            chosen_errs.append(chosen_err)
+
+        greedy_mean, greedy_err = _mean_err(data, policy, "mean_greedy_nc_gain")
+        if greedy_mean is not None and greedy_err is not None:
+            greedy_idx.append(idx)
+            greedy_means.append(greedy_mean)
+            greedy_errs.append(greedy_err)
+
+    if not chosen_idx and not greedy_idx:
+        plt.close()
+        return
+
+    if chosen_idx:
+        ax.bar(
+            x[chosen_idx] - width / 2,
+            chosen_means,
+            width,
+            yerr=chosen_errs,
+            capsize=4,
+            label="Chosen action",
+            color=[POLICY_COLORS.get(policies[idx], "#607D8B") for idx in chosen_idx],
+            alpha=0.85,
+            edgecolor="white",
+        )
+    if greedy_idx:
+        ax.bar(
+            x[greedy_idx] + width / 2,
+            greedy_means,
+            width,
+            yerr=greedy_errs,
+            capsize=4,
+            label="Greedy oracle",
+            color="lightgray",
+            alpha=0.85,
+            edgecolor="white",
+        )
 
     ax.set_xticks(x)
     ax.set_xticklabels(policies, fontsize=9)
