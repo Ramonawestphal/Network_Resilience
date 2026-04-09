@@ -75,6 +75,18 @@ def _resolve_env_kwargs(config: dict) -> dict[str, object]:
     }
 
 
+def _resolve_budget_scaling(config: dict) -> tuple[int, bool]:
+    training_graph = config["training"].get("graph", {})
+    budget_scaling = config.get("budget_scaling", {})
+    default_reference_n = int(training_graph.get("n_range", [30, 50])[1])
+    reference_n_raw = budget_scaling.get("reference_n")
+    reference_n = (
+        int(reference_n_raw) if reference_n_raw is not None else default_reference_n
+    )
+    scale_budget = bool(budget_scaling.get("enabled", False))
+    return reference_n, scale_budget
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate a fixed RL-vs-heuristic comparison eval set."
@@ -133,8 +145,7 @@ def main() -> None:
     alpha: float = float(regime["alpha"])
     p_fail: float = float(regime["pfail"])
     b_ref: int = int(regime["budget"])
-    n_ref: int = int(training.get("graph", {}).get("n_range", [30, 50])[1])  # use max of range
-    n_ref = 40  # canonical reference node count used throughout the project
+    n_ref, scale_budget = _resolve_budget_scaling(config)
     max_rounds: int = int(regime["max_rounds"])
     m: int = int(training["graph"]["m"])
     n_range: tuple[int, int] = tuple(training["graph"]["n_range"])  # type: ignore[assignment]
@@ -174,7 +185,7 @@ def main() -> None:
             b_ref,
             num_nodes=n,
             reference_n=n_ref,
-            enabled=True,
+            enabled=scale_budget,
         )
         for s in range(args.seeds_per_graph):
             n_candidates += 1
