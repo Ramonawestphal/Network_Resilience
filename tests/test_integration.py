@@ -4,7 +4,7 @@ from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import estimate_minimum_budget, evaluate_policies
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.policies import (
-    choose_greedy_anc_node,
+    choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
     choose_highest_degree_failed_node,
     choose_highest_overload_risk_node,
@@ -22,7 +22,7 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
         {
             "degree": choose_highest_degree_failed_node,
             "risk": choose_highest_overload_risk_node,
-            "greedy": choose_greedy_anc_node,
+            "greedy": choose_greedy_nc_node,
             "betweenness": choose_highest_betweenness_failed_node,
         },
         env_factory=env_factory,
@@ -31,7 +31,7 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
 
     assert set(summaries) == {"degree", "risk", "greedy", "betweenness"}
     for summary in summaries.values():
-        assert 0.0 <= summary.final_anc.mean <= 1.0
+        assert 0.0 <= summary.final_nc.mean <= 1.0
         assert summary.steps.mean >= 0.0
         assert 0.0 <= summary.solved_fraction.mean <= 1.0
 
@@ -69,6 +69,9 @@ def test_environment_reward_matches_anc_gain_on_manual_state():
 
     _, reward, _, info = env.step(0)
 
-    previous_anc = 2 / 16
-    assert reward == info["anc_after_cascade"] - previous_anc
-    assert info["anc"] == info["anc_after_cascade"]
+    # Intra-round step (b=1 of B=2, budget=2): reward is 0 under the
+    # homogenised reward scheme. The full round delta NC is assigned only at
+    # the last step (b=B) when the cascade fires. This ensures the replay
+    # buffer contains structurally homogeneous Bellman targets.
+    assert reward == 0.0
+    assert info["nc"] == info["nc_after_cascade"]

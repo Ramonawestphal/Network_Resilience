@@ -49,7 +49,7 @@ def test_build_filtered_instances_respects_disabled_budget_scaling(monkeypatch):
     monkeypatch.setattr(generate_large_graph_eval_set, "RecoveryEnv", FakeRecoveryEnv)
     monkeypatch.setattr(
         generate_large_graph_eval_set,
-        "rollout_final_anc_on_instance",
+        "rollout_final_nc_on_instance",
         lambda *args, policy, **kwargs: 0.4 if policy == "degree" else 0.1,
     )
     monkeypatch.setattr(

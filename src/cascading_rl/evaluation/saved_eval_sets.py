@@ -17,7 +17,7 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     EpisodeResult,
     PolicyEvaluationSummary,
-    final_anc_failure_threshold_for_reporting,
+    final_nc_failure_threshold_for_reporting,
     rollout_policy,
     summarize_episode_results,
 )
@@ -62,7 +62,7 @@ def recovery_env_from_instance(
     )
 
 
-def rollout_final_anc_on_instance(
+def rollout_final_nc_on_instance(
     graph: nx.Graph,
     *,
     alpha: float,
@@ -82,7 +82,7 @@ def rollout_final_anc_on_instance(
         seed=0,
         **dict(env_kwargs),
     )
-    return rollout_policy(env, policy, seed=failure_seed).final_anc
+    return rollout_policy(env, policy, seed=failure_seed).final_nc
 
 
 def regime_label_from_heuristic_rollouts(
@@ -102,7 +102,7 @@ def regime_label_from_heuristic_rollouts(
 ) -> str:
     factories = build_policy_factories(base_seed=base_seed)
     summaries: dict[str, Any] = {}
-    final_anc_threshold = final_anc_failure_threshold_for_reporting(env_kwargs)
+    final_nc_threshold = final_nc_failure_threshold_for_reporting(env_kwargs)
     for name in DIAGNOSTIC_POLICY_NAMES:
         policy = factories[name](graph_index, failure_seed)
         env = RecoveryEnv(
@@ -117,7 +117,7 @@ def regime_label_from_heuristic_rollouts(
         result = rollout_policy(env, policy, seed=failure_seed)
         summaries[name] = summarize_episode_results(
             [result],
-            final_anc_failure_threshold=final_anc_threshold,
+            final_nc_failure_threshold=final_nc_threshold,
         )
     diagnostics = compute_regime_diagnostics(
         summaries,
@@ -263,17 +263,17 @@ def evaluate_policies_on_saved_instances(
             result = rollout_policy(env, policy, seed=seed_i)
             by_policy[name].append(result)
             by_regime[label][name].append(result)
-            em = compute_episode_metrics(result.anc_by_round, result.remaining_failed_nodes == 0)
+            em = compute_episode_metrics(result.nc_by_round, result.remaining_failed_nodes == 0)
             by_episode_metrics[name].append(em)
-    thr = final_anc_failure_threshold_for_reporting(env_kwargs)
+    thr = final_nc_failure_threshold_for_reporting(env_kwargs)
     overall = {
-        n: summarize_episode_results(rs, final_anc_failure_threshold=thr)
+        n: summarize_episode_results(rs, final_nc_failure_threshold=thr)
         for n, rs in by_policy.items()
         if rs
     }
     per_bucket = {
         lbl: {
-            n: summarize_episode_results(rs, final_anc_failure_threshold=thr)
+            n: summarize_episode_results(rs, final_nc_failure_threshold=thr)
             for n, rs in pmap.items()
             if rs
         }
@@ -287,12 +287,12 @@ def evaluate_policies_on_saved_instances(
     return overall, per_bucket, agg_metrics
 
 
-def mean_final_anc_from_summaries(
+def mean_final_nc_from_summaries(
     summaries: dict[str, PolicyEvaluationSummary],
     policies: Sequence[str],
 ) -> dict[str, float]:
     out: dict[str, float] = {}
     for name in policies:
         if name in summaries:
-            out[name] = summaries[name].final_anc.mean
+            out[name] = summaries[name].final_nc.mean
     return out

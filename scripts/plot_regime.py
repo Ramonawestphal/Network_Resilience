@@ -246,7 +246,7 @@ def plot_budget_curves(results: dict, output_path: Path) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), constrained_layout=True)
     for policy_name in results["policies"]:
         budgets = [cell["budget"] for cell in cells]
-        final_anc = [cell["policy_summaries"][policy_name]["final_anc"]["mean"] for cell in cells]
+        final_anc = [cell["policy_summaries"][policy_name]["final_nc"]["mean"] for cell in cells]
         solved_frac = [
             cell["policy_summaries"][policy_name]["solved_fraction"]["mean"]
             for cell in cells
@@ -310,7 +310,7 @@ def main() -> None:
         colorbar_label="fraction of episodes",
         value_fn=lambda cell, pol: (
             float(v)
-            if (v := cell["policy_summaries"][pol].get("unsolved_low_final_anc_fraction"))
+            if (v := cell["policy_summaries"][pol].get("unsolved_low_final_nc_fraction"))
             is not None
             else float("nan")
         ),

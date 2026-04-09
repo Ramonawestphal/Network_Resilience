@@ -5,7 +5,7 @@ import networkx as nx
 from cascading_rl.envs.recovery import RecoveryObservation
 from cascading_rl.policies.betweenness_policy import choose_highest_betweenness_failed_node
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
-from cascading_rl.policies.greedy_policy import choose_greedy_anc_node
+from cascading_rl.policies.greedy_policy import choose_greedy_nc_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
 from cascading_rl.policies.risk_policy import choose_highest_overload_risk_node
 
@@ -53,7 +53,7 @@ def test_risk_policy_prefers_node_adjacent_to_stressed_neighbors():
 def test_greedy_policy_prefers_largest_connectivity_gain():
     observation = make_observation()
 
-    actions = choose_greedy_anc_node(observation)
+    actions = choose_greedy_nc_node(observation)
 
     assert actions == [0, 3]
 

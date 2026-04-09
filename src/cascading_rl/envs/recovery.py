@@ -14,7 +14,7 @@ from cascading_rl.dynamics.cascade import (
     build_initial_state,
     reactivate_node,
 )
-from cascading_rl.metrics.connectivity import accumulated_normalized_connectivity
+from cascading_rl.metrics.connectivity import normalized_connectivity
 
 Node = Hashable
 
@@ -100,11 +100,19 @@ class RecoveryObservation:
 class RecoveryEnv:
     """Budget-constrained recovery environment with batch-per-round cascade waves.
 
-    ``step`` exposes intra-round single-node repairs, while ``step_batch`` performs a
-    full round decision of up to ``B`` repairs followed by one cascade wave. Both use
-    the same reward: net PR/ANC change from the state at the start of the transition to
-    after any repairs in that transition and after the cascade wave (if the round ends
-    and a wave runs). Intra-round steps omit the wave, so reward equals repair-only gain.
+    ``step`` reactivates one node at a time.
+    For intra-round steps (budget not yet exhausted) no cascade fires and the
+    reward is 0.0. Only when the round closes (remaining_budget == 0) does the
+    cascade wave fire, and the reward is NC(after_cascade) - NC(before_round).
+
+    ``step_batch`` reactivates up to B nodes at once then fires one cascade wave.
+    Reward = NC(after_cascade) - NC(before_batch), which equals the sum of the
+    per-step end-of-round deltas over the same round.
+
+    In both cases the cascade wave only fires when the round is complete.
+    NC is normalized_connectivity: sum of squared component-size fractions, in [0, 1].
+    After full restoration (no failed nodes), NC = 1.0 and no further failures occur,
+    so padding solved episodes with 1.0 in anc_fixed_horizon is exact.
     """
 
     def __init__(
@@ -121,7 +129,7 @@ class RecoveryEnv:
         failure_bias: str = "uniform",
         action_space: str = "failed",
         obs_hops: int | None = None,
-        abandonment_anc_threshold: float | None = None,
+        abandonment_nc_threshold: float | None = None,
     ) -> None:
         if budget < 1:
             raise ValueError("budget must be at least 1.")
@@ -129,10 +137,10 @@ class RecoveryEnv:
             raise ValueError("max_rounds must be at least 1 when provided.")
         if obs_hops is not None and obs_hops < 1:
             raise ValueError("obs_hops must be at least 1 when provided.")
-        if abandonment_anc_threshold is not None and not (
-            0.0 <= abandonment_anc_threshold <= 1.0
+        if abandonment_nc_threshold is not None and not (
+            0.0 <= abandonment_nc_threshold <= 1.0
         ):
-            raise ValueError("abandonment_anc_threshold must lie in [0, 1] when set.")
+            raise ValueError("abandonment_nc_threshold must lie in [0, 1] when set.")
 
         self.base_graph = graph.copy()
         self.alpha = alpha
@@ -144,15 +152,22 @@ class RecoveryEnv:
         self.failure_bias = str(failure_bias)
         self.action_space = str(action_space)
         self.obs_hops = obs_hops
-        self.abandonment_anc_threshold = (
-            float(abandonment_anc_threshold)
-            if abandonment_anc_threshold is not None
+        self.abandonment_nc_threshold = (
+            float(abandonment_nc_threshold)
+            if abandonment_nc_threshold is not None
             else None
         )
-        self._rng = Random(seed)
+        self._rng = Random(seed if seed is not None else 0)
         self.state: CascadeState | None = None
         self.remaining_budget = budget
         self.current_round = 1
+        # NC at the start of the current round, set in reset() and updated whenever a
+        # round closes. Used to compute homogenised per-round rewards in step(): intra-
+        # round steps receive reward=0 so that the replay buffer contains only one
+        # structurally meaningful signal per round (the full cascade-inclusive delta),
+        # preventing the mixed-target problem caused by the reward asymmetry between
+        # intra-round steps (b < B, no cascade) and last steps (b = B, cascade fires).
+        self._round_start_nc: float = 0.0
 
     def reset(self, seed: int | None = None) -> RecoveryObservation:
         # When ``seed`` is given, the environment RNG is fully re-seeded before
@@ -171,6 +186,7 @@ class RecoveryEnv:
         )
         self.remaining_budget = self.budget
         self.current_round = 1
+        self._round_start_nc = normalized_connectivity(self.state.graph, self.state.active)
         return self.observe()
 
     def observe(self) -> RecoveryObservation:
@@ -198,15 +214,15 @@ class RecoveryEnv:
             obs_hops=self.obs_hops,
         )
 
-    def current_anc(self) -> float:
+    def current_nc(self) -> float:
         if self.state is None:
             raise RuntimeError("Environment must be reset before use.")
-        return accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        return normalized_connectivity(self.state.graph, self.state.active)
 
-    def _abandon_due_to_low_anc(self, post_cascade_anc: float) -> bool:
-        if self.abandonment_anc_threshold is None or self.state is None:
+    def _abandon_due_to_low_nc(self, post_cascade_nc: float) -> bool:
+        if self.abandonment_nc_threshold is None or self.state is None:
             return False
-        return post_cascade_anc < self.abandonment_anc_threshold and bool(self.state.failed)
+        return post_cascade_nc < self.abandonment_nc_threshold and bool(self.state.failed)
 
     def step(self, action: Node) -> tuple[RecoveryObservation, float, bool, dict[str, object]]:
         if self.state is None:
@@ -218,11 +234,10 @@ class RecoveryEnv:
 
         action_round = self.current_round
         action_index_in_round = self.budget - self.remaining_budget + 1
-        previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
         self.state = reactivate_node(self.state, action)
         self.remaining_budget -= 1
 
-        anc_after_reactivation = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        nc_after_reactivation = normalized_connectivity(self.state.graph, self.state.active)
 
         newly_failed: list[Node] = []
         cascade_executed = False
@@ -231,11 +246,26 @@ class RecoveryEnv:
             cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
-        anc_after_cascade = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        reward = anc_after_cascade - previous_anc
+        nc_after_cascade = normalized_connectivity(self.state.graph, self.state.active)
+
+        # Homogenised reward: zero for all intra-round steps (b < B), full
+        # round-level delta NC for the last step (b = B) only. This ensures
+        # every transition in the replay buffer carries rewards of the same
+        # structural type: either 0 (no cascade yet) or the complete cascade-
+        # inclusive delta relative to the start of the round. Without this,
+        # the last step absorbs the entire cascade penalty while earlier steps
+        # receive only small repair gains, creating conflicting Bellman targets
+        # for states that are indistinguishable without budget_coverage.
+        # The total episode reward (sum over all steps) equals the cumulative
+        # NC gain over rounds, identical to step_batch semantics.
+        if round_complete:
+            reward = nc_after_cascade - self._round_start_nc
+            self._round_start_nc = nc_after_cascade
+        else:
+            reward = 0.0
 
         exhausted_rounds = action_round >= self.max_rounds
-        abandoned = self._abandon_due_to_low_anc(anc_after_cascade)
+        abandoned = self._abandon_due_to_low_nc(nc_after_cascade)
         if not self.state.failed:
             done = True
             abandoned = False
@@ -251,9 +281,9 @@ class RecoveryEnv:
             self.remaining_budget = self.budget
 
         info = {
-            "anc": anc_after_cascade,
-            "anc_after_cascade": anc_after_cascade,
-            "anc_after_reactivation": anc_after_reactivation,
+            "nc": nc_after_cascade,
+            "nc_after_cascade": nc_after_cascade,
+            "nc_after_reactivation": nc_after_reactivation,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
             "frontier_nodes": len(self.state.frontier),
@@ -299,11 +329,11 @@ class RecoveryEnv:
             raise ValueError(f"Invalid recovery actions: {invalid_actions}")
 
         action_round = self.current_round
-        previous_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        previous_nc = normalized_connectivity(self.state.graph, self.state.active)
 
         for action in actions:
             self.state = reactivate_node(self.state, action)
-        repaired_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
+        repaired_nc = normalized_connectivity(self.state.graph, self.state.active)
         if len(actions) < self.remaining_budget and self.state.failed:
             raise ValueError(
                 "Partial step_batch is only valid when it repairs every remaining failed node."
@@ -315,11 +345,12 @@ class RecoveryEnv:
             cascade_executed = True
             newly_failed = advance_cascade_round(self.state)
 
-        post_cascade_anc = accumulated_normalized_connectivity(self.state.graph, self.state.active)
-        reward = post_cascade_anc - previous_anc
+        post_cascade_nc = normalized_connectivity(self.state.graph, self.state.active)
+        reward = post_cascade_nc - previous_nc
+        self._round_start_nc = post_cascade_nc
 
         exhausted_rounds = self.current_round >= self.max_rounds
-        abandoned = self._abandon_due_to_low_anc(post_cascade_anc)
+        abandoned = self._abandon_due_to_low_nc(post_cascade_nc)
         if not self.state.failed:
             done = True
             abandoned = False
@@ -332,12 +363,12 @@ class RecoveryEnv:
             self.current_round += 1
             self.remaining_budget = self.budget
         else:
-            self.remaining_budget = max(0, self.remaining_budget - len(actions))
+            self.remaining_budget = 0
 
         info = {
-            "anc": post_cascade_anc,
-            "anc_after_cascade": post_cascade_anc,
-            "anc_after_reactivation": repaired_anc,
+            "nc": post_cascade_nc,
+            "nc_after_cascade": post_cascade_nc,
+            "nc_after_reactivation": repaired_nc,
             "failed_nodes": len(self.state.failed),
             "active_nodes": len(self.state.active),
             "frontier_nodes": len(self.state.frontier),

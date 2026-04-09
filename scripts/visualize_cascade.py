@@ -25,7 +25,7 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.metrics.connectivity import accumulated_normalized_connectivity
 from cascading_rl.policies import (
-    choose_greedy_anc_node,
+    choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
     choose_highest_degree_failed_node,
     choose_highest_overload_risk_node,
@@ -49,7 +49,7 @@ def build_policy(name: str, seed: int):
         "random": lambda observation: choose_random_failed_node(observation, rng=rng),
         "degree": choose_highest_degree_failed_node,
         "risk": choose_highest_overload_risk_node,
-        "greedy": choose_greedy_anc_node,
+        "greedy": choose_greedy_nc_node,
         "betweenness": choose_highest_betweenness_failed_node,
     }
     try:
@@ -89,7 +89,7 @@ def rollout_frames(
         Frame(
             label="Initial random failures",
             observation=observation,
-            anc=env.current_anc(),
+            anc=env.current_nc(),
             highlighted_nodes=tuple(sorted(observation.frontier)),
         )
     )
@@ -121,7 +121,7 @@ def rollout_frames(
             Frame(
                 label=label,
                 observation=next_observation,
-                anc=float(info["anc"]),
+                anc=float(info["nc"]),
                 reward=reward,
                 chosen_action=chosen,
                 highlighted_nodes=highlighted,
