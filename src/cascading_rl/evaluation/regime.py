@@ -358,6 +358,7 @@ def serialize_policy_summary(summary: PolicyEvaluationSummary) -> dict[str, obje
         "rounds": serialize_metric(summary.rounds),
         "solved_fraction": serialize_metric(summary.solved_fraction),
         "rounds_when_solved": serialize_metric(summary.rounds_when_solved),
+        "rounds_when_failed": serialize_metric(summary.rounds_when_failed),
         "fully_restored_count": summary.fully_restored_count,
         "fully_restored_fraction": fully_frac,
         "episode_count": summary.episode_count,

@@ -1,0 +1,9 @@
+policy,transition_index,action_round,intra_round,chosen_nodes,anc_pre_step,anc_after_reactivation,anc_post_cascade,n_failed_after,cascade_executed,round_complete,reward
+greedy,0,1,batch,20;21,0.64892,0.741512,0.563272,8,True,True,-0.085648
+greedy,1,2,batch,0;6,0.563272,0.694444,0.604938,8,True,True,0.041667
+greedy,2,3,batch,13;8,0.604938,0.694444,0.694444,6,False,True,0.089506
+greedy,3,4,batch,11;2,0.694444,0.790123,0.790123,4,False,True,0.095679
+greedy,4,5,batch,26;29,0.790123,0.891975,0.891975,2,False,True,0.101852
+greedy,5,6,batch,3;31,0.891975,1.0,1.0,0,False,True,0.108025
+rl,0,1,1,11,0.64892,0.694444,0.694444,6,False,False,0.045525
+rl,1,1,2,2,0.694444,0.741512,0.204475,13,True,True,-0.489969

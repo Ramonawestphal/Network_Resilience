@@ -1,0 +1,7 @@
+action_round,greedy_chosen,greedy_anc_end,greedy_n_failed_end,rl_chosen_in_order,rl_anc_end,rl_n_failed_end
+1,20;21,0.563272,8,11;2,0.204475,13
+2,0;6,0.604938,8,,,
+3,13;8,0.694444,6,,,
+4,11;2,0.790123,4,,,
+5,26;29,0.891975,2,,,
+6,3;31,1.0,0,,,
