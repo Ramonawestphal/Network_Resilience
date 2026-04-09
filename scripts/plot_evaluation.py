@@ -56,7 +56,7 @@ def _mean_err(data: dict, policy: str, key: str) -> tuple[float, float]:
         if mk not in p:
             return None, None
         mean = float(p[mk]) if p[mk] is not None else None
-        err = float(p[ek]) if ek and p.get(ek) is not None else None
+        err = 0.0 if not ek else (float(p[ek]) if p.get(ek) is not None else None)
         return mean, err
     return None, None
 
