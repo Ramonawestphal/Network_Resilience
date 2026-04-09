@@ -5,7 +5,7 @@ from cascading_rl.envs.recovery import RecoveryEnv
 
 
 def test_abandonment_when_post_cascade_nc_below_threshold_step_and_batch():
-    """Episode ends with info['abandoned'] when ANC stays below threshold and failures remain."""
+    """Episode ends with info['abandoned'] when NC stays below threshold and failures remain."""
     graph = nx.path_graph(10)
     env = RecoveryEnv(
         graph,

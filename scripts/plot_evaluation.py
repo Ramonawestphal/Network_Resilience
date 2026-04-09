@@ -146,8 +146,13 @@ def plot_decision_quality(data: dict, policies: list[str], out_dir: Path):
 
     for key, title, ylabel, filename in new_metrics:
         fig, ax = plt.subplots(figsize=(7, 4))
-        vals = [_mean_err(data, p, key)[0] for p in policies]
-        errs = [_mean_err(data, p, key)[1] for p in policies]
+        metric_pairs = [_mean_err(data, p, key) for p in policies]
+        if any(mean is None or err is None for mean, err in metric_pairs):
+            print(f"Skipping {filename}: missing metric data in summary.")
+            plt.close()
+            continue
+        vals = [mean for mean, _ in metric_pairs]
+        errs = [err for _, err in metric_pairs]
         bar_chart(ax, policies, vals, errs, title, ylabel, POLICY_COLORS)
         plt.tight_layout()
         path = out_dir / f"{filename}.png"
