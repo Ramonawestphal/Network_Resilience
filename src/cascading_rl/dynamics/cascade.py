@@ -271,7 +271,15 @@ def build_initial_state(
 
 
 def reactivate_node(state: CascadeState, node: Node) -> CascadeState:
-    """Return the state immediately after reactivating a failed node."""
+    """Return the state immediately after reactivating a failed node.
+
+    The reactivated node starts with load=0: it re-enters the network drawing
+    no load.  Its neighbours retain whatever load they absorbed when this node
+    failed — load redistribution is irreversible in this model.  A subsequent
+    cascade wave will only propagate further if those neighbours still exceed
+    their capacity.  This matches the standard Motter-Lai cascade model, where
+    recovery does not undo prior redistribution.
+    """
     if node not in state.failed:
         raise ValueError("Only failed nodes can be reactivated.")
 

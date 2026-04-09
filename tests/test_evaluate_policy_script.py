@@ -13,6 +13,7 @@ import yaml
 
 from scripts import evaluate_policy
 from scripts.evaluate_policy import resolve_grid_spec, serialize_legacy_summary
+from cascading_rl.evaluation.saved_eval_sets import save_eval_instances
 from cascading_rl.models import RecoveryQNetwork
 from cascading_rl.training import TrainingConfig, TrainingState, save_checkpoint
 
@@ -306,6 +307,39 @@ def test_run_eval_set_mode_writes_eval_set_log(tmp_path: Path):
     text = log_path.read_text(encoding="utf-8")
     assert "=== Saved eval set:" in text
     assert "degree:" in text
+
+
+def test_run_eval_set_mode_uses_json_baseline_for_transfer_table(
+    tmp_path: Path, monkeypatch, capsys
+):
+    monkeypatch.setattr(evaluate_policy, "ROOT", tmp_path)
+
+    eval_dir = tmp_path / "eval_sets"
+    eval_dir.mkdir()
+
+    inst = {
+        "graph": nx.path_graph(8),
+        "alpha": 0.2,
+        "p_fail": 0.4,
+        "budget": 2,
+        "max_rounds": 4,
+        "failure_seed": 3,
+        "regime_label": "decision-sensitive",
+    }
+    save_eval_instances(eval_dir / "large_graph_medium.pkl", [inst])
+    save_eval_instances(eval_dir / "ds_validation.json", [inst])
+
+    args = Namespace(
+        eval_set=Path("eval_sets/large_graph_medium.pkl"),
+        checkpoint=tmp_path / "missing.pt",
+        policies=["degree"],
+    )
+
+    evaluate_policy.run_eval_set_mode(args, _minimal_eval_set_config())
+    out = capsys.readouterr().out
+
+    assert "validation (n~30-50)" in out
+    assert "ds_validation.json not found" not in out
 
 
 def test_run_eval_set_mode_scaled_pickle_requires_b_scaled_on_all_instances(tmp_path: Path):

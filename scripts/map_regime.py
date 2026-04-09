@@ -200,13 +200,13 @@ def write_regime_heuristic_summary(
     thr_note = ""
     if serialized_cells and policies:
         ps0 = serialized_cells[0]["policy_summaries"][policies[0]]
-        t_raw = ps0.get(“final_nc_failure_threshold_used”)
+        t_raw = ps0.get("final_nc_failure_threshold_used")
         if t_raw is not None:
             thr = float(t_raw)
             thr_note = (
-                f””Unsolved low-NC” counts episodes with remaining failed nodes and final NC “
-                f”strictly below **{thr:g}** (from `abandonment_nc_threshold` when set in config, “
-                f”else 0.3).\n\n”
+                f'"Unsolved low-NC" counts episodes with remaining failed nodes and final NC '
+                f"strictly below **{thr:g}** (from `abandonment_nc_threshold` when set in config, "
+                f"else 0.3).\n\n"
             )
 
     lines = [
@@ -215,7 +215,7 @@ def write_regime_heuristic_summary(
         "Per-policy means over all grid cells (alpha x p_fail x budget).",
         "",
         thr_note,
-        "| policy | mean solved fraction | mean unsolved low-ANC fraction |",
+        "| policy | mean solved fraction | mean unsolved low-NC fraction |",
         "| --- | ---: | ---: |",
     ]
     n_cells = len(serialized_cells)

@@ -25,8 +25,6 @@ from cascading_rl.evaluation.saved_eval_sets import (
 ALPHA = 0.15
 PRIMARY_PFAIL = 0.18
 FALLBACK_PFAIL = 0.20
-B_REF = 3
-N_REF = 40
 NUM_GRAPHS = 20
 SEEDS_PER_GRAPH = 5
 KEEP_FRACTION_WARN = 0.3
@@ -65,6 +63,9 @@ def resolve_env_kwargs(config: dict) -> dict[str, object]:
 def build_filtered_instances(
     *,
     n_range: tuple[int, int],
+    b_ref: int,
+    n_ref: int,
+    scale_budget: bool,
     m: int,
     max_rounds: int,
     env_kwargs: dict[str, object],
@@ -88,10 +89,10 @@ def build_filtered_instances(
 
     for gi, (graph, n, graph_seed) in enumerate(graphs_meta):
         b_scaled = compute_scaled_budget(
-            B_REF,
+            b_ref,
             num_nodes=n,
-            reference_n=N_REF,
-            enabled=True,
+            reference_n=n_ref,
+            enabled=scale_budget,
         )
         for s in range(SEEDS_PER_GRAPH):
             generated += 1
@@ -160,8 +161,8 @@ def build_filtered_instances(
                     "p_fail": p_fail,
                     "budget": b_scaled,
                     "b_scaled": b_scaled,
-                    "b_ref": B_REF,
-                    "n_ref": N_REF,
+                    "b_ref": b_ref,
+                    "n_ref": n_ref,
                     "n": n,
                     "graph_seed": graph_seed,
                     "failure_seed": failure_seed,
@@ -190,14 +191,21 @@ def run_one_set(
 
     training = config["training"]
     evaluation = config["evaluation"]
+    budget_scaling = config["budget_scaling"]
     regime_mapping = config["regime_mapping"]
     m = int(training["graph"]["m"])
+    b_ref = int(training["regime"]["budget"])
+    n_ref = int(budget_scaling["reference_n"])
+    scale_budget = bool(budget_scaling.get("enabled", False))
     max_rounds = int(training["regime"]["max_rounds"])
     env_kwargs = resolve_env_kwargs(config)
     master_seed = int(training["seed"]) + seed_offset
 
     kept, generated, spreads = build_filtered_instances(
         n_range=n_range,
+        b_ref=b_ref,
+        n_ref=n_ref,
+        scale_budget=scale_budget,
         m=m,
         max_rounds=max_rounds,
         env_kwargs=env_kwargs,
@@ -215,6 +223,9 @@ def run_one_set(
         )
         kept, generated, spreads = build_filtered_instances(
             n_range=n_range,
+            b_ref=b_ref,
+            n_ref=n_ref,
+            scale_budget=scale_budget,
             m=m,
             max_rounds=max_rounds,
             env_kwargs=env_kwargs,
