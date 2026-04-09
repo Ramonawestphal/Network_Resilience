@@ -13,6 +13,8 @@ from cascading_rl.reproducibility import REPO_ROOT
 from cascading_rl.models.gnn import (
     FEATURE_NAMES,
     GLOBAL_FEATURE_NAMES,
+    LEGACY_FEATURE_NAMES,
+    LEGACY_GLOBAL_FEATURE_NAMES,
     GlobalReadout,
     GraphStateEncoder,
     GraphTensor,
@@ -20,6 +22,11 @@ from cascading_rl.models.gnn import (
     observation_to_graph_tensor,
     resolve_feature_names,
     resolve_global_feature_names,
+)
+
+_KNOWN_NODE_FEATURES = frozenset(FEATURE_NAMES) | frozenset(LEGACY_FEATURE_NAMES)
+_KNOWN_GLOBAL_FEATURES = frozenset(GLOBAL_FEATURE_NAMES) | frozenset(
+    LEGACY_GLOBAL_FEATURE_NAMES
 )
 
 Node = Hashable
@@ -41,7 +48,7 @@ class QNetworkConfig:
             unknown = tuple(
                 feature_name
                 for feature_name in self.active_node_features
-                if feature_name not in FEATURE_NAMES
+                if feature_name not in _KNOWN_NODE_FEATURES
             )
             if unknown:
                 raise ValueError(f"Unknown node feature(s): {unknown}")
@@ -50,7 +57,7 @@ class QNetworkConfig:
             unknown = tuple(
                 feature_name
                 for feature_name in self.active_global_features
-                if feature_name not in GLOBAL_FEATURE_NAMES
+                if feature_name not in _KNOWN_GLOBAL_FEATURES
             )
             if unknown:
                 raise ValueError(f"Unknown global feature(s): {unknown}")

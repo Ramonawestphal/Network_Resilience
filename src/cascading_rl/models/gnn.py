@@ -162,7 +162,7 @@ def observation_to_graph_tensor(
         degree = float(observation.graph.degree(node))
         canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
         legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
-        legacy_round = float(observation.current_round) / max(1.0, float(num_nodes))
+        legacy_round = float(observation.current_round) / max(1.0, float(observation.max_rounds))
         feature_values = {
             "load_norm": load / scale,
             "capacity_norm": capacity / scale,

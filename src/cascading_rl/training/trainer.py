@@ -17,6 +17,7 @@ from torch.optim import Adam
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation import evaluate_policy_factories_on_graphs
+from cascading_rl.evaluation.metrics import compute_episode_metrics
 from cascading_rl.graph.generation import make_ba_graph, make_graph_batch
 from cascading_rl.models import (
     FEATURE_NAMES,
@@ -26,6 +27,7 @@ from cascading_rl.models import (
     build_greedy_policy,
     observation_to_global_features,
     observation_to_graph_tensor,
+    select_action,
     select_top_b,
 )
 from cascading_rl.training.replay import ReplayBuffer, Transition
@@ -34,6 +36,9 @@ Node = Hashable
 
 GRAPH_BUFFER_MAXLEN = 20
 FREEZE_GRAPH_SPECS_SEED_OFFSET = 20_000
+# Rolling window for progress-line recovery rate and mean ANC (same construction as
+# ``compute_episode_metrics`` / ``evaluate_policy.py`` aggregate ``mean_anc_unconditional``).
+ROLLING_TRAIN_METRICS_EPISODES = 200
 
 
 @dataclass(frozen=True)
@@ -97,6 +102,8 @@ class TrainingConfig:
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
     episode_final_anc: list[float] = field(default_factory=list)
+    episode_recovered: list[bool] = field(default_factory=list)
+    episode_mean_anc_unconditional: list[float] = field(default_factory=list)
     episode_alpha: list[float] = field(default_factory=list)
     episode_pfail: list[float] = field(default_factory=list)
     episode_spreads: list[float] = field(default_factory=list)
@@ -153,6 +160,13 @@ def _mean_recent(values: list[float], window: int = 10) -> float:
         return 0.0
     recent = values[-window:]
     return sum(recent) / len(recent)
+
+
+def _rolling_recovered_fraction(flags: list[bool], window: int) -> float:
+    if not flags:
+        return 0.0
+    chunk = flags[-window:]
+    return sum(1 for f in chunk if f) / len(chunk)
 
 
 def _normalize_action_batch(action: object) -> tuple[Node, ...]:
@@ -226,6 +240,7 @@ def _render_progress_line(
     *,
     epsilon: float,
     training_state: TrainingState,
+    rolling_episodes: int = ROLLING_TRAIN_METRICS_EPISODES,
     bar_width: int = 28,
 ) -> str:
     completed = episode + 1
@@ -233,13 +248,18 @@ def _render_progress_line(
     filled = int(bar_width * progress)
     bar = "#" * filled + "-" * (bar_width - filled)
     recent_reward = _mean_recent(training_state.episode_rewards)
-    recent_anc = _mean_recent(training_state.episode_final_anc)
     recent_loss = _mean_recent(training_state.losses)
+    w = max(1, rolling_episodes)
+    recov_frac = _rolling_recovered_fraction(training_state.episode_recovered, w)
+    mean_anc_u = _mean_recent(training_state.episode_mean_anc_unconditional, w)
+    n_roll = min(w, len(training_state.episode_recovered))
+    roll_tag = f"{n_roll}" if n_roll < w else str(w)
     return (
         f"\r[{bar}] {completed:>4}/{total_episodes} "
         f"eps={epsilon:.3f} "
         f"reward10={recent_reward:.3f} "
-        f"anc10={recent_anc:.3f} "
+        f"recov{roll_tag}={recov_frac:.3f} "
+        f"mean_anc{roll_tag}={mean_anc_u:.3f} "
         f"loss10={recent_loss:.4f}"
     )
 
@@ -274,14 +294,22 @@ def compute_dqn_loss(
     gamma: float,
     device: torch.device,
 ) -> torch.Tensor:
+    """Standard single-action DQN loss: Q(s,a) ← r + γ·max_a' Q(s',a').
+
+    Each transition must store a single node action.  The target is either the
+    raw reward (when ``done=True``, e.g. episode end or MC return) or the
+    reward plus the discounted max Q-value of the next valid action. Collapsed
+    transitions use ``bootstrap_steps`` to control the bootstrap exponent.
+    """
     losses: list[torch.Tensor] = []
     for transition in transitions:
         graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
         global_features = _global_features_for_model(model, transition.observation, device=device)
         q_values = model(graph_tensor, global_features)
 
-        action_indices = [graph_tensor.node_to_index[action] for action in _normalize_action_batch(transition.action)]
-        q_selected = torch.stack([q_values[index] for index in action_indices]).mean()
+        # Single action — take the Q-value for that node directly.
+        action_index = graph_tensor.node_to_index[_normalize_action_batch(transition.action)[0]]
+        q_selected = q_values[action_index]
 
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
@@ -297,17 +325,84 @@ def compute_dqn_loss(
                     next_tensor.node_to_index[node] for node in transition.next_observation.valid_actions
                 ]
                 if valid_next_indices:
-                    next_budget = min(
-                        transition.next_observation.remaining_budget,
-                        len(valid_next_indices),
-                    )
+                    # Standard max-Q bootstrap.
                     valid_next_q = next_q_values[valid_next_indices]
-                    top_next_q = torch.topk(valid_next_q, k=next_budget).values.mean()
-                    target_value = target_value + gamma * top_next_q
+                    bootstrap_discount = gamma ** transition.bootstrap_steps
+                    target_value = target_value + bootstrap_discount * valid_next_q.max()
 
         losses.append(F.smooth_l1_loss(q_selected, target_value))
 
     return torch.stack(losses).mean()
+
+
+def _maybe_update(
+    model: RecoveryQNetwork,
+    target_model: RecoveryQNetwork,
+    optimizer: Any,
+    replay_buffer: Any,
+    config: "TrainingConfig",
+    device: torch.device,
+    training_state: "TrainingState",
+    rng: Random,
+) -> None:
+    """Sample a mini-batch and apply one gradient update if the buffer is ready."""
+    if len(replay_buffer) < max(config.batch_size, config.warmup_transitions):
+        return
+    batch = replay_buffer.sample(config.batch_size, rng=rng)
+    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device)
+    optimizer.zero_grad()
+    loss.backward()  # type: ignore[no-untyped-call]
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    optimizer.step()
+    if config.log_grad_norm:
+        grad_norm = sum(
+            p.grad.norm().item()
+            for p in model.parameters()
+            if p.grad is not None
+        )
+        print(f"[diag] grad_norm={grad_norm:.4f}", flush=True)
+    training_state.losses.append(float(loss.item()))
+    if training_state.total_steps % config.target_update_interval == 0:
+        target_model.load_state_dict(model.state_dict())
+
+
+def rewrite_round(
+    transitions: list[Transition],
+    s_post_cascade: RecoveryObservation,
+    gamma: float,
+) -> list[Transition]:
+    """Rewrite buffered intra-round transitions with suffix-discounted rewards.
+
+    For a round with steps k=0..n-1 (k=n-1 is the cascade step):
+        reward[k] = r_k + γ·r_{k+1} + ... + γ^{n-1-k}·r_cascade
+
+    Every rewritten transition bootstraps from s_post_cascade, making the
+    cascade outcome directly visible in every step's Q-target. The number of
+    collapsed steps to that bootstrap state is stored in ``bootstrap_steps``.
+    done is taken from the last transition (True if episode ended here).
+    """
+    if not transitions:
+        return []
+    done = transitions[-1].done
+    n = len(transitions)
+    # Build suffix sums right-to-left.
+    # suffix[i] accumulates r_i + γ·r_{i+1} + ... + γ^{n-1-i}·r_cascade
+    suffix_rewards: list[float] = [0.0] * n
+    suffix_rewards[-1] = transitions[-1].reward  # r_cascade with γ^0
+    for i in range(n - 2, -1, -1):
+        # γ^1 applied per step away from the cascade
+        suffix_rewards[i] = transitions[i].reward + gamma * suffix_rewards[i + 1]
+    return [
+        Transition(
+            observation=t.observation,
+            action=t.action,
+            reward=suffix_rewards[i],       # suffix-discounted reward from step i to cascade
+            next_observation=s_post_cascade, # bootstrap from post-cascade state for all steps
+            done=done,
+            bootstrap_steps=n - i,
+        )
+        for i, t in enumerate(transitions)
+    ]
 
 
 def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
@@ -518,14 +613,17 @@ def validate_policy_on_eval_set(
     instances: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Run greedy RL on a saved eval set file (same protocol as ``--eval-set``)."""
+    from collections import defaultdict
+
     from cascading_rl.evaluation.saved_eval_sets import evaluate_policies_on_saved_instances
 
     env_kwargs = _env_kwargs_from_config(config)
-    policy = build_greedy_policy(model, device=device, batch_actions=True)
+    # Single-step policy: consistent with training and with heuristic baselines.
+    policy = build_greedy_policy(model, device=device, batch_actions=False)
     factories: dict[str, Callable[[int, int], Any]] = {
         "rl": lambda _gi, _se: policy,
     }
-    overall, _ = evaluate_policies_on_saved_instances(
+    overall, *_ = evaluate_policies_on_saved_instances(
         instances,
         factories,
         env_kwargs=env_kwargs,
@@ -545,10 +643,25 @@ def validate_policy_on_eval_set(
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
     }
+
+    # Group instances by the alpha stored in each instance and compute per-alpha
+    # performance separately, instead of mapping the global mean to every alpha.
+    instances_by_alpha: dict[float, list] = defaultdict(list)
+    for inst in instances:
+        instances_by_alpha[float(inst.get("alpha", config.alpha))].append(inst)
+    per_alpha_anc: dict[float, float] = {}
+    for alpha_val, alpha_insts in instances_by_alpha.items():
+        a_overall, *_ = evaluate_policies_on_saved_instances(
+            alpha_insts,
+            factories,
+            env_kwargs=env_kwargs,
+            policy_names=["rl"],
+        )
+        per_alpha_anc[alpha_val] = a_overall["rl"].final_anc.mean
+
     mean_anc = summary.final_anc.mean
-    per_alpha_anc = {float(a): mean_anc for a in config.alpha_values}
     return {
-        "final_anc_mean": summary.final_anc.mean,
+        "final_anc_mean": mean_anc,
         "final_anc_stderr": summary.final_anc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
@@ -575,7 +688,7 @@ def validate_policy(
     device: torch.device,
     validation_graphs: Sequence[Any],
 ) -> dict[str, Any]:
-    policy = build_greedy_policy(model, device=device, batch_actions=True)
+    policy = build_greedy_policy(model, device=device, batch_actions=False)
     env_kwargs = _env_kwargs_from_config(config)
     reference_summaries = evaluate_policy_factories_on_graphs(
         validation_graphs,
@@ -690,6 +803,8 @@ def save_checkpoint(
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
                 "episode_final_anc": training_state.episode_final_anc,
+                "episode_recovered": training_state.episode_recovered,
+                "episode_mean_anc_unconditional": training_state.episode_mean_anc_unconditional,
                 "episode_alpha": training_state.episode_alpha,
                 "episode_pfail": training_state.episode_pfail,
                 "episode_spreads": training_state.episode_spreads,
@@ -873,60 +988,78 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             )
         done = False
         total_reward = 0.0
+        episode_buffer: list[Transition] = []
+        anc_by_round: list[float] = []
+        info: dict[str, object] = {
+            "anc": env.current_anc(),
+            "failed_nodes": len(observation.failed),
+        }
 
+        # --- Single-step DQN with round-bounded n-step returns ---
+        round_buffer: list[Transition] = []  # intra-round transitions; flushed at each round end
         while not done and observation.failed:
-            actions = tuple(
-                select_top_b(
-                    model,
-                    observation,
-                    budget=observation.remaining_budget,
-                    epsilon=epsilon,
-                    rng=rng,
-                    device=device,
-                )
+            action = select_action(
+                model,
+                observation,
+                epsilon=epsilon,
+                rng=rng,
+                device=device,
             )
-            next_observation, reward, done, _info = env.step_batch(list(actions))
-            replay_buffer.push(
-                Transition(
-                    observation=observation,
-                    action=actions,
-                    reward=reward,
-                    next_observation=next_observation,
-                    done=done,
-                )
+            next_observation, reward, done, info = env.step(action)
+            round_complete = bool(info.get("round_complete"))
+            if round_complete:
+                anc_by_round.append(float(info["anc"]))
+            transition = Transition(
+                observation=observation,
+                action=action,
+                reward=reward,
+                next_observation=next_observation,
+                done=done,
+                bootstrap_steps=1,
             )
-
+            round_buffer.append(transition)
+            episode_buffer.append(transition)
             observation = next_observation
             total_reward += reward
             training_state.total_steps += 1
 
-            if len(replay_buffer) >= max(config.batch_size, config.warmup_transitions):
-                batch = replay_buffer.sample(config.batch_size, rng=rng)
-                loss = compute_dqn_loss(
-                    model,
-                    target_model,
-                    batch,
-                    gamma=config.gamma,
-                    device=device,
-                )
-                optimizer.zero_grad()
-                loss.backward()  # type: ignore[no-untyped-call]
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
-                if config.log_grad_norm:
-                    grad_norm = sum(
-                        p.grad.norm().item()
-                        for p in model.parameters()
-                        if p.grad is not None
-                    )
-                    print(f"[diag] grad_norm={grad_norm:.4f}", flush=True)
-                training_state.losses.append(float(loss.item()))
+            # N-step returns: flush at round boundary so every intra-round transition
+            # gets suffix-discounted reward (r_k + γ·r_{k+1} + ... + γ^{n-k}·r_cascade)
+            # and bootstraps from the post-cascade state s_post_cascade.
+            if not config.use_monte_carlo_returns:
+                if round_complete or done:
+                    for t in rewrite_round(round_buffer, next_observation, config.gamma):
+                        replay_buffer.push(t)
+                    round_buffer = []
+                    _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
-                if training_state.total_steps % config.target_update_interval == 0:
-                    target_model.load_state_dict(model.state_dict())
+        # MC returns: compute discounted returns backward and push at episode end.
+        if config.use_monte_carlo_returns and episode_buffer:
+            G = 0.0
+            for trans in reversed(episode_buffer):
+                G = trans.reward + config.gamma * G
+                # done=True prevents bootstrap in compute_dqn_loss → target = G directly.
+                replay_buffer.push(Transition(
+                    observation=trans.observation,
+                    action=trans.action,
+                    reward=G,
+                    next_observation=trans.next_observation,
+                    done=True,
+                    bootstrap_steps=1,
+                ))
+            _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
+
+        final_anc = float(info["anc"])
+        rounds = env.current_round
+        if rounds > len(anc_by_round):
+            anc_by_round.append(final_anc)
+        recovered = int(info["failed_nodes"]) == 0
+        ep_metrics = compute_episode_metrics(anc_by_round, recovered)
 
         training_state.episode_rewards.append(total_reward)
-        training_state.episode_final_anc.append(env.current_anc())
+        training_state.episode_final_anc.append(final_anc)
+        training_state.episode_recovered.append(recovered)
+        training_state.episode_mean_anc_unconditional.append(ep_metrics.mean_anc_unconditional)
         training_state.episode_alpha.append(alpha)
         training_state.episode_pfail.append(pfail)
         print(

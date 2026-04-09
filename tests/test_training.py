@@ -1,9 +1,11 @@
 from pathlib import Path
 from collections import Counter
+from types import SimpleNamespace
 
 import networkx as nx
 import pytest
 import torch
+from torch import nn
 
 from cascading_rl.budgeting import compute_scaled_budget
 from cascading_rl.envs.recovery import RecoveryEnv
@@ -16,12 +18,31 @@ from cascading_rl.models import (
     observation_to_graph_tensor,
 )
 from cascading_rl.training import TrainingConfig, train_recovery_agent
+from cascading_rl.training.replay import Transition
 from cascading_rl.training.trainer import (
     _imitation_agreement_rate,
+    compute_dqn_loss,
     generate_imitation_data,
     pretrain_by_imitation,
+    rewrite_round,
     validate_policy,
 )
+
+
+class DummyQModel(nn.Module):
+    def __init__(self, q_values_by_node: dict[int, float]) -> None:
+        super().__init__()
+        self.config = SimpleNamespace(use_virtual_node=False, use_global_features=False)
+        self.feature_names = FEATURE_NAMES
+        self.global_feature_names: tuple[str, ...] = ()
+        self.q_values_by_node = q_values_by_node
+
+    def forward(self, graph_tensor, global_features=None) -> torch.Tensor:  # type: ignore[override]
+        return torch.tensor(
+            [self.q_values_by_node[node] for node in graph_tensor.node_ids],
+            dtype=torch.float32,
+            device=graph_tensor.node_features.device,
+        )
 
 
 def test_observation_to_graph_tensor_builds_features_and_mask():
@@ -147,6 +168,9 @@ def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path
     assert checkpoint_path.exists()
     assert training_state.losses
     assert all(0.0 <= value <= 1.0 for value in training_state.episode_final_anc)
+    assert len(training_state.episode_recovered) == config.num_episodes
+    assert len(training_state.episode_mean_anc_unconditional) == config.num_episodes
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_mean_anc_unconditional)
 
 
 def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):
@@ -389,3 +413,186 @@ def test_budget_scaling_helper_matches_canonical_reference_rule():
     assert compute_scaled_budget(2, num_nodes=30, reference_n=40, enabled=True) == 2
     assert compute_scaled_budget(2, num_nodes=50, reference_n=40, enabled=True) == 2
     assert compute_scaled_budget(2, num_nodes=100, reference_n=40, enabled=True) == 5
+
+
+def test_use_monte_carlo_returns_trains_and_uses_discounted_returns(tmp_path: Path):
+    """MC mode must complete training and push transitions with done=True (no bootstrap)."""
+    checkpoint_dir = tmp_path / "learner_mc"
+    config = TrainingConfig(
+        num_episodes=4,
+        warmup_transitions=4,
+        batch_size=4,
+        replay_capacity=256,
+        alpha_values=(0.2,),
+        pfail_values=(0.1,),
+        scale_budget=False,
+        validation_graphs=1,
+        validation_seeds=(0,),
+        validation_every=100_000,
+        checkpoint_dir=str(checkpoint_dir),
+        checkpoint_name="mc_run.pt",
+        n_range=(10, 12),
+        budget=2,
+        max_rounds=3,
+        device="cpu",
+        use_monte_carlo_returns=True,
+    )
+
+    _model, training_state, checkpoint_path = train_recovery_agent(config)
+
+    # Training completes and checkpoints are saved.
+    assert checkpoint_path.exists()
+    assert len(training_state.episode_rewards) == config.num_episodes
+    # ANC values are always valid probabilities.
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_final_anc)
+    assert len(training_state.episode_recovered) == config.num_episodes
+    assert all(r in (True, False) for r in training_state.episode_recovered)
+    assert all(0.0 <= v <= 1.0 for v in training_state.episode_mean_anc_unconditional)
+
+
+# ---------------------------------------------------------------------------
+# rewrite_round unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_round_correct_gamma_exponents():
+    """rewrite_round produces suffix-discounted rewards with correct γ exponents.
+
+    Three-step round: rewards [0.1, 0.2, 1.0], gamma=0.5
+      step 0: 0.1 + 0.5*(0.2 + 0.5*1.0) = 0.1 + 0.35 = 0.45
+      step 1: 0.2 + 0.5*1.0              = 0.7
+      step 2: 1.0                         = 1.0  (cascade step, γ^0)
+    """
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+    # Use the same observation object for all transitions — rewrite_round only
+    # reads .reward and .done, so the observation content doesn't matter here.
+    obs = env.reset(seed=0)
+    s_post = env.observe()
+
+    transitions = [
+        Transition(observation=obs, action=0, reward=0.1, next_observation=obs, done=False),
+        Transition(observation=obs, action=1, reward=0.2, next_observation=obs, done=False),
+        Transition(observation=obs, action=2, reward=1.0, next_observation=obs, done=True),
+    ]
+
+    rewritten = rewrite_round(transitions, s_post_cascade=s_post, gamma=0.5)
+
+    assert len(rewritten) == 3
+    assert rewritten[0].reward == pytest.approx(0.45)
+    assert rewritten[1].reward == pytest.approx(0.7)
+    assert rewritten[2].reward == pytest.approx(1.0)
+    assert [t.bootstrap_steps for t in rewritten] == [3, 2, 1]
+    # Every step bootstraps from the post-cascade state.
+    assert all(t.next_observation is s_post for t in rewritten)
+    # done propagated from the last (cascade) transition.
+    assert all(t.done is True for t in rewritten)
+    # Observations and actions are preserved unchanged.
+    assert all(t.observation is obs for t in rewritten)
+    assert [t.action for t in rewritten] == [0, 1, 2]
+
+
+def test_rewrite_round_single_step():
+    """Single-step round (budget=1): reward unchanged, next_obs replaced."""
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=1, max_rounds=3, seed=0)
+    obs = env.reset(seed=0)
+    s_post = env.observe()
+
+    transitions = [
+        Transition(observation=obs, action=0, reward=0.75, next_observation=obs, done=False),
+    ]
+
+    rewritten = rewrite_round(transitions, s_post_cascade=s_post, gamma=0.99)
+
+    assert len(rewritten) == 1
+    assert rewritten[0].reward == pytest.approx(0.75)
+    assert rewritten[0].next_observation is s_post
+    assert rewritten[0].done is False
+    assert rewritten[0].bootstrap_steps == 1
+
+
+def test_rewrite_round_empty():
+    """Empty list returns empty list without error."""
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=1, max_rounds=3, seed=0)
+    obs = env.reset(seed=0)
+
+    assert rewrite_round([], s_post_cascade=obs, gamma=0.99) == []
+
+
+def test_compute_dqn_loss_uses_bootstrap_steps_exponent():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 1.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 1.0, 3: 1.0}
+    observation = env.observe()
+
+    env.state.active = {0, 1, 2}
+    env.state.failed = {3}
+    env.state.frontier = {3}
+    next_observation = env.observe()
+
+    model = DummyQModel({0: -1e9, 1: -1e9, 2: 1.5, 3: 0.0})
+    target_model = DummyQModel({0: -1e9, 1: -1e9, 2: -1e9, 3: 4.0})
+    transition = Transition(
+        observation=observation,
+        action=2,
+        reward=1.0,
+        next_observation=next_observation,
+        done=False,
+        bootstrap_steps=3,
+    )
+
+    loss = compute_dqn_loss(
+        model,
+        target_model,
+        [transition],
+        gamma=0.5,
+        device=torch.device("cpu"),
+    )
+
+    assert loss.item() == pytest.approx(0.0)
+
+
+def test_compute_dqn_loss_defaults_to_standard_one_step_td():
+    graph = nx.path_graph(4)
+    env = RecoveryEnv(graph, alpha=0.2, pfail=0.0, budget=2, max_rounds=3, seed=0)
+
+    env.reset(seed=0)
+    env.state.active = {0, 1}
+    env.state.failed = {2, 3}
+    env.state.frontier = {2}
+    env.state.loads = {0: 1.0, 1: 1.0, 2: 0.0, 3: 0.0}
+    env.state.capacities = {0: 2.0, 1: 2.0, 2: 1.0, 3: 1.0}
+    observation = env.observe()
+
+    env.state.active = {0, 1, 2}
+    env.state.failed = {3}
+    env.state.frontier = {3}
+    next_observation = env.observe()
+
+    model = DummyQModel({0: -1e9, 1: -1e9, 2: 3.0, 3: 0.0})
+    target_model = DummyQModel({0: -1e9, 1: -1e9, 2: -1e9, 3: 4.0})
+    transition = Transition(
+        observation=observation,
+        action=2,
+        reward=1.0,
+        next_observation=next_observation,
+        done=False,
+    )
+
+    loss = compute_dqn_loss(
+        model,
+        target_model,
+        [transition],
+        gamma=0.5,
+        device=torch.device("cpu"),
+    )
+
+    assert loss.item() == pytest.approx(0.0)
