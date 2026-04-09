@@ -37,7 +37,7 @@ training:
   regime:
     alpha: 0.15
     pfail: 0.18
-    budget: 2
+    budget: 3
     max_rounds: 20
     capacity_noise: 0.0
     failure_bias: uniform
@@ -45,23 +45,24 @@ training:
     obs_hops: null
     abandonment_anc_threshold: 0.30
   graph:
-    n_range: [30, 50]
+    n_range: [40, 80]
     m: 2
   # Long training: match epsilon_decay_episodes to num_episodes so ε → epsilon_end by the last episode.
-  num_episodes: 8000
-  replay_capacity: 10000
-  warmup_transitions: 500
-  batch_size: 64
+  num_episodes: 100000
+  replay_capacity: 50000
+  warmup_transitions: 2000
+  batch_size: 128
   gamma: 0.99
-  learning_rate: 0.0003
+  learning_rate: 0.0001
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 6000
-  target_update_interval: 200
+  epsilon_decay_episodes: 75000
+  target_update_interval: 500
+  debug: false
   hidden_dim: 128
   embed_dim: 128
   num_layers: 2
-  use_global_features: false
+  use_global_features: true
   use_virtual_node: false
   validation_graphs: 2
   validation_seeds: [0, 1, 2]
