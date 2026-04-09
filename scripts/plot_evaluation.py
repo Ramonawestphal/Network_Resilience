@@ -95,9 +95,13 @@ def plot_main_metrics(data: dict, policies: list[str], out_dir: Path):
     ]
 
     for key, title, ylabel, filename in metrics:
+        metric_pairs = [_mean_err(data, p, key) for p in policies]
+        if any(mean is None or err is None for mean, err in metric_pairs):
+            print(f"Skipping {filename}: missing metric data in summary.")
+            continue
         fig, ax = plt.subplots(figsize=(7, 4))
-        vals = [_mean_err(data, p, key)[0] for p in policies]
-        errs = [_mean_err(data, p, key)[1] for p in policies]
+        vals = [mean for mean, _ in metric_pairs]
+        errs = [err for _, err in metric_pairs]
         bar_chart(ax, policies, vals, errs, title, ylabel, POLICY_COLORS)
         plt.tight_layout()
         path = out_dir / f"{filename}.png"
@@ -195,16 +199,25 @@ def plot_anc_comparison(data: dict, policies: list[str], out_dir: Path):
     fig, ax = plt.subplots(figsize=(9, 5))
     x = np.arange(len(policies))
     width = 0.25
+    plotted_any = False
 
     for i, (key, label, hatch) in enumerate([
         ("final_nc",     "Final NC (snapshot)", ""),
         ("anc_fixed",    "ANC Fixed Horizon",   "//"),
         ("anc_adaptive", "ANC Adaptive Horizon", ".."),
     ]):
-        means = [_mean_err(data, p, key)[0] for p in policies]
-        errs  = [_mean_err(data, p, key)[1] for p in policies]
+        metric_pairs = [_mean_err(data, p, key) for p in policies]
+        if any(mean is None or err is None for mean, err in metric_pairs):
+            continue
+        means = [mean for mean, _ in metric_pairs]
+        errs  = [err for _, err in metric_pairs]
         ax.bar(x + (i - 1) * width, means, width, yerr=errs, capsize=3,
                label=label, hatch=hatch, alpha=0.85, edgecolor="white")
+        plotted_any = True
+
+    if not plotted_any:
+        plt.close()
+        return
 
     ax.set_xticks(x)
     ax.set_xticklabels(policies, fontsize=9)

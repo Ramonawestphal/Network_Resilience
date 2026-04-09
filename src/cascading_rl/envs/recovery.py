@@ -347,6 +347,7 @@ class RecoveryEnv:
 
         post_cascade_nc = normalized_connectivity(self.state.graph, self.state.active)
         reward = post_cascade_nc - previous_nc
+        self._round_start_nc = post_cascade_nc
 
         exhausted_rounds = self.current_round >= self.max_rounds
         abandoned = self._abandon_due_to_low_nc(post_cascade_nc)

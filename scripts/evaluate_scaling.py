@@ -94,12 +94,17 @@ def _extract_policy_summaries(cell: dict[str, object]) -> dict[str, dict[str, fl
         final_metric = summary.get("final_nc")
         if final_metric is None:
             final_metric = summary.get("final_anc")
-        if final_metric is not None and not isinstance(final_metric, dict):
+        if final_metric is None:
+            raise ValueError(
+                f"Missing final connectivity metric for policy {policy_name!r}: "
+                "expected 'final_nc' or 'final_anc' in summary."
+            )
+        if not isinstance(final_metric, dict):
             raise ValueError(
                 f"Unexpected final connectivity format for policy {policy_name!r}."
             )
-        final_nc_mean = final_metric.get("mean") if final_metric is not None else None
-        final_nc_stderr = final_metric.get("stderr") if final_metric is not None else None
+        final_nc_mean = final_metric.get("mean")
+        final_nc_stderr = final_metric.get("stderr")
         serialized[str(policy_name)] = {
             "final_nc_mean": float(final_nc_mean) if final_nc_mean is not None else float("nan"),
             "final_nc_stderr": float(final_nc_stderr) if final_nc_stderr is not None else 0.0,

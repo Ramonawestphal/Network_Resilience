@@ -218,6 +218,41 @@ def test_step_batch_rejects_partial_batch_when_failed_nodes_remain():
         env.step_batch([1])
 
 
+def test_step_batch_updates_round_start_baseline_for_following_steps():
+    graph = nx.path_graph(6)
+    env = RecoveryEnv(graph, alpha=1.0, pfail=0.0, budget=2, max_rounds=4)
+
+    env.reset(seed=0)
+    env.state.active = {0}
+    env.state.failed = {1, 2, 3, 4, 5}
+    env.state.frontier = set()
+    env.state.loads = {node: 0.0 for node in graph.nodes()}
+    env.state.capacities = {node: 2.0 for node in graph.nodes()}
+    env.remaining_budget = 2
+    env.current_round = 1
+    env._round_start_nc = env.current_nc()
+
+    obs_after_batch, _, done_batch, info_batch = env.step_batch([1, 2])
+
+    assert done_batch is False
+    assert env._round_start_nc == info_batch["nc_after_cascade"]
+
+    round_two_baseline = obs_after_batch.graph.subgraph(obs_after_batch.active).number_of_nodes()
+    assert round_two_baseline == 3
+
+    _, reward_first, done_first, _ = env.step(3)
+    assert done_first is False
+    assert reward_first == 0.0
+
+    _, reward_second, done_second, info_second = env.step(4)
+
+    assert done_second is False
+    assert info_second["round_complete"] is True
+    assert reward_second == pytest.approx(
+        info_second["nc_after_cascade"] - info_batch["nc_after_cascade"]
+    )
+
+
 def test_recovery_env_reset_reseeds_rng_independent_of_constructor_seed():
     """``reset(seed=...)`` fully controls failure sampling; constructor seed must not leak."""
     graph = nx.barabasi_albert_graph(28, 2, seed=0)

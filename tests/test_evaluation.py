@@ -5,6 +5,7 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.evaluation.benchmarks import (
     EpisodeResult,
     _compute_step_metrics,
+    compare_policy_pair,
     evaluate_policies,
     final_nc_failure_threshold_for_reporting,
     rollout_policy,
@@ -126,6 +127,14 @@ def test_compute_step_metrics_ranks_batches_against_same_size_candidates(monkeyp
     assert metrics.nc_gain == pytest.approx(0.6)
     assert metrics.greedy_nc_gain == pytest.approx(0.9)
     assert metrics.action_rank == 2
+
+
+def test_compare_policy_pair_rejects_empty_episode_lists():
+    with pytest.raises(
+        ValueError,
+        match="Episode lists for 'policy_a' and 'policy_b' must not be empty",
+    ):
+        compare_policy_pair([], [], name_a="policy_a", name_b="policy_b")
 
 
 def test_final_nc_failure_threshold_for_reporting_respects_env_and_default():

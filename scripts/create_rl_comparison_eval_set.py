@@ -65,14 +65,19 @@ def _resolve_env_kwargs(config: dict) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
     abandon_raw = regime.get("abandonment_nc_threshold")
-    if abandon_raw is None:
-        legacy_abandon_raw = regime.get("abandonment_anc_threshold")
-        if legacy_abandon_raw is not None:
-            logging.warning(
-                "Config key 'abandonment_anc_threshold' is deprecated; "
-                "migrate to 'abandonment_nc_threshold'."
+    legacy_abandon_raw = regime.get("abandonment_anc_threshold")
+    if abandon_raw is not None and legacy_abandon_raw is not None:
+        if float(abandon_raw) != float(legacy_abandon_raw):
+            raise ValueError(
+                "Config provides both 'abandonment_nc_threshold' and "
+                "'abandonment_anc_threshold' with different values."
             )
-            abandon_raw = legacy_abandon_raw
+    if abandon_raw is None and legacy_abandon_raw is not None:
+        logging.warning(
+            "Config key 'abandonment_anc_threshold' is deprecated; "
+            "migrate to 'abandonment_nc_threshold'."
+        )
+        abandon_raw = legacy_abandon_raw
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),

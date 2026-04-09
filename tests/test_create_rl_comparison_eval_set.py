@@ -56,6 +56,24 @@ def test_resolve_env_kwargs_accepts_legacy_abandonment_key_with_warning(caplog):
     assert "abandonment_nc_threshold" in caplog.text
 
 
+def test_resolve_env_kwargs_raises_when_legacy_and_new_thresholds_differ():
+    config = {
+        "training": {
+            "regime": {
+                "capacity_noise": 0.1,
+                "failure_bias": "uniform",
+                "action_space": "failed",
+                "obs_hops": None,
+                "abandonment_nc_threshold": 0.2,
+                "abandonment_anc_threshold": 0.3,
+            }
+        }
+    }
+
+    with pytest.raises(ValueError, match="different values"):
+        create_rl_comparison_eval_set._resolve_env_kwargs(config)
+
+
 @pytest.mark.parametrize(
     ("argv", "expected_message"),
     [

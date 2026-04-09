@@ -203,6 +203,11 @@ def compare_policy_pair(
             f"Got {len(episodes_a)} for '{name_a}' and {len(episodes_b)} for '{name_b}'."
         )
     n = len(episodes_a)
+    if n == 0:
+        raise ValueError(
+            f"Episode lists for '{name_a}' and '{name_b}' must not be empty "
+            "for paired comparison."
+        )
     values_a = [_extract_metric(r, metric) for r in episodes_a]
     values_b = [_extract_metric(r, metric) for r in episodes_b]
     differences = [a - b for a, b in zip(values_a, values_b)]
