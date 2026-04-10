@@ -6,8 +6,9 @@ from cascading_rl.envs.recovery import RecoveryEnv
 
 def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
     """Episode ends with info['abandoned'] when ANC stays below threshold and failures remain."""
-    # Three disconnected pairs (0-1), (2-3), (4-5): pairwise connectivity among {0,1,2,3} is 1/3.
-    # After repairing 4, active {0,1,2,3,4} has components of sizes 2+2+1 → pairwise = 0.2 < 0.3.
+    # Three disconnected pairs (0-1), (2-3), (4-5): pairwise connectivity among {0,1,2,3}
+    # is 4/30 ≈ 0.133 (two components of size 2 each → 4 connected pairs / 30 total pairs).
+    # After repairing 4, active {0,1,2,3,4} has components 2+2+1 → still 4/30 ≈ 0.133 < 0.30.
     graph = nx.Graph()
     graph.add_edges_from([(0, 1), (2, 3), (4, 5)])
     env = RecoveryEnv(
