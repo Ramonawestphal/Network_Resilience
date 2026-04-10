@@ -5,7 +5,7 @@ from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import estimate_minimum_budget, evaluate_policies
 from cascading_rl.graph.generation import make_graph_batch
 from cascading_rl.policies import (
-    choose_greedy_anc_node,
+    choose_greedy_nc_node,
     choose_highest_betweenness_failed_node,
     choose_highest_degree_failed_node,
     choose_highest_overload_risk_node,
@@ -23,7 +23,7 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
         {
             "degree": choose_highest_degree_failed_node,
             "risk": choose_highest_overload_risk_node,
-            "greedy": choose_greedy_anc_node,
+            "greedy": choose_greedy_nc_node,
             "betweenness": choose_highest_betweenness_failed_node,
         },
         env_factory=env_factory,
@@ -32,7 +32,7 @@ def test_foundations_pipeline_runs_end_to_end_on_generated_graphs():
 
     assert set(summaries) == {"degree", "risk", "greedy", "betweenness"}
     for summary in summaries.values():
-        assert 0.0 <= summary.final_anc.mean <= 1.0
+        assert 0.0 <= summary.final_nc.mean <= 1.0
         assert summary.steps.mean >= 0.0
         assert 0.0 <= summary.solved_fraction.mean <= 1.0
 

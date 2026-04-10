@@ -167,6 +167,7 @@ def test_train_recovery_agent_five_episodes_losses_and_anc_bounds(tmp_path: Path
 
     assert checkpoint_path.exists()
     assert training_state.losses
+    assert all(0.0 <= value <= 1.0 for value in training_state.episode_final_nc)
     assert all(0.0 <= value <= 1.0 for value in training_state.episode_final_anc)
     assert len(training_state.episode_recovered) == config.num_episodes
     assert len(training_state.episode_mean_anc_unconditional) == config.num_episodes

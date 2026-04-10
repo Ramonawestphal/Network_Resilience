@@ -92,7 +92,7 @@ def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch
     def fake_rollout_policy(env, policy, seed=None):
         return EpisodeResult(
             total_reward=0.0,
-            final_anc=float(env.budget),
+            final_nc=float(env.budget),
             steps=0,
             rounds=0,
             remaining_failed_nodes=0,
@@ -113,20 +113,20 @@ def test_evaluate_policy_factories_on_graphs_scales_budget_per_graph(monkeypatch
     )
 
     assert budgets_seen == [(40, 2), (100, 5)]
-    assert summaries["degree"].final_anc.mean == pytest.approx(3.5)
+    assert summaries["degree"].final_nc.mean == pytest.approx(3.5)
 
 
 def _summary(
     *,
-    final_anc: float,
+    final_nc: float,
     rounds: float,
     solved_fraction: float,
     fully_restored_count: int = 10,
     episode_count: int = 10,
     rounds_when_solved_mean: float | None = None,
-    unsolved_low_final_anc_count: int = 0,
-    unsolved_low_final_anc_fraction: float = 0.0,
-    final_anc_failure_threshold_used: float | None = None,
+    unsolved_low_final_nc_count: int = 0,
+    unsolved_low_final_nc_fraction: float = 0.0,
+    final_nc_failure_threshold_used: float | None = None,
 ) -> PolicyEvaluationSummary:
     metric = lambda value: AggregateMetric(mean=value, stderr=0.0)
     rws = (
@@ -135,8 +135,8 @@ def _summary(
         else None
     )
     return PolicyEvaluationSummary(
-        final_anc=metric(final_anc),
-        total_reward=metric(final_anc),
+        final_nc=metric(final_nc),
+        total_reward=metric(final_nc),
         steps=metric(1.0),
         rounds=metric(rounds),
         solved_fraction=metric(solved_fraction),
@@ -144,19 +144,19 @@ def _summary(
         rounds_when_failed=None,
         fully_restored_count=fully_restored_count,
         episode_count=episode_count,
-        unsolved_low_final_anc_count=unsolved_low_final_anc_count,
-        unsolved_low_final_anc_fraction=unsolved_low_final_anc_fraction,
-        final_anc_failure_threshold_used=final_anc_failure_threshold_used,
+        unsolved_low_final_nc_count=unsolved_low_final_nc_count,
+        unsolved_low_final_nc_fraction=unsolved_low_final_nc_fraction,
+        final_nc_failure_threshold_used=final_nc_failure_threshold_used,
     )
 
 
 def test_compute_regime_diagnostics_marks_ambiguous_when_spread_below_threshold():
     summaries = {
         "greedy": _summary(
-            final_anc=0.52, rounds=2.0, solved_fraction=0.41
+            final_nc=0.52, rounds=2.0, solved_fraction=0.41
         ),
         "degree": _summary(
-            final_anc=0.50, rounds=2.0, solved_fraction=0.40
+            final_nc=0.50, rounds=2.0, solved_fraction=0.40
         ),
     }
     diagnostics = compute_regime_diagnostics(summaries, spread_threshold=0.05)
@@ -168,12 +168,12 @@ def test_compute_regime_diagnostics_marks_ambiguous_when_spread_below_threshold(
 
 def test_compute_regime_diagnostics_tracks_best_heuristic_gap():
     summaries = {
-        "rl": _summary(final_anc=0.68, rounds=2.0, solved_fraction=0.60),
+        "rl": _summary(final_nc=0.68, rounds=2.0, solved_fraction=0.60),
         "greedy": _summary(
-            final_anc=0.61, rounds=2.5, solved_fraction=0.50
+            final_nc=0.61, rounds=2.5, solved_fraction=0.50
         ),
         "degree": _summary(
-            final_anc=0.55, rounds=2.8, solved_fraction=0.40
+            final_nc=0.55, rounds=2.8, solved_fraction=0.40
         ),
     }
 
@@ -194,17 +194,17 @@ def test_summarize_regime_buckets_reports_rl_gap():
         diagnostics=compute_regime_diagnostics(
             {
                 "rl": _summary(
-                    final_anc=0.95, rounds=1.0, solved_fraction=1.0
+                    final_nc=0.95, rounds=1.0, solved_fraction=1.0
                 ),
                 "greedy": _summary(
-                    final_anc=0.92, rounds=1.0, solved_fraction=1.0
+                    final_nc=0.92, rounds=1.0, solved_fraction=1.0
                 ),
             }
         ),
         policy_summaries={
-            "rl": _summary(final_anc=0.95, rounds=1.0, solved_fraction=1.0),
+            "rl": _summary(final_nc=0.95, rounds=1.0, solved_fraction=1.0),
             "greedy": _summary(
-                final_anc=0.92, rounds=1.0, solved_fraction=1.0
+                final_nc=0.92, rounds=1.0, solved_fraction=1.0
             ),
         },
     )
@@ -215,17 +215,17 @@ def test_summarize_regime_buckets_reports_rl_gap():
         diagnostics=compute_regime_diagnostics(
             {
                 "rl": _summary(
-                    final_anc=0.66, rounds=2.0, solved_fraction=0.50
+                    final_nc=0.66, rounds=2.0, solved_fraction=0.50
                 ),
                 "greedy": _summary(
-                    final_anc=0.58, rounds=2.5, solved_fraction=0.45
+                    final_nc=0.58, rounds=2.5, solved_fraction=0.45
                 ),
             }
         ),
         policy_summaries={
-            "rl": _summary(final_anc=0.66, rounds=2.0, solved_fraction=0.50),
+            "rl": _summary(final_nc=0.66, rounds=2.0, solved_fraction=0.50),
             "greedy": _summary(
-                final_anc=0.58, rounds=2.5, solved_fraction=0.45
+                final_nc=0.58, rounds=2.5, solved_fraction=0.45
             ),
         },
     )

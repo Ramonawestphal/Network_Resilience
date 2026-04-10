@@ -91,9 +91,23 @@ def _extract_policy_summaries(cell: dict[str, object]) -> dict[str, dict[str, fl
         if not isinstance(summary, dict):
             raise ValueError(f"Unexpected summary format for policy {policy_name!r}.")
         rws = summary.get("rounds_when_solved")
+        final_metric = summary.get("final_nc")
+        if final_metric is None:
+            final_metric = summary.get("final_anc")
+        if final_metric is None:
+            raise ValueError(
+                f"Missing final connectivity metric for policy {policy_name!r}: "
+                "expected 'final_nc' or 'final_anc' in summary."
+            )
+        if not isinstance(final_metric, dict):
+            raise ValueError(
+                f"Unexpected final connectivity format for policy {policy_name!r}."
+            )
+        final_nc_mean = final_metric.get("mean")
+        final_nc_stderr = final_metric.get("stderr")
         serialized[str(policy_name)] = {
-            "final_anc_mean": float(summary["final_anc"]["mean"]),
-            "final_anc_stderr": float(summary["final_anc"]["stderr"]),
+            "final_nc_mean": float(final_nc_mean) if final_nc_mean is not None else float("nan"),
+            "final_nc_stderr": float(final_nc_stderr) if final_nc_stderr is not None else 0.0,
             "rounds_mean": float(summary["rounds"]["mean"]),
             "rounds_stderr": float(summary["rounds"]["stderr"]),
             "solved_fraction_mean": float(summary["solved_fraction"]["mean"]),
@@ -185,7 +199,7 @@ def main() -> None:
             }
         )
         policy_text = "  ".join(
-            f"{name}: final_anc={summary['final_anc_mean']:.3f}"
+            f"{name}: final_nc={summary['final_nc_mean']:.3f}"
             for name, summary in size_results[-1]["policy_summaries"].items()
         )
         print(f"[scaling] n={graph_size} elapsed={elapsed_seconds:.1f}s {policy_text}", flush=True)

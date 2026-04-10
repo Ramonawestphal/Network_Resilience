@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
+import warnings
 
 import networkx as nx
 
@@ -33,7 +34,7 @@ def pairwise_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> floa
     connected_pairs = sum(s * (s - 1) for s in component_sizes)
     return connected_pairs / (n_total * (n_total - 1))
 
-
+# Needs change
 def accumulated_normalized_connectivity(
     graph: nx.Graph, active_nodes: Iterable[Node]
 ) -> float:

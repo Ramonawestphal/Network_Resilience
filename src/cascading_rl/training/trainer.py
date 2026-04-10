@@ -35,6 +35,8 @@ from cascading_rl.training.replay import ReplayBuffer, Transition
 Node = Hashable
 
 GRAPH_BUFFER_MAXLEN = 20
+# Large offset ensures graph-generation seeds are statistically independent from
+# episode/failure seeds (which start near 0), avoiding accidental seed collisions.
 FREEZE_GRAPH_SPECS_SEED_OFFSET = 20_000
 # Rolling window for progress-line recovery rate and mean ANC (same construction as
 # ``compute_episode_metrics`` / ``evaluate_policy.py`` aggregate ``mean_anc_unconditional``).
@@ -58,7 +60,7 @@ class TrainingConfig:
     failure_bias: str = "uniform"
     action_space: str = "failed"
     obs_hops: int | None = None
-    abandonment_anc_threshold: float | None = None
+    abandonment_nc_threshold: float | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
     num_episodes: int = 10000
@@ -102,6 +104,7 @@ class TrainingConfig:
 @dataclass
 class TrainingState:
     episode_rewards: list[float] = field(default_factory=list)
+    episode_final_nc: list[float] = field(default_factory=list)
     episode_final_anc: list[float] = field(default_factory=list)
     episode_recovered: list[bool] = field(default_factory=list)
     episode_mean_anc_unconditional: list[float] = field(default_factory=list)
@@ -257,6 +260,7 @@ def _render_progress_line(
     filled = int(bar_width * progress)
     bar = "#" * filled + "-" * (bar_width - filled)
     recent_reward = _mean_recent(training_state.episode_rewards)
+    recent_final_nc = _mean_recent(training_state.episode_final_nc)
     recent_loss = _mean_recent(training_state.losses)
     w = max(1, rolling_episodes)
     recov_frac = _rolling_recovered_fraction(training_state.episode_recovered, w)
@@ -267,6 +271,7 @@ def _render_progress_line(
         f"\r[{bar}] {completed:>4}/{total_episodes} "
         f"eps={epsilon:.3f} "
         f"reward10={recent_reward:.3f} "
+        f"final_nc10={recent_final_nc:.3f} "
         f"recov{roll_tag}={recov_frac:.3f} "
         f"mean_anc{roll_tag}={mean_anc_u:.3f} "
         f"loss10={recent_loss:.4f}"
@@ -304,13 +309,21 @@ def compute_dqn_loss(
     device: torch.device,
     debug: bool = False,
 ) -> torch.Tensor:
-    """Standard single-action DQN loss: Q(s,a) ← r + γ·max_a' Q(s',a').
+    """Single-action DQN loss with support for round-collapsed bootstrapping.
 
-    Each transition must store a single node action.  The target is either the
-    raw reward (when ``done=True``, e.g. episode end or MC return) or the
-    reward plus the discounted max Q-value of the next valid action. Collapsed
-    transitions use ``bootstrap_steps`` to control the bootstrap exponent.
+    Each transition stores one node action. Non-terminal targets bootstrap from
+    the best valid next action using ``gamma ** bootstrap_steps``, which lets
+    rewritten round transitions learn directly from the post-cascade state.
     """
+    if "budget_coverage" not in model.feature_names:
+        raise ValueError(
+            "budget_coverage must be present in active node features when "
+            "training with the single-step (env.step) interface. It is the "
+            "only input that lets the Q-network distinguish intra-round steps "
+            "(reward=0) from last-round steps (cascade-inclusive reward). "
+            "Remove it only from step_batch training where remaining_budget "
+            "is constant within each call."
+        )
     losses: list[torch.Tensor] = []
     for transition in transitions:
         graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device, debug=debug)
@@ -421,7 +434,7 @@ def _env_kwargs_from_config(config: TrainingConfig) -> dict[str, Any]:
         "failure_bias": config.failure_bias,
         "action_space": config.action_space,
         "obs_hops": config.obs_hops,
-        "abandonment_anc_threshold": config.abandonment_anc_threshold,
+        "abandonment_nc_threshold": config.abandonment_nc_threshold,
     }
 
 
@@ -491,9 +504,19 @@ def generate_imitation_data(
             observation = _reset_with_non_empty_failures(env, rollout_seed, rng)
             done = False
             while not done and observation.failed:
-                action = _normalize_action_batch(policy(observation))
-                samples.append(ImitationSample(observation=observation, action=action))
-                observation, _reward, done, _info = env.step_batch(list(action))
+                # Take one action at a time (env.step) rather than the full
+                # batch (env.step_batch). This is required so that the imitation
+                # dataset covers budget_coverage values in {1/n, 2/n, ..., B/n},
+                # matching the RL training distribution P_RL(beta) = Uniform.
+                # With step_batch, every observation has remaining_budget=B so
+                # budget_coverage = B/n always — a point mass that leaves the
+                # network unable to generalise to intra-round budget states seen
+                # during RL fine-tuning (KL divergence = log B, infinite in the
+                # strict sense for values b < B).
+                action_batch = _normalize_action_batch(policy(observation))
+                single_action = action_batch[0]
+                samples.append(ImitationSample(observation=observation, action=(single_action,)))
+                observation, _reward, done, _info = env.step(single_action)
     return samples
 
 
@@ -587,12 +610,12 @@ def _degree_minus_random_spread(
 ) -> float:
     """Heuristic spread for the same graph template and failure seed as the training episode."""
     from cascading_rl.evaluation.regime import build_policy_factories
-    from cascading_rl.evaluation.saved_eval_sets import rollout_final_anc_on_instance
+    from cascading_rl.evaluation.saved_eval_sets import rollout_final_nc_on_instance
 
     factories = build_policy_factories(base_seed=factory_base_seed)
     pol_degree = factories["degree"](episode_index, failure_seed)
     pol_random = factories["random"](episode_index, failure_seed)
-    pr_degree = rollout_final_anc_on_instance(
+    pr_degree = rollout_final_nc_on_instance(
         graph,
         alpha=alpha,
         p_fail=pfail,
@@ -602,7 +625,7 @@ def _degree_minus_random_spread(
         env_kwargs=env_kwargs,
         policy=pol_degree,
     )
-    pr_random = rollout_final_anc_on_instance(
+    pr_random = rollout_final_nc_on_instance(
         graph,
         alpha=alpha,
         p_fail=pfail,
@@ -648,8 +671,8 @@ def validate_policy_on_eval_set(
         "scale_max_rounds": config.scale_max_rounds,
         "budget_reference_n": config.budget_reference_n,
         "max_rounds": config.max_rounds,
-        "final_anc_mean": summary.final_anc.mean,
-        "final_anc_stderr": summary.final_anc.stderr,
+        "final_anc_mean": summary.final_nc.mean,
+        "final_anc_stderr": summary.final_nc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
     }
@@ -667,12 +690,12 @@ def validate_policy_on_eval_set(
             env_kwargs=env_kwargs,
             policy_names=["rl"],
         )
-        per_alpha_anc[alpha_val] = a_overall["rl"].final_anc.mean
+        per_alpha_anc[alpha_val] = a_overall["rl"].final_nc.mean
 
-    mean_anc = summary.final_anc.mean
+    mean_anc = summary.final_nc.mean
     return {
         "final_anc_mean": mean_anc,
-        "final_anc_stderr": summary.final_anc.stderr,
+        "final_anc_stderr": summary.final_nc.stderr,
         "solved_fraction_mean": summary.solved_fraction.mean,
         "rounds_mean": summary.rounds.mean,
         "reference": reference,
@@ -734,7 +757,7 @@ def validate_policy(
                 {
                     "alpha": alpha,
                     "pfail": pfail,
-                    "final_anc_mean": grid_summary.final_anc.mean,
+                    "final_anc_mean": grid_summary.final_nc.mean,
                     "solved_fraction_mean": grid_summary.solved_fraction.mean,
                     "rounds_mean": grid_summary.rounds.mean,
                 }
@@ -760,11 +783,11 @@ def validate_policy(
             scale_max_rounds=config.scale_max_rounds,
             reference_n=config.budget_reference_n,
         )["rl"]
-        per_alpha_anc[float(alpha)] = per_alpha_summary.final_anc.mean
+        per_alpha_anc[float(alpha)] = per_alpha_summary.final_nc.mean
 
     return {
-        "final_anc_mean": reference_summary.final_anc.mean,
-        "final_anc_stderr": reference_summary.final_anc.stderr,
+        "final_anc_mean": reference_summary.final_nc.mean,
+        "final_anc_stderr": reference_summary.final_nc.stderr,
         "solved_fraction_mean": reference_summary.solved_fraction.mean,
         "rounds_mean": reference_summary.rounds.mean,
         "reference": {
@@ -775,8 +798,8 @@ def validate_policy(
             "scale_max_rounds": config.scale_max_rounds,
             "budget_reference_n": config.budget_reference_n,
             "max_rounds": config.max_rounds,
-            "final_anc_mean": reference_summary.final_anc.mean,
-            "final_anc_stderr": reference_summary.final_anc.stderr,
+            "final_anc_mean": reference_summary.final_nc.mean,
+            "final_anc_stderr": reference_summary.final_nc.stderr,
             "solved_fraction_mean": reference_summary.solved_fraction.mean,
             "rounds_mean": reference_summary.rounds.mean,
         },
@@ -812,6 +835,7 @@ def save_checkpoint(
             "training_config": asdict(config),
             "training_state": {
                 "episode_rewards": training_state.episode_rewards,
+                "episode_final_nc": training_state.episode_final_nc,
                 "episode_final_anc": training_state.episode_final_anc,
                 "episode_recovered": training_state.episode_recovered,
                 "episode_mean_anc_unconditional": training_state.episode_mean_anc_unconditional,
@@ -999,9 +1023,9 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         done = False
         total_reward = 0.0
         episode_buffer: list[Transition] = []
-        anc_by_round: list[float] = []
+        nc_by_round: list[float] = []
         info: dict[str, object] = {
-            "anc": env.current_anc(),
+            "nc": env.current_nc(),
             "failed_nodes": len(observation.failed),
         }
 
@@ -1018,7 +1042,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             next_observation, reward, done, info = env.step(action)
             round_complete = bool(info.get("round_complete"))
             if round_complete:
-                anc_by_round.append(float(info["anc"]))
+                nc_by_round.append(float(info["nc"]))
             transition = Transition(
                 observation=observation,
                 action=action,
@@ -1049,25 +1073,28 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             for trans in reversed(episode_buffer):
                 G = trans.reward + config.gamma * G
                 # done=True prevents bootstrap in compute_dqn_loss → target = G directly.
-                replay_buffer.push(Transition(
-                    observation=trans.observation,
-                    action=trans.action,
-                    reward=G,
-                    next_observation=trans.next_observation,
-                    done=True,
-                    bootstrap_steps=1,
-                ))
+                replay_buffer.push(
+                    Transition(
+                        observation=trans.observation,
+                        action=trans.action,
+                        reward=G,
+                        next_observation=trans.next_observation,
+                        done=True,
+                        bootstrap_steps=1,
+                    )
+                )
             _maybe_update(model, target_model, optimizer, replay_buffer, config, device, training_state, rng)
 
-        final_anc = float(info["anc"])
+        final_nc = float(info["nc"])
         rounds = env.current_round
-        if rounds > len(anc_by_round):
-            anc_by_round.append(final_anc)
+        if rounds > len(nc_by_round):
+            nc_by_round.append(final_nc)
         recovered = int(info["failed_nodes"]) == 0
-        ep_metrics = compute_episode_metrics(anc_by_round, recovered)
+        ep_metrics = compute_episode_metrics(nc_by_round, recovered)
 
         training_state.episode_rewards.append(total_reward)
-        training_state.episode_final_anc.append(final_anc)
+        training_state.episode_final_nc.append(env.current_nc())
+        training_state.episode_final_anc.append(final_nc)
         training_state.episode_recovered.append(recovered)
         training_state.episode_mean_anc_unconditional.append(ep_metrics.mean_anc_unconditional)
         training_state.episode_alpha.append(alpha)

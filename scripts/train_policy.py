@@ -68,7 +68,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
     alpha_values_raw = regime.get("alpha_values")
     pfail_values_raw = regime.get("pfail_values")
     obs_hops_raw = regime.get("obs_hops", defaults.obs_hops)
-    abandon_raw = regime.get("abandonment_anc_threshold", defaults.abandonment_anc_threshold)
+    abandon_raw = regime.get("abandonment_nc_threshold", defaults.abandonment_nc_threshold)
     num_episodes = (
         int(episodes_override)
         if episodes_override is not None
@@ -102,7 +102,7 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         failure_bias=str(regime.get("failure_bias", defaults.failure_bias)),
         action_space=str(regime.get("action_space", defaults.action_space)),
         obs_hops=int(obs_hops_raw) if obs_hops_raw is not None else None,
-        abandonment_anc_threshold=(
+        abandonment_nc_threshold=(
             float(abandon_raw) if abandon_raw is not None else None
         ),
         n_range=tuple(graph["n_range"]),
@@ -293,9 +293,9 @@ def main() -> None:
             sum(training_state.episode_rewards[-10:])
             / max(1, len(training_state.episode_rewards[-10:]))
         ),
-        "final_anc_mean_last_10": (
-            sum(training_state.episode_final_anc[-10:])
-            / max(1, len(training_state.episode_final_anc[-10:]))
+        "final_nc_mean_last_10": (
+            sum(training_state.episode_final_nc[-10:])
+            / max(1, len(training_state.episode_final_nc[-10:]))
         ),
         "rolling_recovered_fraction": (
             sum(1 for x in _rec_tail if x) / len(_rec_tail) if _rec_tail else 0.0

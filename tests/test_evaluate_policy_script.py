@@ -97,7 +97,7 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
     primary_cell = {
         "policy_summaries": {
             "rl": {
-                "final_anc": {"mean": 0.8, "stderr": 0.1},
+                "final_nc": {"mean": 0.8, "stderr": 0.1},
                 "rounds": {"mean": 3.0, "stderr": 0.0},
                 "solved_fraction": {"mean": 0.6, "stderr": 0.0},
                 "fully_restored_count": 6,
@@ -105,7 +105,7 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
                 "rounds_when_solved": {"mean": 2.5, "stderr": 0.1},
             },
             "degree": {
-                "final_anc": {"mean": 0.9, "stderr": 0.05},
+                "final_nc": {"mean": 0.9, "stderr": 0.05},
                 "rounds": {"mean": 2.0, "stderr": 0.0},
                 "solved_fraction": {"mean": 0.7, "stderr": 0.0},
                 "fully_restored_count": 7,
@@ -119,8 +119,8 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
 
     assert legacy == {
         "rl": {
-            "final_anc_mean": 0.8,
-            "final_anc_stderr": 0.1,
+            "final_nc_mean": 0.8,
+            "final_nc_stderr": 0.1,
             "rounds_mean": 3.0,
             "solved_fraction_mean": 0.6,
             "fully_restored_count": 6,
@@ -129,8 +129,8 @@ def test_serialize_legacy_summary_matches_previous_evaluation_shape():
             "b_star": 3,
         },
         "degree": {
-            "final_anc_mean": 0.9,
-            "final_anc_stderr": 0.05,
+            "final_nc_mean": 0.9,
+            "final_nc_stderr": 0.05,
             "rounds_mean": 2.0,
             "solved_fraction_mean": 0.7,
             "fully_restored_count": 7,

@@ -36,13 +36,13 @@ def load_config(path: Path) -> dict[str, Any]:
 def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
     regime = config["training"]["regime"]
     obs_hops = regime.get("obs_hops")
-    abandon_raw = regime.get("abandonment_anc_threshold")
+    abandon_raw = regime.get("abandonment_nc_threshold")
     return {
         "capacity_noise": float(regime.get("capacity_noise", 0.0)),
         "failure_bias": str(regime.get("failure_bias", "uniform")),
         "action_space": str(regime.get("action_space", "failed")),
         "obs_hops": int(obs_hops) if obs_hops is not None else None,
-        "abandonment_anc_threshold": (
+        "abandonment_nc_threshold": (
             float(abandon_raw) if abandon_raw is not None else None
         ),
     }

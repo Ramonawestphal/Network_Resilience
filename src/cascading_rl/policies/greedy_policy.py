@@ -9,7 +9,7 @@ from cascading_rl.dynamics.cascade import (
     reactivate_node,
 )
 from cascading_rl.envs.recovery import RecoveryObservation
-from cascading_rl.metrics.connectivity import accumulated_normalized_connectivity
+from cascading_rl.metrics.connectivity import normalized_connectivity
 
 Node = Hashable
 
@@ -25,24 +25,28 @@ def observation_to_cascade_state(observation: RecoveryObservation) -> CascadeSta
     )
 
 
-def delta_anc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> float:
+def delta_nc_after_round_batch(state: CascadeState, nodes: Sequence[Node]) -> float:
     """ANC change after reactivating ``nodes`` (in sorted order) then one cascade wave, matching ``step_batch``."""
     trial = state.copy()
-    previous_anc = accumulated_normalized_connectivity(trial.graph, trial.active)
+    previous_anc = normalized_connectivity(trial.graph, trial.active)
     ordered = sorted(nodes, key=str)
     for node in ordered:
         trial = reactivate_node(trial, node)
     if trial.frontier and trial.failed:
         advance_cascade_round(trial)
-    post_anc = accumulated_normalized_connectivity(trial.graph, trial.active)
+    post_anc = normalized_connectivity(trial.graph, trial.active)
     return post_anc - previous_anc
 
 
-def choose_greedy_anc_node(observation: RecoveryObservation) -> list[Node]:
-    """Choose up to ``k`` failed nodes maximizing ANC gain after reactivations and one cascade wave.
+def choose_greedy_nc_node(observation: RecoveryObservation) -> list[Node]:
+    """Choose up to ``k`` failed nodes maximizing NC gain after reactivations and one cascade wave.
 
     ``k = min(remaining_budget, len(valid_actions))``. Returns nodes in ascending ``str(node)`` order
     for deterministic ``step_batch`` application.
+
+    Complexity: O(C(|failed|, k)) NC simulations per call — exponential in budget k.
+    For large graphs or budgets, consider using a greedy sequential approximation instead.
+    With |failed|=30 and k=4 this evaluates ~27,000 combinations per decision step.
     """
     valid = observation.valid_actions
     if not valid:
@@ -58,7 +62,7 @@ def choose_greedy_anc_node(observation: RecoveryObservation) -> list[Node]:
     best_nodes: tuple[Node, ...] | None = None
 
     for combo in itertools.combinations(valid, k):
-        delta = delta_anc_after_round_batch(base, combo)
+        delta = delta_nc_after_round_batch(base, combo)
         sorted_combo = tuple(sorted(combo, key=str))
         tie_key = tuple(str(n) for n in sorted_combo)
         if best_nodes is None:

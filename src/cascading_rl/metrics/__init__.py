@@ -1,12 +1,16 @@
 from cascading_rl.metrics.connectivity import (
-    accumulated_normalized_connectivity,
+    normalized_connectivity,
+    anc_fixed_horizon,
+    anc_adaptive_horizon,
     connected_component_sizes,
     largest_component_ratio,
     pairwise_connectivity,
 )
 
 __all__ = [
-    "accumulated_normalized_connectivity",
+    "normalized_connectivity",
+    "anc_fixed_horizon",
+    "anc_adaptive_horizon",
     "connected_component_sizes",
     "largest_component_ratio",
     "pairwise_connectivity",
