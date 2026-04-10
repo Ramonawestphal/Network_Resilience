@@ -78,7 +78,7 @@ def main() -> None:
     print(f"  alpha_values={ALPHA_VALUES}")
     print(f"  pfail_values={PFAIL_VALUES}")
     print(f"  policies={list(POLICIES)}")
-    print(f"  total cells: {len(ALPHA_VALUES)}×{len(PFAIL_VALUES)}×{len(budgets)} = "
+    print(f"  total cells: {len(ALPHA_VALUES)}x{len(PFAIL_VALUES)}x{len(budgets)} = "
           f"{len(ALPHA_VALUES) * len(PFAIL_VALUES) * len(budgets)}")
 
     # Generate fixed BA graphs
