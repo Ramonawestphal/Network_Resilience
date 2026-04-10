@@ -12,7 +12,7 @@
   "reference_n": 40,
   "resolved_budget": 2,
   "resolved_max_rounds": 18,
-  "checkpoint": "C:\\Users\\Ramona\\.vscode\\Seminar_ML\\Cascading-RL\\experiments\\learner\\recovery_q.pt",
+  "checkpoint": "experiments/learner/recovery_q.pt",
   "greedy_recovered": true,
   "rl_recovered": false,
   "extra_env_kwargs": {

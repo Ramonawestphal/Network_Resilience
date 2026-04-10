@@ -6,7 +6,10 @@ from cascading_rl.envs.recovery import RecoveryEnv
 
 def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
     """Episode ends with info['abandoned'] when ANC stays below threshold and failures remain."""
-    graph = nx.path_graph(10)
+    # Three disconnected pairs (0-1), (2-3), (4-5): pairwise connectivity among {0,1,2,3} is 1/3.
+    # After repairing 4, active {0,1,2,3,4} has components of sizes 2+2+1 → pairwise = 0.2 < 0.3.
+    graph = nx.Graph()
+    graph.add_edges_from([(0, 1), (2, 3), (4, 5)])
     env = RecoveryEnv(
         graph,
         alpha=1.0,
@@ -16,16 +19,16 @@ def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
         abandonment_anc_threshold=0.30,
     )
     env.reset()
-    env.state.active = {0, 1}
-    env.state.failed = set(range(2, 10))
-    env.state.frontier = {2}
+    env.state.active = {0, 1, 2, 3}
+    env.state.failed = {4, 5}
+    env.state.frontier = {4}
     for node in graph.nodes():
         env.state.loads[node] = 1.0
         env.state.capacities[node] = 3.0
     env.remaining_budget = 1
     env.current_round = 1
 
-    _, _, done, info = env.step(2)
+    _, _, done, info = env.step(4)
     assert done is True
     assert info["abandoned"] is True
     assert info["anc_after_cascade"] < 0.30
@@ -40,16 +43,16 @@ def test_abandonment_when_post_cascade_anc_below_threshold_step_and_batch():
         abandonment_anc_threshold=0.30,
     )
     env2.reset()
-    env2.state.active = {0, 1}
-    env2.state.failed = set(range(2, 10))
-    env2.state.frontier = {2}
+    env2.state.active = {0, 1, 2, 3}
+    env2.state.failed = {4, 5}
+    env2.state.frontier = {4}
     for node in graph.nodes():
         env2.state.loads[node] = 1.0
         env2.state.capacities[node] = 3.0
     env2.remaining_budget = 1
     env2.current_round = 1
 
-    _, _, done_b, info_b = env2.step_batch([2])
+    _, _, done_b, info_b = env2.step_batch([4])
     assert done_b is True
     assert info_b["abandoned"] is True
 
@@ -69,7 +72,8 @@ def test_environment_step_rewards_connectivity_gain():
 
     assert reward > 0.0
     assert 0 in observation.active
-    assert info["anc"] == 9 / 16
+    # |V|=4, active {0,1,2} connected: 3*2 / (4*3) = 0.5
+    assert info["anc"] == pytest.approx(0.5)
     assert info["cascade_executed"] is False
     assert done is False
 

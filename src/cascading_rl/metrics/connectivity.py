@@ -16,15 +16,29 @@ def connected_component_sizes(graph: nx.Graph, active_nodes: Iterable[Node]) -> 
     return [len(component) for component in nx.connected_components(subgraph)]
 
 
+def pairwise_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> float:
+    """Pairwise connectivity relative to the full graph node set ``V``.
+
+    Counts unordered pairs of *active* nodes that belong to the same connected component
+    in the active induced subgraph, divided by ``|V|(|V|-1)`` (all unordered pairs in ``V``).
+    If there are fewer than two active nodes, returns ``0``.
+    """
+    active_set = set(active_nodes)
+    if len(active_set) < 2:
+        return 0.0
+    n_total = graph.number_of_nodes()
+    if n_total < 2:
+        return 0.0
+    component_sizes = connected_component_sizes(graph, active_set)
+    connected_pairs = sum(s * (s - 1) for s in component_sizes)
+    return connected_pairs / (n_total * (n_total - 1))
+
+
 def accumulated_normalized_connectivity(
     graph: nx.Graph, active_nodes: Iterable[Node]
 ) -> float:
-    """Compute ANC as the sum of squared component shares."""
-    total_nodes = graph.number_of_nodes()
-    if total_nodes == 0:
-        return 0.0
-    component_sizes = connected_component_sizes(graph, active_nodes)
-    return sum((component_size / total_nodes) ** 2 for component_size in component_sizes)
+    """Historical name; now an alias for :func:`pairwise_connectivity`."""
+    return pairwise_connectivity(graph, active_nodes)
 
 
 def largest_component_ratio(graph: nx.Graph, active_nodes: Iterable[Node]) -> float:

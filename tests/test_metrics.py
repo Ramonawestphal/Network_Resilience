@@ -5,6 +5,7 @@ from cascading_rl.metrics.connectivity import (
     accumulated_normalized_connectivity,
     connected_component_sizes,
     largest_component_ratio,
+    pairwise_connectivity,
 )
 from cascading_rl.evaluation.metrics import (
     AggregateMetrics,
@@ -28,7 +29,9 @@ def test_accumulated_normalized_connectivity_matches_manual_value():
 
     anc = accumulated_normalized_connectivity(graph, {0, 1, 3})
 
-    assert anc == 5 / 16
+    assert anc == pytest.approx(pairwise_connectivity(graph, {0, 1, 3}))
+    # 1 pair within active subgraph; |V|(|V|-1) = 12
+    assert anc == pytest.approx(2.0 / 12.0)
 
 
 def test_accumulated_normalized_connectivity_is_one_for_fully_connected_active_graph():
@@ -45,7 +48,8 @@ def test_accumulated_normalized_connectivity_handles_two_equal_components():
 
     anc = accumulated_normalized_connectivity(graph, {0, 1, 2, 3})
 
-    assert anc == 0.5
+    # Two edges among active: 4 within-component pairs; 4*3 = 12
+    assert anc == pytest.approx(4.0 / 12.0)
 
 
 def test_accumulated_normalized_connectivity_handles_single_component_subset():
@@ -53,7 +57,7 @@ def test_accumulated_normalized_connectivity_handles_single_component_subset():
 
     anc = accumulated_normalized_connectivity(graph, {0, 1})
 
-    assert anc == 0.25
+    assert anc == pytest.approx(2.0 / 12.0)
 
 
 def test_accumulated_normalized_connectivity_handles_single_active_node():
@@ -61,7 +65,7 @@ def test_accumulated_normalized_connectivity_handles_single_active_node():
 
     anc = accumulated_normalized_connectivity(graph, {0})
 
-    assert anc == 0.0625
+    assert anc == 0.0
 
 
 def test_largest_component_ratio_uses_total_graph_size():
