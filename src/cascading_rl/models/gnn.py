@@ -67,9 +67,12 @@ def observation_to_global_features(
     ] or [0.0]
 
     feature_values = {
+        # failed_fraction: proportion of nodes currently failed — per-episode graph size.
         "failed_fraction": len(failed) / max(num_nodes, 1),
+        # mean/max_load_capacity_ratio: statistics over active nodes — per-episode values.
         "mean_load_capacity_ratio": sum(ratios) / len(ratios),
         "max_load_capacity_ratio": max(ratios),
+        # current_round_norm: progress through episode normalized by episode max_rounds — in [0,1].
         "current_round_norm": float(observation.current_round) / max(
             1.0, float(observation.max_rounds)
         ),
@@ -136,6 +139,7 @@ def observation_to_graph_tensor(
     use_virtual_node: bool = False,
     feature_names: tuple[str, ...] | None = None,
     device: torch.device | str | None = None,
+    debug: bool = False,
 ) -> GraphTensor:
     """Convert a recovery observation into graph tensors."""
     feature_names = feature_names or FEATURE_NAMES
@@ -148,7 +152,9 @@ def observation_to_graph_tensor(
 
     max_load = max((float(value) for value in observation.loads.values()), default=1.0)
     max_capacity = max((float(value) for value in observation.capacities.values()), default=1.0)
+    # max_degree: current episode's graph maximum degree — per-graph, not a training constant.
     max_degree = max((observation.graph.degree(node) for node in node_ids), default=1)
+    # scale: per-episode joint load/capacity scale so both are dimensionless on [0, 1].
     scale = max(max_load, max_capacity, 1.0)
 
     node_features = torch.zeros((num_nodes, len(feature_names)), dtype=torch.float32)
@@ -160,19 +166,30 @@ def observation_to_graph_tensor(
         load = float(observation.loads[node])
         capacity = float(observation.capacities[node])
         degree = float(observation.graph.degree(node))
-        canonical_budget = float(observation.remaining_budget) / max(1.0, float(num_real_nodes))
-        legacy_budget = float(observation.remaining_budget) / max(1.0, float(num_nodes))
+        # FIXED: was remaining_budget / num_real_nodes (mixed scale, not in [0,1] for large graphs).
+        # Now: fraction of total episode budget remaining — always in [0, 1].
+        budget_frac = float(observation.remaining_budget) / max(1.0, float(observation.budget))
+        # legacy_round: normalized by episode max_rounds — per-episode, always in [0, 1].
         legacy_round = float(observation.current_round) / max(1.0, float(observation.max_rounds))
         feature_values = {
+            # load_norm: node load normalized by episode's max(load, capacity) — per-episode scale.
             "load_norm": load / scale,
+            # capacity_norm: node capacity normalized by same per-episode scale.
             "capacity_norm": capacity / scale,
+            # load_capacity_ratio: dimensionless overload indicator; 0 if capacity unknown.
             "load_capacity_ratio": (load / capacity) if capacity > 0.0 else 0.0,
             "failed_flag": 1.0 if node in observation.failed else 0.0,
             "active_flag": 1.0 if node in observation.active else 0.0,
             "frontier_flag": 1.0 if node in observation.frontier else 0.0,
-            "budget_coverage": canonical_budget,
-            "remaining_budget_norm": legacy_budget,
+            # budget_coverage: fraction of episode budget remaining — normalized by observation.budget.
+            # FIXED: was normalized by num_real_nodes (yielded tiny values ~B/N, not in [0,1]).
+            "budget_coverage": budget_frac,
+            # remaining_budget_norm (LEGACY): same fix — fraction of budget remaining.
+            # FIXED: was normalized by num_nodes (including virtual), now uses observation.budget.
+            "remaining_budget_norm": budget_frac,
+            # current_round_norm (LEGACY node feature): normalized by episode max_rounds.
             "current_round_norm": legacy_round,
+            # degree_norm: node degree normalized by this episode's graph max degree — per-graph.
             "degree_norm": degree / max(1.0, float(max_degree)),
         }
         node_features[index] = torch.tensor(
@@ -180,6 +197,22 @@ def observation_to_graph_tensor(
             dtype=torch.float32,
         )
         valid_mask[index] = node in observation.failed
+
+        if debug:
+            assert 0.0 <= feature_values["degree_norm"] <= 1.0, (
+                f"degree_norm={feature_values['degree_norm']:.4f} out of [0,1] for node {node}"
+            )
+            assert 0.0 <= feature_values["budget_coverage"] <= 1.0, (
+                f"budget_coverage={feature_values['budget_coverage']:.4f} out of [0,1] "
+                f"(remaining={observation.remaining_budget}, budget={observation.budget})"
+            )
+            assert 0.0 <= feature_values["current_round_norm"] <= 1.0, (
+                f"current_round_norm={feature_values['current_round_norm']:.4f} out of [0,1] "
+                f"(round={observation.current_round}, max_rounds={observation.max_rounds})"
+            )
+            assert 0.0 <= feature_values["remaining_budget_norm"] <= 1.0, (
+                f"remaining_budget_norm={feature_values['remaining_budget_norm']:.4f} out of [0,1]"
+            )
 
     if use_virtual_node:
         node_features[num_real_nodes] = node_features[:num_real_nodes].mean(dim=0)

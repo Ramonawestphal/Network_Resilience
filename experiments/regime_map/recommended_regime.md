@@ -12,9 +12,9 @@ Start RL training and baseline comparison around `alpha=0.1`, `pfail=0.15`, and 
 ## Why This Cell
 
 - regime label: `decision-sensitive`
-- interestingness score: `0.879`
-- final ANC spread across heuristics: `0.606`
+- interestingness score: `0.893`
+- final ANC spread across heuristics: `0.614`
 - solved-fraction spread across heuristics: `0.722`
-- budget sensitivity at this `(alpha, pfail)`: `0.724`
+- budget sensitivity at this `(alpha, pfail)`: `0.731`
 - current best heuristic in this cell: `greedy`
 - current weakest heuristic in this cell: `random`

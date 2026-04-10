@@ -20,9 +20,12 @@ The current baseline uses:
 - pre-cascade pairwise reachability gain as the reward
 - graph-size-scaled budgets via `config/default.yaml`
 
-The connectivity metric is the project's historical `accumulated_normalized_connectivity()` function, interpreted as pairwise reachability:
+The connectivity metric is **pairwise connectivity** (implemented as `pairwise_connectivity()`; `accumulated_normalized_connectivity()` is a backward-compatible alias):
 
-- `PR(G, A) = sum_k (|C_k| / |V|)^2`
+- Let `V` be all nodes of the substrate graph and `A` the active set. If `|A| < 2`, the metric is `0`.
+- Otherwise, with active-induced subgraph component sizes `s_k`:  
+  `PC(G, A) = sum_k s_k(s_k - 1) / (|V|(|V| - 1))`  
+  i.e. the count of unordered pairs of active nodes in the same component, normalized by all unordered pairs in `V`.
 
 ## Policy Set
 

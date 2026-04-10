@@ -141,6 +141,7 @@ def _summary(
         rounds=metric(rounds),
         solved_fraction=metric(solved_fraction),
         rounds_when_solved=rws,
+        rounds_when_failed=None,
         fully_restored_count=fully_restored_count,
         episode_count=episode_count,
         unsolved_low_final_nc_count=unsolved_low_final_nc_count,

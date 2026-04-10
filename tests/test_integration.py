@@ -1,4 +1,5 @@
 import networkx as nx
+import pytest
 
 from cascading_rl.envs.recovery import RecoveryEnv
 from cascading_rl.evaluation import estimate_minimum_budget, evaluate_policies
@@ -69,9 +70,7 @@ def test_environment_reward_matches_anc_gain_on_manual_state():
 
     _, reward, _, info = env.step(0)
 
-    # Intra-round step (b=1 of B=2, budget=2): reward is 0 under the
-    # homogenised reward scheme. The full round delta NC is assigned only at
-    # the last step (b=B) when the cascade fires. This ensures the replay
-    # buffer contains structurally homogeneous Bellman targets.
-    assert reward == 0.0
-    assert info["nc"] == info["nc_after_cascade"]
+    previous_anc = 0.0  # |A|<2 → 0
+    assert reward == info["anc_after_cascade"] - previous_anc
+    assert reward == pytest.approx(0.5)
+    assert info["anc"] == info["anc_after_cascade"]

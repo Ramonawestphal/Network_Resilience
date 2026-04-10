@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-04-09T12:18:45.679984+00:00",
+  "script": "scripts/evaluate_policy.py",
+  "argv": [
+    "scripts/evaluate_policy.py",
+    "--checkpoint",
+    "experiments/learner/recovery_q_global.pt"
+  ],
+  "config_path": "config/default.yaml",
+  "config_sha256": "3b084c70ef280ed800b72a9c98c3785c6dd013f4ae1d2866086efca4efedfa67",
+  "git_commit": "3b9b3663d3718bba1e54fa5ac4d7fd6b2828c943",
+  "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "torch_version": "2.11.0+cpu",
+  "checkpoint": "experiments/learner/recovery_q_global.pt",
+  "grid_source": "training",
+  "policies": [
+    "rl",
+    "random",
+    "degree",
+    "risk",
+    "greedy",
+    "betweenness"
+  ]
+}

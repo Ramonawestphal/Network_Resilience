@@ -369,6 +369,7 @@ class PolicyEvaluationSummary:
     rounds: AggregateMetric
     solved_fraction: AggregateMetric
     rounds_when_solved: AggregateMetric | None
+    rounds_when_failed: AggregateMetric | None
     fully_restored_count: int
     episode_count: int
     unsolved_low_final_nc_count: int = 0
@@ -492,6 +493,11 @@ def summarize_episode_results(
         for result in episode_results
         if result.remaining_failed_nodes == 0
     ]
+    failed_rounds = [
+        float(result.rounds)
+        for result in episode_results
+        if result.remaining_failed_nodes > 0
+    ]
     fully_restored_count = sum(
         1 for result in episode_results if result.remaining_failed_nodes == 0
     )
@@ -544,6 +550,7 @@ def summarize_episode_results(
             [1.0 if result.remaining_failed_nodes == 0 else 0.0 for result in episode_results]
         ),
         rounds_when_solved=_aggregate(solved_rounds) if solved_rounds else None,
+        rounds_when_failed=_aggregate(failed_rounds) if failed_rounds else None,
         fully_restored_count=fully_restored_count,
         episode_count=episode_count,
         unsolved_low_final_nc_count=unsolved_low,

@@ -98,6 +98,7 @@ class TrainingConfig:
     log_episode_spread: bool = False
     log_grad_norm: bool = False
     validation_eval_set_path: str | None = None
+    debug: bool = False
 
 
 @dataclass
@@ -185,12 +186,14 @@ def _graph_tensor_for_model(
     observation: RecoveryObservation,
     *,
     device: torch.device,
+    debug: bool = False,
 ):
     return observation_to_graph_tensor(
         observation,
         use_virtual_node=model.config.use_virtual_node,
         feature_names=model.feature_names,
         device=device,
+        debug=debug,
     )
 
 
@@ -202,10 +205,16 @@ def _global_features_for_model(
 ) -> torch.Tensor | None:
     if not model.config.use_global_features:
         return None
-    return observation_to_global_features(
+    global_features = observation_to_global_features(
         observation,
         global_feature_names=model.global_feature_names,
     ).to(device)
+    if global_features.numel() == 0:
+        raise ValueError(
+            "use_global_features=True but the global feature vector is empty. "
+            f"global_feature_names={model.global_feature_names!r}"
+        )
+    return global_features
 
 
 def _choose_degree_batch(observation: RecoveryObservation) -> tuple[Node, ...]:
@@ -298,6 +307,7 @@ def compute_dqn_loss(
     *,
     gamma: float,
     device: torch.device,
+    debug: bool = False,
 ) -> torch.Tensor:
     """Single-action DQN loss with support for round-collapsed bootstrapping.
 
@@ -316,7 +326,7 @@ def compute_dqn_loss(
         )
     losses: list[torch.Tensor] = []
     for transition in transitions:
-        graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
+        graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device, debug=debug)
         global_features = _global_features_for_model(model, transition.observation, device=device)
         q_values = model(graph_tensor, global_features)
 
@@ -327,7 +337,7 @@ def compute_dqn_loss(
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
             if not transition.done and transition.next_observation.failed:
-                next_tensor = _graph_tensor_for_model(target_model, transition.next_observation, device=device)
+                next_tensor = _graph_tensor_for_model(target_model, transition.next_observation, device=device, debug=debug)
                 next_global = _global_features_for_model(
                     target_model,
                     transition.next_observation,
@@ -362,7 +372,7 @@ def _maybe_update(
     if len(replay_buffer) < max(config.batch_size, config.warmup_transitions):
         return
     batch = replay_buffer.sample(config.batch_size, rng=rng)
-    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device)
+    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device, debug=config.debug)
     optimizer.zero_grad()
     loss.backward()  # type: ignore[no-untyped-call]
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)

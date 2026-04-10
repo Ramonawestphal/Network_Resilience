@@ -1,0 +1,1292 @@
+\documentclass[12pt,a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{tcolorbox}
+\usepackage{mdframed}
+
+\onehalfspacing
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+% ── Coloured boxes for design decisions ──────────────────────────────────────
+\tcbuselibrary{skins,breakable}
+\newtcolorbox{designbox}[1]{
+  colback=blue!5!white,
+  colframe=blue!60!black,
+  fonttitle=\bfseries,
+  title={Design Decision: #1},
+  breakable
+}
+\newtcolorbox{warningbox}[1]{
+  colback=orange!5!white,
+  colframe=orange!70!black,
+  fonttitle=\bfseries,
+  title={Common Pitfall: #1},
+  breakable
+}
+\newtcolorbox{codebox}{
+  colback=gray!5!white,
+  colframe=gray!50!black,
+  breakable
+}
+
+% ── Code listings ─────────────────────────────────────────────────────────────
+\lstset{
+  language=Python,
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!5}
+}
+
+% ── Theorem environments ──────────────────────────────────────────────────────
+\newtheorem{definition}{Definition}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{remark}{Remark}[section]
+
+% ── Title ─────────────────────────────────────────────────────────────────────
+\title{
+  \textbf{Technical Reference: Reinforcement Learning Setup}\\[0.4em]
+  \large Budget-Constrained Recovery in Networks Subject to\\
+  Cascading Failures\\[0.4em]
+
+}
+
+\author{
+  Alexia Chirita \and Tra My Vu \and Ramona Westphal \and Xander Pauwels
+}
+
+\date{March 2026 --- Living Document}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document is the authoritative technical reference for the reinforcement
+learning setup used in the Cascading-RL project. It covers every design
+choice in the MDP formulation, network metric, reward function, GNN
+architecture, and training procedure, with explicit justification from the
+literature for each choice. It also documents common pitfalls encountered
+during implementation and how they were resolved. Every student working on
+this project should read this document before touching the code. When the
+code is updated, this document must be updated to match.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Overview and Scope}
+\label{sec:overview}
+
+This project studies whether graph-based reinforcement learning (RL) can
+learn recovery policies for networks subject to cascading failures, and
+whether those policies outperform standard structural heuristics under
+a limited repair budget. The primary methodological inspiration is the
+FINDER framework of \citet{fan2020finding}, which showed that sequential
+node-level intervention on graphs can be learned via deep RL and
+transferred across graph topologies. We extend FINDER from network
+\emph{dismantling} to network \emph{recovery}.
+
+\paragraph{What this document covers.}
+\begin{itemize}[leftmargin=*]
+  \item The network model and cascade dynamics (Section~\ref{sec:network})
+  \item The pairwise reachability metric and its justification
+        (Section~\ref{sec:metric})
+  \item The MDP formulation including state, action, transition, and
+        reward (Section~\ref{sec:mdp})
+  \item The GNN architecture (Section~\ref{sec:gnn})
+  \item The training algorithm and all hyperparameter choices
+        (Section~\ref{sec:training})
+  \item Common pitfalls and how they were resolved
+        (Section~\ref{sec:pitfalls})
+\end{itemize}
+
+\paragraph{What this document does not cover.}
+Regime mapping, evaluation design, baseline heuristics, and experimental
+results are documented in the main research report and in
+\texttt{README\_RESEARCH.md}.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Network Model and Cascade Dynamics}
+\label{sec:network}
+
+\subsection{Graph}
+
+We work with undirected, unweighted graphs $G = (V, E)$ where $|V| = n$
+nodes and $|E|$ edges. All graphs in training and evaluation are
+Barabási--Albert (BA) graphs generated with attachment parameter $m = 2$,
+following \citet{fan2020finding} who trained and evaluated FINDER on the
+same graph family. BA graphs have a heavy-tailed degree distribution
+$P(k) \sim k^{-3}$, producing a small number of high-degree hubs
+surrounded by many low-degree nodes. This is empirically realistic for
+many infrastructure networks \citep{barabasi1999emergence}.
+
+\subsection{Initial Loads and Capacities}
+
+Each node $i \in V$ is assigned an initial load and capacity following
+\citet{motter2002cascade} and \citet{feng2023enhancing}:
+
+\begin{equation}
+  L_i^{(0)} = \deg(i), \qquad C_i = (1 + \alpha)\, L_i^{(0)},
+  \label{eq:load_capacity}
+\end{equation}
+
+where $\deg(i)$ is the degree of node $i$ and $\alpha \geq 0$ is the
+\emph{tolerance parameter}. The tolerance parameter is the single most
+important parameter controlling cascade severity: higher $\alpha$ means
+nodes can absorb more redistributed load before failing.
+
+\begin{designbox}{Why degree-proportional load?}
+Using node degree as the initial load is standard in the load-capacity
+cascading failure literature \citep{motter2002cascade, wu2008cascading,
+feng2023enhancing}. It reflects the empirical observation that more
+connected nodes handle more traffic. The proportional capacity rule
+$C_i = (1+\alpha) L_i^{(0)}$ is the simplest model that produces
+non-trivial cascade dynamics: $\alpha = 0$ means any additional load
+immediately causes failure; large $\alpha$ means nodes have generous
+spare capacity and cascades self-limit quickly.
+\end{designbox}
+
+\subsection{Initial Failures}
+
+At $t = 0$, each node fails independently with probability $p_{\text{fail}}$:
+
+\begin{equation}
+  \mathbf{1}[i \text{ fails}] \sim \text{Bernoulli}(p_{\text{fail}}),
+  \quad \forall i \in V.
+  \label{eq:initial_failures}
+\end{equation}
+
+Let $\mathcal{F}_0$ denote the initial failed set and
+$\mathcal{A}_0 = V \setminus \mathcal{F}_0$ the initial active set.
+
+\begin{warningbox}{Empty episodes}
+With Bernoulli failures at $p_{\text{fail}} = 0.10$ on a 40-node graph,
+approximately $(0.9)^{40} \approx 1.5\%$ of episodes produce zero initial
+failures. Such episodes contribute zero transitions to the replay buffer
+while still consuming episode count. The training loop guards against this
+by retrying \texttt{env.reset()} up to 1\,024 times until at least one
+node has failed, raising a \texttt{RuntimeError} if no failures occur
+after all attempts. This is implemented in
+\texttt{\_reset\_with\_non\_empty\_failures()} in \texttt{trainer.py}.
+\end{warningbox}
+
+\subsection{Load Redistribution and Cascade}
+
+When node $i^*$ fails, its load is redistributed to its active neighbours
+$\mathcal{S}(i^*) = \{j \in \mathcal{A} : (i^*, j) \in E\}$
+proportionally to their capacity:
+
+\begin{equation}
+  \Delta L_j = L_{i^*} \cdot \frac{C_j}{\sum_{m \in \mathcal{S}(i^*)} C_m},
+  \quad \forall j \in \mathcal{S}(i^*).
+  \label{eq:redistribution}
+\end{equation}
+
+This is the \emph{Local Weighted Flow Redistribution Rule} (LWFRR) of
+\citet{wu2008cascading}, which directs excess load preferentially to
+higher-capacity neighbours, reducing the risk of immediate secondary
+failures. The updated load is:
+
+\begin{equation}
+  L_j \leftarrow L_j + \Delta L_j, \quad \forall j \in \mathcal{S}(i^*).
+\end{equation}
+
+Any node $j$ with $L_j > C_j$ after the update fails in the next cascade
+wave. This propagation continues until no overloaded nodes remain.
+
+\begin{remark}
+If $\mathcal{S}(i^*) = \emptyset$ (no active neighbours), the failed
+node's load is simply lost — not redistributed. This models permanent
+load shedding rather than storage or rerouting.
+\end{remark}
+
+\subsection{Recovery Mechanism}
+
+In each \emph{recovery round}, the agent selects up to $B$ failed nodes
+to reactivate. Reactivation restores a node to active status with:
+
+\begin{equation}
+  L_i \leftarrow 0, \quad C_i \leftarrow (1 + \alpha)\, L_i^{(0)},
+  \quad i \text{ moved from } \mathcal{F} \text{ to } \mathcal{A}.
+  \label{eq:reactivation}
+\end{equation}
+
+The node re-enters with zero load and its original capacity, enabling it
+to absorb future redistributed load.
+
+\paragraph{Round structure (corrected semantics).}
+Within a round, the agent makes $B$ sequential repair decisions. After
+all $B$ repairs are complete, \emph{exactly one} cascade wave fires from
+the current frontier. The frontier consists of any failed nodes whose
+neighbours are now overloaded due to prior cascade activity. A new round
+then begins.
+
+\begin{warningbox}{Interleaved vs.\ batch repair semantics}
+An earlier version of the codebase fired a cascade wave after each
+individual repair within a round. This was incorrect: it meant the agent
+was penalised for cascade side-effects triggered by earlier repairs in
+the same round, making credit assignment within the round impossible.
+The corrected semantics are: $B$ repairs, then one cascade wave. This is
+verified by dedicated tests in \texttt{tests/test\_envs.py}:
+\texttt{test\_no\_cascade\_on\_intermediate\_repairs} and
+\texttt{test\_cascade\_fires\_at\_round\_end}.
+\end{warningbox}
+
+\subsection{Budget and Round Scaling}
+
+The budget $B$ is specified as a \emph{reference budget} $B_{\text{ref}}$
+for a reference graph size $n_{\text{ref}} = 40$. The actual per-episode
+budget is scaled to the graph's node count:
+
+\begin{equation}
+  B = \max\!\left(1,\; \left\lfloor B_{\text{ref}} \cdot
+  \frac{n}{n_{\text{ref}}} \right\rceil\right),
+  \label{eq:budget_scaling}
+\end{equation}
+
+where $\lfloor \cdot \rceil$ denotes rounding to the nearest integer.
+This preserves the \emph{recovery rate} $\beta = B/n$ across graph sizes,
+ensuring that evaluation on large graphs is comparable to training on
+small ones. The same scaling rule is applied in training, validation,
+regime mapping, and all evaluation scripts.
+
+When enabled, an analogous scaling rule is also applied to the maximum
+number of recovery rounds, using the corresponding reference value.
+% ══════════════════════════════════════════════════════════════════════════════
+\section{The Pairwise Connectivity Metric}
+\label{sec:metric}
+
+\subsection{Definition}
+
+\begin{definition}[Normalized Pairwise Connectivity]
+\label{def:pc}
+Given a graph $G = (V, E)$ and an active node set $\mathcal{A} \subseteq V$,
+let $C_1, C_2, \ldots, C_k$ denote the connected components of the induced
+subgraph $G[\mathcal{A}]$. The \emph{normalized pairwise connectivity} is
+
+\begin{equation}
+  \mathrm{PC}(G, \mathcal{A}) =
+  \frac{1}{|V|(|V|-1)}
+  \sum_{j=1}^{k} |C_j|\bigl(|C_j|-1\bigr),
+  \label{eq:pc}
+\end{equation}
+
+with the convention that $\mathrm{PC}(G,\mathcal{A}) = 0$ whenever
+$|V| < 2$ or $|\mathcal{A}| < 2$.
+\end{definition}
+
+\subsection{Probabilistic Interpretation}
+
+$\mathrm{PC}(G,\mathcal{A})$ is the fraction of ordered node pairs from the
+full original node set $V$ that remain mutually reachable through active
+nodes. Equivalently,
+
+\begin{equation}
+  \mathrm{PC}(G,\mathcal{A})
+  =
+  \Pr_{i \neq j \sim \mathrm{Uniform}(V)}\!\left[
+    i \in \mathcal{A},\;
+    j \in \mathcal{A},\;
+    i \leftrightarrow_{\mathcal{A}} j
+  \right],
+\end{equation}
+
+where $i \leftrightarrow_{\mathcal{A}} j$ means that $i$ and $j$ belong to
+the same connected component of $G[\mathcal{A}]$.
+
+This makes $\mathrm{PC}$ a natural infrastructure recovery metric: it
+measures the probability that two arbitrarily chosen endpoints in the
+original network can still communicate through currently active nodes.
+
+\subsection{Scale Reference Points}
+
+Table~\ref{tab:pc_examples} provides reference values for intuition.
+
+\begin{table}[ht]
+\centering
+\caption{Reference values for normalized pairwise connectivity on a graph with $|V| = n$.}
+\label{tab:pc_examples}
+\begin{tabular}{lll}
+\toprule
+\textbf{Scenario} & \textbf{PC} & \textbf{Interpretation} \\
+\midrule
+All $n$ nodes active, fully connected & 1.00 & Full recovery \\
+$0.9n$ nodes active, one component & $\frac{0.9n(0.9n-1)}{n(n-1)} \approx 0.81$ & Minor damage \\
+$0.8n$ nodes active, one component & $\frac{0.8n(0.8n-1)}{n(n-1)} \approx 0.64$ & Moderate damage \\
+All active, two equal halves & $\approx 0.50$ & Full survival, bisected \\
+$0.7n$ active, one component & $\frac{0.7n(0.7n-1)}{n(n-1)} \approx 0.49$ & Significant damage \\
+$0.5n$ active, one component & $\frac{0.5n(0.5n-1)}{n(n-1)} \approx 0.25$ & Severe damage \\
+$0.5n$ active, two equal halves & $\approx 0.125$ & Severe and fragmented \\
+Single active node & $0$ & Near-total collapse \\
+No active nodes & $0$ & Total collapse \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{warningbox}{Interpretation of the scale}
+PC is a pairwise probability, not a node share. A value of $\mathrm{PC}=0.30$
+does \emph{not} mean that 30\% of nodes remain active or reachable. Instead,
+it means that 30\% of all ordered node pairs from the original graph remain
+connected through the active subgraph. In the special case where all active
+nodes lie in a single component, $\mathrm{PC}$ is approximately the square of
+the surviving node fraction for large graphs. Threshold values should
+therefore always be interpreted in PC units, not as percentages of nodes.
+\end{warningbox}
+
+\subsection{Verified Test Cases}
+
+The following tests are implemented in \texttt{tests/test\_metrics.py} and
+must pass after any change to \texttt{connectivity.py}:
+
+\begin{lstlisting}[caption={Verified test cases for \texttt{pairwise\_connectivity}.}]
+import math, networkx as nx
+from cascading_rl.metrics.connectivity import pairwise_connectivity as pc
+
+def test_pc_full_recovery():
+    G = nx.path_graph(4)         # 4 nodes, connected
+    assert pc(G, [0, 1, 2, 3]) == 1.0
+    # connected_pairs = 4 * 3 = 12, denominator = 4 * 3 = 12
+
+def test_pc_partial_survival():
+    G = nx.path_graph(4)
+    assert math.isclose(pc(G, [0, 1]), 2 / 12)
+    # one active component of size 2: 2 * 1 / (4 * 3) = 1/6
+
+def test_pc_single_node():
+    G = nx.path_graph(4)
+    assert math.isclose(pc(G, [0]), 0.0)
+
+def test_pc_two_equal_components():
+    G = nx.Graph()
+    G.add_edges_from([(0, 1), (2, 3)])
+    # connected_pairs = 2 * 1 + 2 * 1 = 4, denominator = 12
+    assert math.isclose(pc(G, [0, 1, 2, 3]), 4 / 12)
+
+def test_pc_two_components_on_path():
+    G = nx.path_graph(5)         # 0-1-2-3-4
+    # Active: {0,1} and {3,4}, node 2 failed
+    # connected_pairs = 2 * 1 + 2 * 1 = 4, denominator = 5 * 4 = 20
+    assert math.isclose(pc(G, [0, 1, 3, 4]), 0.2)
+\end{lstlisting}
+
+\subsection{Relation to FINDER and Justification}
+
+FINDER \citep{fan2020finding} distinguishes between a \emph{state-level}
+connectivity function and a \emph{sequence-level} objective.
+
+For the CN problem, FINDER uses pairwise connectivity:
+
+\begin{equation}
+  \sigma_{\mathrm{pair}}(G) =
+  \sum_j \frac{|C_j|(|C_j|-1)}{2},
+\end{equation}
+
+where the $C_j$ are the connected components of the current graph state.
+This is a raw count of connected unordered node pairs. FINDER then defines
+its accumulated normalized connectivity (ANC) as the area under the curve of
+the normalized connectivity values over a sequential node-removal process.
+
+Our metric in Equation~\ref{eq:pc} is a \emph{single-state normalized
+pairwise connectivity} measure. It is not FINDER's sequence-level ANC.
+Instead, it evaluates the current recovery state directly by normalizing the
+number of connected ordered active pairs by the total number of ordered pairs
+in the original graph.
+
+This design differs from FINDER in two ways:
+
+\begin{enumerate}
+  \item \textbf{Single-state rather than accumulated.} We evaluate the final
+  or intermediate recovery state directly rather than integrating over the
+  full trajectory. This keeps the reward and evaluation signal easier to
+  interpret in a recovery setting.
+
+  \item \textbf{Normalization by the original node set.} The denominator uses
+  $|V|(|V|-1)$ rather than the number of active-node pairs. This means that
+  node loss is penalized alongside fragmentation. A tiny surviving but fully
+  connected remnant therefore does not score highly.
+\end{enumerate}
+
+This makes the metric appropriate for infrastructure recovery, where both
+survival and connectivity matter from the operator's perspective.
+
+\begin{designbox}{Why not GCC share?}
+The GCC share,
+\[
+\frac{|\mathrm{GCC}(G[\mathcal{A}])|}{|V|},
+\]
+tracks only the largest active connected component and ignores all smaller
+components. By contrast, PC accounts for \emph{all} active connected pairs.
+A network split into multiple medium-sized components is therefore penalized
+more appropriately under PC than under GCC share. For infrastructure recovery,
+this is desirable because disconnected fragments represent endpoints that can
+no longer communicate with much of the system.
+\end{designbox}
+% ══════════════════════════════════════════════════════════════════════════════
+\section{MDP Formulation}
+\label{sec:mdp}
+
+\subsection{State}
+
+At any time step $t$ within a recovery episode, the state $s_t$ is:
+
+\begin{equation}
+  s_t = \left(G,\;
+    \{L_i^{(t)}\}_{i \in V},\;
+    \{C_i\}_{i \in V},\;
+    \mathcal{F}_t,\;
+    \mathcal{A}_t,\;
+    \text{frontier}_t,\;
+    B_t,\;
+    t_{\text{round}}\right),
+\end{equation}
+
+where:
+\begin{itemize}[leftmargin=*]
+  \item $G$ is the fixed graph topology (unchanged throughout the episode)
+  \item $L_i^{(t)}$ is the current load on node $i$
+  \item $C_i$ is the fixed capacity of node $i$ (unchanged after initial assignment)
+  \item $\mathcal{F}_t$ is the set of failed nodes at time $t$
+  \item $\mathcal{A}_t = V \setminus \mathcal{F}_t$ is the set of active nodes
+  \item $\text{frontier}_t \subseteq \mathcal{F}_t$ is the set of nodes
+    that failed in the most recent cascade wave (used to drive the round-end cascade)
+  \item $B_t$ is the number of repair actions remaining in the current round
+  \item $t_{\text{round}}$ is the index of the current round
+\end{itemize}
+
+The state is a graph-structured object, not a fixed-size vector. This
+is why a standard MLP Q-network is insufficient and a GNN is required.
+
+\subsection{Action}
+
+At each step, the agent selects exactly one failed node to reactivate:
+
+\begin{equation}
+  a_t \in \mathcal{F}_t.
+\end{equation}
+
+Invalid actions (selecting active nodes) are masked to $-\infty$ in the
+Q-network output, ensuring the argmax always selects a failed node. After
+$B$ actions within a round, the budget is exhausted and the round ends.
+
+\subsection{Transition}
+
+After the agent selects action $a_t$:
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Repair:} Node $a_t$ is restored to active with zero load.
+  \item \textbf{Budget decrement:} $B_t \leftarrow B_t - 1$.
+  \item \textbf{Round-end cascade} (only when $B_t = 0$, the frontier is
+    non-empty, and failed nodes remain): one cascade wave fires, potentially
+    failing overloaded nodes and updating the frontier.
+  \item \textbf{Reward computation:} $\Delta\mathrm{PC}$ from the state
+    \emph{before} this repair to the state \emph{after} the cascade step
+    above (if no cascade ran, after reactivation only); see
+    Section~\ref{sec:reward}.
+  \item \textbf{Round reset:} If the round ends and there are still
+    failed nodes and rounds remaining, $B_t \leftarrow B_{\text{ref}}$
+    and $t_{\text{round}} \leftarrow t_{\text{round}} + 1$.
+\end{enumerate}
+
+The episode terminates when either $\mathcal{F}_t = \emptyset$
+(full recovery) or $t_{\text{round}} > T_{\max}$ (time limit).
+
+\subsection{Reward}
+\label{sec:reward}
+
+The reward is the \emph{net} change in pairwise connectivity between the
+state immediately \emph{before} reactivating $a_t$ and the state \emph{after}
+all dynamics scheduled in that transition (reactivation, and the round-end
+cascade when it runs):
+
+\begin{equation}
+  r_t = \mathrm{PC}^{\,\text{post}}_t - \mathrm{PC}^{\,\text{pre}}_t,
+  \label{eq:reward}
+\end{equation}
+
+where $\mathrm{PC}^{\,\text{pre}}_t$ uses $\mathcal{A}$ before the repair,
+and $\mathrm{PC}^{\,\text{post}}_t$ uses $\mathcal{A}$ (and loads) after
+reactivation and---if the round ends with both a non-empty frontier and at
+least one failed node remaining---after \texttt{advance\_cascade\_round}.
+If the round is not yet complete, no cascade fires in that transition, so
+$\mathrm{PC}^{\,\text{post}}_t$ is connectivity after reactivation only.
+
+\begin{designbox}{Why post-cascade--inclusive reward on the last repair?}
+The implementation matches \texttt{RecoveryEnv.step} in
+\texttt{envs/recovery.py}: the cascade runs \emph{before} the reward is
+computed on the transition that exhausts the round budget. Thus the
+\emph{last} repair of a round receives a reward that includes both the
+direct effect of that repair and any connectivity change from the
+subsequent cascade wave; intermediate repairs within the round receive only
+repair-only gains. This ties immediate feedback to the true post-wave
+network state when the wave fires. The discounted return
+$G_t = \sum_{k \geq t} \gamma^{k-t} r_k$ still propagates value across
+rounds; earlier intra-round steps do not see cascade damage until the
+round-ending step (or observe it in the successor observation).
+\end{designbox}
+
+\begin{warningbox}{Older drafts vs.\ code}
+Some earlier project notes described a \emph{pre-cascade} marginal reward.
+The authoritative behaviour is the $\Delta\mathrm{PC}$ above, with the
+post-repair/post-cascade endpoint as implemented. If you change the reward
+in code, update this section and \texttt{README\_RESEARCH.md} together.
+\end{warningbox}
+
+\subsection{Objective}
+
+The agent learns a policy $\pi(a_t \mid s_t)$ that maximises expected
+discounted cumulative reward over an episode:
+
+\begin{equation}
+  \max_\pi \; \mathbb{E}_\pi\!\left[\sum_{t=0}^{T} \gamma^t r_t\right],
+  \quad \gamma = 0.99.
+  \label{eq:objective}
+\end{equation}
+
+The discount factor $\gamma = 0.99$ is high (close to 1), reflecting the
+long-horizon nature of recovery: repairs early in the episode matter
+because they prevent cascade propagation that affects future rounds.
+A lower $\gamma$ would make the agent myopically focus on immediate
+$\Delta\mathrm{PC}$ gains rather than downstream consequences.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Graph Neural Network Architecture}
+\label{sec:gnn}
+
+\subsection{Why a GNN Is Necessary}
+
+Standard deep Q-networks assume a fixed-dimensional state vector. The
+recovery state is a graph: its size varies from episode to episode
+(30--50 nodes in training), and the node ordering is arbitrary. A flat
+vector representation would:
+\begin{enumerate}[leftmargin=*]
+  \item Require a different network for each graph size.
+  \item Break whenever nodes are relabelled (permutation sensitivity).
+  \item Discard the structural information encoded in the adjacency matrix.
+\end{enumerate}
+
+A GNN solves all three problems through \emph{weight sharing}: the same
+learned weights process every node in every graph, producing
+permutation-equivariant embeddings that transfer across graph sizes.
+
+\subsection{Node Feature Vector}
+
+Each node $i \in V$ is represented by a 9-dimensional feature vector
+$\mathbf{x}_i \in \mathbb{R}^9$:
+
+\begin{equation}
+  \mathbf{x}_i = \begin{bmatrix}
+    L_i / \bar{s} \\
+    C_i / \bar{s} \\
+    L_i / C_i \\
+    \mathbf{1}[i \in \mathcal{F}] \\
+    \mathbf{1}[i \in \mathcal{A}] \\
+    \mathbf{1}[i \in \text{frontier}] \\
+    B_t / n \\
+    t_{\text{round}} / n \\
+    \deg(i) / \deg_{\max}
+  \end{bmatrix},
+  \label{eq:features}
+\end{equation}
+
+where $\bar{s} = \max(\max_j L_j,\, \max_j C_j,\, 1)$ is a global scale
+normaliser. The features capture:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Physical state:} normalised load, capacity, and overload
+    ratio
+  \item \textbf{Recovery state:} failed flag, active flag, frontier
+    membership
+  \item \textbf{Global context:} remaining budget fraction, current round
+    fraction (both normalised by $n$)
+  \item \textbf{Structural position:} normalised degree
+\end{itemize}
+
+\subsection{Message Passing Layers}
+
+The encoder uses $L = 2$ graph message-passing layers. At layer $\ell$,
+each node updates its embedding by aggregating from neighbours:
+
+\begin{equation}
+  \mathbf{h}_i^{(\ell+1)} = \sigma\!\left(
+    \mathrm{LN}\!\left(
+      W_{\text{self}}^{(\ell)}\, \mathbf{h}_i^{(\ell)}
+      + W_{\text{nbr}}^{(\ell)}\,
+        \sum_{j \in \mathcal{N}(i)} \tilde{A}_{ij}\, \mathbf{h}_j^{(\ell)}
+    \right)
+  \right),
+  \label{eq:mp}
+\end{equation}
+
+where:
+\begin{itemize}[leftmargin=*]
+  \item $\mathbf{h}_i^{(0)} = \mathbf{x}_i$ (initial node features)
+  \item $\sigma = \text{ReLU}$ (non-linearity)
+  \item $\mathrm{LN}$ is Layer Normalisation \citep{ba2016layer}
+  \item $W_{\text{self}}^{(\ell)},\, W_{\text{nbr}}^{(\ell)} \in
+    \mathbb{R}^{d \times d}$ are learnable weight matrices
+    \emph{shared across all nodes and all graphs}
+  \item $\tilde{A}$ is the symmetrically normalised adjacency matrix
+\end{itemize}
+
+The normalised adjacency is computed as:
+\begin{equation}
+  \tilde{A} = D^{-1/2}(A + I)\,D^{-1/2},
+  \label{eq:norm_adj}
+\end{equation}
+
+where $A$ is the binary adjacency matrix, $I$ is the identity (self-loops),
+and $D$ is the degree matrix of $A + I$.
+This is the GCN normalisation of \citet{kipf2017semi}.
+
+\begin{proposition}[Permutation equivariance]
+Because $W_{\text{self}}^{(\ell)}$ and $W_{\text{nbr}}^{(\ell)}$ are
+shared across all nodes, the GNN is permutation-equivariant: permuting
+the node ordering in the input produces the same permutation in the
+output embeddings. As a consequence, the Q-scores assigned to nodes are
+invariant to node relabelling.
+\end{proposition}
+
+\subsection{Receptive Field and the Virtual Global Node}
+
+With $L = 2$ message-passing layers, each node's embedding aggregates
+information from its 2-hop neighbourhood only. On BA graphs with $m = 2$
+and $n = 30$--$50$, the average diameter is approximately 4--6 hops
+\citep{barabasi1999emergence}. This means most nodes cannot ``see'' the
+global network state after two message-passing steps, which is a problem
+because $\mathrm{PC}$ depends on global component structure.
+
+To provide full-graph context within the existing 2-layer architecture,
+we augment each graph with a \emph{virtual global node} $v^*$ connected
+to every real node \citep{gilmer2017neural}. The virtual node's initial
+feature vector is the mean of all real node features:
+
+\begin{equation}
+  \mathbf{x}_{v^*} = \frac{1}{n} \sum_{i \in V} \mathbf{x}_i.
+  \label{eq:virtual_node}
+\end{equation}
+
+After one message-passing step through $v^*$, every real node receives a
+summary of the entire graph's state, giving every node an effective
+global receptive field in just two layers.
+
+The virtual node is:
+\begin{itemize}[leftmargin=*]
+  \item Added as an extra row/column to the adjacency matrix with
+    symmetric connections to all real nodes
+  \item Subject to the same GCN normalisation as real nodes
+  \item \textbf{Masked out of the valid action set}: $v^*$ can never be
+    selected as a repair action
+  \item \textbf{Excluded from the Q-head}: its embedding is not scored;
+    the Q-head only processes the $n$ real nodes
+\end{itemize}
+
+\begin{designbox}{Why not more GNN layers?}
+Adding more layers would also increase the receptive field, but at the
+cost of over-smoothing: with many layers, all node embeddings converge
+toward the same value and lose local information \citep{li2018deeper}.
+The virtual node provides global context without requiring deep stacking.
+\citet{darvariu2024graph} specifically recommend global aggregation
+mechanisms over deep stacking for graph RL on combinatorial problems.
+\end{designbox}
+
+\subsection{Q-Network Head}
+
+Given node embeddings $\{\mathbf{h}_i^{(L)}\}_{i \in V}$ from the GNN
+encoder, a shared two-layer MLP scores each node:
+
+\begin{equation}
+  Q_\theta(s, i) = W_2\, \sigma\!\left(W_1\, \mathbf{h}_i^{(L)} + b_1\right) + b_2,
+  \quad i \in V,
+  \label{eq:q_head}
+\end{equation}
+
+with Q-values for non-failed nodes masked to $-10^9$ before the argmax.
+The greedy policy selects:
+
+\begin{equation}
+  a_t = \arg\max_{i \in \mathcal{F}_t} Q_\theta(s_t, i).
+\end{equation}
+
+\paragraph{Architecture summary.}
+Input dimension: 9 (node features, Equation~\ref{eq:features}).
+Hidden and embedding dimension: $d = 64$.
+Number of message-passing layers: $L = 2$.
+Q-head: Linear(64, 64) $\to$ ReLU $\to$ Linear(64, 1).
+Total parameters: approximately 37\,000.
+Device: CPU (feasible within project timeline).
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Training Algorithm}
+\label{sec:training}
+
+\subsection{Algorithm: DQN with Monte Carlo Returns}
+
+We use a variant of Deep Q-Network (DQN) \citep{mnih2015human} in which
+the standard one-step TD bootstrap target is replaced by Monte Carlo (MC)
+episode returns.
+
+\paragraph{Why MC returns instead of TD(0)?}
+
+In standard DQN, the target for transition $(s, a, r, s')$ is:
+\begin{equation}
+  y_{\text{TD}} = r + \gamma \max_{a'} Q_{\bar\theta}(s', a'),
+  \label{eq:td_target}
+\end{equation}
+where $Q_{\bar\theta}$ is the frozen target network.
+
+In our setting, the immediate reward $r_t$ (a $\Delta\mathrm{PC}$ step)
+can still be a noisy proxy for long-run recovery quality: a repair that
+looks good before the next cascade may still lead to a poor episode
+outcome once later waves fire. TD(0) would propagate errors backward
+only one step at a time. MC returns resolve this by using the \emph{actual
+observed return} from the whole episode as the target:
+
+\begin{equation}
+  G_t = \sum_{k=t}^{T} \gamma^{k-t} r_k.
+  \label{eq:mc_return}
+\end{equation}
+
+The loss for a mini-batch is then:
+\begin{equation}
+  \mathcal{L}(\theta) = \frac{1}{|\mathcal{B}|}
+    \sum_{(s,a,G) \in \mathcal{B}}
+    \text{SmoothL1}\!\left(Q_\theta(s, a),\; G\right).
+  \label{eq:loss}
+\end{equation}
+
+MC returns are unbiased estimators of the true episode value at the cost
+of higher variance compared to TD(0) \citep{sutton2018reinforcement}. The
+higher variance is acceptable here because the immediate reward proxy is
+sufficiently weak that the bias of TD(0) outweighs the variance benefit.
+
+\begin{remark}
+We retain the target network of \citet{mnih2015human} even with MC
+returns, because it stabilises training by preventing the Q-value
+predictions from chasing a rapidly moving target. The target network is
+updated every 200 gradient steps.
+\end{remark}
+
+\paragraph{Episode trajectory collection.}
+The full episode trajectory is collected before any gradient updates for
+that episode. After the episode ends, MC returns are computed backwards:
+\begin{lstlisting}[caption={Monte Carlo return computation.}]
+returns = []
+G = 0.0
+for transition in reversed(episode_transitions):
+    G = transition.reward + config.gamma * G
+    returns.append(G)
+returns.reverse()
+
+for transition, G in zip(episode_transitions, returns):
+    replay_buffer.push(Transition(
+        observation=transition.observation,
+        action=transition.action,
+        reward=G,          # stored MC return, not raw r_t
+        next_observation=transition.next_observation,
+        done=transition.done,
+    ))
+\end{lstlisting}
+
+\subsection{Exploration: $\varepsilon$-Greedy with Slow Decay}
+
+We use $\varepsilon$-greedy exploration with linear decay:
+
+\begin{equation}
+  \varepsilon(e) = \varepsilon_{\text{start}}
+    + \frac{e}{\max(1,\, E_{\text{decay}} - 1)}
+    \cdot (\varepsilon_{\text{end}} - \varepsilon_{\text{start}}),
+  \label{eq:epsilon}
+\end{equation}
+
+with $\varepsilon_{\text{start}} = 1.0$, $\varepsilon_{\text{end}} = 0.05$,
+and $E_{\text{decay}} = 6\,000$ episodes.
+
+\begin{designbox}{Why slow epsilon decay?}
+The agent must learn a policy that generalises across many different graph
+instances and failure realisations. With a new random graph every episode,
+fast epsilon decay collapses exploration before the agent has seen a
+sufficiently diverse distribution of graph structures. \citet{fan2020finding}
+trained FINDER for tens of thousands of episodes on graphs of the same
+size, establishing the scale at which cross-graph generalisation
+stabilises. We use $E_{\text{decay}} = 6\,000$ as a practical trade-off
+given our compute constraints.
+\end{designbox}
+
+\begin{warningbox}{Premature epsilon collapse}
+An earlier training run set $E_{\text{decay}} = 100$ (the original
+default), causing epsilon to reach 0.05 by episode 360 rather than
+episode 6\,000. The agent committed to a poor half-learned policy before
+its Q-values were meaningful, then reinforced that policy through
+exploitation. The validation ANC flatlined at 0.333 for 1\,200 episodes.
+Always verify the epsilon schedule before starting a long training run.
+\end{warningbox}
+
+\subsection{Stratified Regime Sampling}
+
+The training distribution covers:
+$\alpha \in \{0.10, 0.15, 0.20\}$ and $p_{\text{fail}} \in \{0.10, 0.15, 0.20\}$,
+giving 9 regime combinations. Naive uniform sampling causes
+\emph{implicit curriculum collapse} \citep{hessel2019multi}: episodes at
+$\alpha = 0.20$ produce larger, more consistent rewards (milder cascades,
+cleaner gradient signal) and dominate the gradient updates, causing the
+policy to specialise toward the easiest regime.
+
+We prevent this with \emph{stratified round-robin sampling}: all 9
+$(\alpha, p_{\text{fail}})$ combinations are cycled exactly once per
+cycle, with the cycle order reshuffled between cycles. This guarantees
+balanced gradient exposure across all regimes throughout training.
+
+The effect is verified in the training tests: after 9 episodes with
+\texttt{alpha\_values=[0.10,0.15,0.20]} and
+\texttt{pfail\_values=[0.10,0.15,0.20]}, each of the 9 combinations
+must appear exactly once in \texttt{episode\_alpha} and
+\texttt{episode\_pfail}.
+
+\subsection{Fixed Holdout Validation}
+
+The validation set is generated once from a fixed seed
+(\texttt{validation\_seed}) before the episode loop begins. The same
+graphs are used at every validation checkpoint throughout training.
+
+\begin{warningbox}{Moving validation set}
+An earlier version regenerated validation graphs at every checkpoint
+using a different seed. This meant that validation scores at different
+episodes were measured on different graph instances and were not directly
+comparable. The apparent ``regression'' at episode 800 was partly caused
+by this: the validation graphs at episode 800 happened to be harder than
+those at episode 600. Always use a fixed validation set.
+\end{warningbox}
+
+The validation regime is set to the easiest training regime
+($\alpha = 0.20$, $p_{\text{fail}} = 0.10$) so that the validation set
+sits in a decision-sensitive region where policy differences are visible.
+Validating on a hopeless regime would show a flat curve even for a
+well-trained agent; validating on a trivial regime would show a saturated
+curve for even a poor agent.
+
+\subsection{Best-Checkpoint Selection}
+
+After every validation call, if the mean final PR on the holdout set
+exceeds the best seen so far, a separate checkpoint
+\texttt{recovery\_q\_best.pt} is saved. The terminal checkpoint
+\texttt{recovery\_q.pt} is also saved at the end of training.
+
+Always evaluate the best checkpoint, not the terminal checkpoint. The
+learning curves in this project are non-monotonic: the best-performing
+policy often appears at intermediate episodes rather than at training
+completion.
+
+\subsection{Imitation Warmstart}
+
+The action comparison analysis (see Section~\ref{sec:pitfalls}) revealed
+that the agent converged to a systematic preference for low-degree failed
+nodes — a spurious correlation arising because high-degree nodes
+disproportionately fail in severe cascades, making low-degree nodes more
+salient in the post-cascade observation.
+
+To break this spurious prior, we implement \emph{behavioural cloning
+warmstart} \citep{rajeswaran2017learning}. Before the RL episode loop,
+the Q-network is pre-trained to mimic the degree heuristic via
+cross-entropy loss:
+
+\begin{equation}
+  \mathcal{L}_{\text{BC}}(\theta) = -\frac{1}{N}
+    \sum_{(s, a^*) \in \mathcal{D}_{\text{expert}}}
+    \log \frac{\exp Q_\theta(s, a^*)}
+              {\sum_{j \in \mathcal{F}} \exp Q_\theta(s, j)},
+  \label{eq:bc_loss}
+\end{equation}
+
+where $a^*$ is the degree heuristic's action and
+$\mathcal{D}_{\text{expert}}$ is collected by rolling out the degree
+policy on 500 BA training graphs. After 10 pre-training epochs, the RL
+episode loop proceeds normally. The warmstart is enabled by setting
+\texttt{use\_imitation\_warmstart=True} in \texttt{TrainingConfig}.
+
+\subsection{Training Hyperparameters}
+
+Table~\ref{tab:hyperparams} lists all training hyperparameters with
+justification.
+
+\begin{table}[ht]
+\centering
+\caption{Training hyperparameters. All values are defaults in
+\texttt{TrainingConfig} in \texttt{trainer.py}.}
+\label{tab:hyperparams}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Justification} \\
+\midrule
+\texttt{num\_episodes} & 8\,000 & Comparable to FINDER scale
+  \citep{fan2020finding} \\
+\texttt{replay\_capacity} & 20\,000 & Buffer diversity for
+  cross-graph generalisation \\
+\texttt{warmup\_transitions} & 500 & Ensures buffer diversity before
+  first gradient update \\
+\texttt{batch\_size} & 64 & Standard for stable gradient estimates
+  \citep{mnih2015human} \\
+\texttt{learning\_rate} & $10^{-3}$ & Adam optimiser default \\
+\texttt{gamma} & 0.99 & Low discounting for long-horizon recovery \\
+\texttt{epsilon\_start} & 1.0 & Full exploration at episode 1 \\
+\texttt{epsilon\_end} & 0.05 & Minimal exploration at convergence \\
+\texttt{epsilon\_decay\_episodes} & 6\,000 & Slow decay for
+  cross-graph generalisation \\
+\texttt{target\_update\_interval} & 200 steps & Stability of TD
+  targets \citep{mnih2015human} \\
+\texttt{hidden\_dim} & 64 & Compact model, CPU-feasible \\
+\texttt{embed\_dim} & 64 & Same as hidden for simplicity \\
+\texttt{num\_layers} & 2 & Sufficient with virtual global node \\
+\texttt{validation\_graphs} & 20 & Low-variance holdout \\
+\texttt{validation\_seeds} & (0,1,2,3,4) & 5 seeds per graph \\
+\texttt{validation\_every} & 200 episodes & Frequent enough to
+  detect instability \\
+\texttt{n\_range} & (30, 50) & Following \citet{fan2020finding} \\
+\texttt{m} & 2 & BA attachment parameter \\
+\texttt{budget\_ref} & 4 & Reference budget at $n = 40$ \\
+\texttt{max\_rounds} & 5 & Episode time limit \\
+\texttt{use\_mc\_returns} & True & MC over TD(0) for weak reward proxy \\
+\texttt{use\_imitation\_warmstart} & False & Optional; enable with flag \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Common Pitfalls and Resolutions}
+\label{sec:pitfalls}
+
+This section documents every significant implementation mistake
+encountered during the project. Future students should read this
+before debugging.
+
+\subsection{Pitfall 1: Cascade Fires After Each Individual Repair}
+
+\textbf{Symptom:} Agent receives large negative rewards for cascade
+side-effects it did not cause. Reward signal is extremely noisy.
+Validation ANC does not improve.
+
+\textbf{Cause:} The environment fired a cascade wave after each of the
+$B$ repairs within a round, rather than once at round end.
+
+\textbf{Fix:} Corrected to batch semantics: $B$ repairs, then one
+cascade wave. Verified by \texttt{test\_no\_cascade\_on\_intermediate\_repairs}
+and \texttt{test\_cascade\_fires\_at\_round\_end}.
+
+\subsection{Pitfall 2: Mis-documenting the reward timing}
+
+\textbf{Symptom:} Write-ups disagree with training logs and
+\texttt{step\_trace.csv} (e.g.\ \texttt{reward} $\neq$
+\texttt{anc\_after\_reactivation} $-$ \texttt{anc\_pre\_step}).
+
+\textbf{Cause:} The MDP reward is
+$\mathrm{PC}_{\text{after}} - \mathrm{PC}_{\text{before}}$ where
+\texttt{after} includes the round-end cascade when it runs (see
+\texttt{recovery.py}). Documents that claim a strictly pre-cascade reward
+are out of date.
+
+\textbf{Fix:} Treat Section~\ref{sec:reward} and
+\texttt{envs/recovery.py} as the source of truth; keep them aligned.
+
+\subsection{Pitfall 3: Premature Epsilon Decay}
+
+\textbf{Symptom:} Epsilon reaches 0.05 by episode 360 instead of 6\,000.
+Agent commits to a poor policy before Q-values are meaningful.
+Validation ANC flatlines at $\sim 0.333$.
+
+\textbf{Cause:} \texttt{epsilon\_decay\_episodes} was set to 100 (old
+default) and not overridden by CLI arguments.
+
+\textbf{Fix:} Set \texttt{epsilon\_decay\_episodes = 6000} in
+\texttt{TrainingConfig}. Added assertion at training start:
+\texttt{assert epsilon\_for\_episode(config, 100) > 0.5}.
+
+\subsection{Pitfall 4: Empty Episodes}
+
+\textbf{Symptom:} Replay buffer never reaches warmup threshold despite
+many episodes. Loss remains 0.0 for hundreds of episodes.
+
+\textbf{Cause:} A small fraction of episodes produce zero initial
+failures (Bernoulli with low $p_{\text{fail}}$), contributing no
+transitions to the buffer.
+
+\textbf{Fix:} \texttt{\_reset\_with\_non\_empty\_failures()} retries
+until at least one failure occurs.
+
+\subsection{Pitfall 5: Moving Validation Set}
+
+\textbf{Symptom:} Validation scores oscillate wildly between checkpoints
+even when the policy has not changed.
+
+\textbf{Cause:} Validation graphs were regenerated with a different seed
+at each checkpoint.
+
+\textbf{Fix:} Generate validation graphs once from \texttt{validation\_seed}
+before the episode loop and reuse throughout.
+
+\subsection{Pitfall 6: Implicit Curriculum Collapse}
+
+\textbf{Symptom:} Per-alpha validation breakdown shows $\alpha = 0.20$
+improving but $\alpha = 0.10$ and $\alpha = 0.15$ degrading or flat,
+even with mixed-regime training.
+
+\textbf{Cause:} Uniform random sampling of $(\alpha, p_{\text{fail}})$
+combinations causes episodes at $\alpha = 0.20$ (easy regime, large
+rewards) to dominate gradient updates.
+
+\textbf{Fix:} Stratified round-robin sampling cycles through all 9
+combinations exactly once per cycle.
+
+\subsection{Pitfall 7: Spurious Low-Degree Preference}
+
+\textbf{Symptom:} Action comparison shows the agent consistently selects
+low-degree failed nodes (degree 2--3) when the degree heuristic selects
+high-degree nodes (degree 7--11). Agreement rate only 37.2\%.
+
+\textbf{Cause:} High-degree nodes disproportionately fail in severe
+cascades, making low-degree nodes more visible in the post-cascade state.
+The agent learned a spurious correlation: low-degree selection appears
+to follow positive rewards not because it is causally good, but because
+low-degree nodes are what the agent sees most often in the failed set.
+
+\textbf{Fix:} Imitation warmstart initialises the Q-network to mimic the
+degree heuristic before RL training, placing the policy in a better
+region of policy space from the start.
+
+\subsection{Pitfall 8: Hopeless Validation Regime}
+
+\textbf{Symptom:} Validation ANC is exactly flat at 0.167 for hundreds
+of episodes regardless of what the agent learns.
+
+\textbf{Cause:} The fixed validation graphs were generated at
+$\alpha = 0.10$, $p_{\text{fail}} = 0.15$, which happened to produce
+cascades so severe that even the best heuristic scores 0.167. All
+policies look equally bad.
+
+\textbf{Fix:} Validate at the easiest training regime ($\alpha = 0.20$,
+$p_{\text{fail}} = 0.10$) where policy differences are visible. Add
+a sanity check assertion: greedy PR $> 0.5$ on validation graphs before
+training starts.
+
+\subsection{Pitfall 9: evaluate\_policy.py CLI Override Bug}
+
+\textbf{Symptom:} Running \texttt{evaluate\_policy.py} with
+\texttt{--alpha-values 0.20 --num-graphs 30} prints console output that
+appears unchanged from the default benchmark.
+
+\textbf{Cause:} The console summary was printed from the
+internally-configured reference benchmark, not from the CLI-specified
+grid. The CLI overrides only affected \texttt{evaluation\_grid\_summary.json}.
+
+\textbf{Fix:} Always read \texttt{evaluation\_grid\_summary.json} for
+targeted evaluation results, not the console output.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Code Structure Reference}
+\label{sec:code}
+
+\begin{table}[ht]
+\centering
+\caption{Key source files and their responsibilities.}
+\label{tab:code}
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{File} & \textbf{Responsibility} \\
+\midrule
+\texttt{dynamics/cascade.py} & Load redistribution, cascade propagation,
+  initial failure sampling, node reactivation. \textbf{Do not modify
+  without updating this document.} \\
+\texttt{metrics/connectivity.py} & Pairwise connectivity
+  (\texttt{pairwise\_connectivity}; \texttt{accumulated\_normalized\_connectivity}
+  is an alias). See Section~\ref{sec:metric} for exact formula and test cases. \\
+\texttt{envs/recovery.py} & MDP environment: state, action, transition,
+  reward. Enforces batch-repair semantics. \\
+\texttt{models/gnn.py} & Node feature construction,
+  \texttt{observation\_to\_graph\_tensor}, GNN encoder with virtual
+  global node, \texttt{GraphStateEncoder}. \\
+\texttt{models/q\_network.py} & \texttt{RecoveryQNetwork}, Q-head,
+  \texttt{select\_action}, \texttt{build\_greedy\_policy}. \\
+\texttt{training/replay.py} & \texttt{ReplayBuffer} with
+  \texttt{\_\_len\_\_} implemented. \\
+\texttt{training/trainer.py} & Full training loop: MC returns, stratified
+  sampling, fixed validation, imitation warmstart, best-checkpoint
+  saving. \\
+\texttt{evaluation/benchmarks.py} & Heuristic and RL policy evaluation
+  infrastructure. \\
+\texttt{evaluation/regime.py} & Regime taxonomy, cell classification,
+  RL-vs-heuristic gap tracking. \\
+\texttt{scripts/train\_policy.py} & CLI entry point for training. \\
+\texttt{scripts/evaluate\_policy.py} & CLI entry point for evaluation.
+  Note: console output uses internal reference regime;
+  use JSON for targeted grid results. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Checklist Before Starting a Training Run}
+\label{sec:checklist}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Run the test suite:}
+    \texttt{pytest tests/ -x -q} must pass all tests.
+  \item \textbf{Check epsilon schedule:} At episode 100, epsilon should
+    be $> 0.98$. At episode 3\,000, epsilon should be $\approx 0.55$.
+  \item \textbf{Verify validation regime:} Run the greedy heuristic on
+    the validation graphs. PR must be $> 0.5$.
+  \item \textbf{Confirm budget scaling:} At $n = 40$, scaled budget
+    should equal \texttt{budget\_ref}. At $n = 80$, it should be
+    $2 \times \texttt{budget\_ref}$.
+  \item \textbf{Set checkpoint directory:} Use a new, descriptive
+    directory for each run (e.g., \texttt{experiments/run\_name}).
+  \item \textbf{Note the training start time} and estimated completion
+    time based on $\approx 0.5$--$2$ seconds per episode on CPU.
+  \item \textbf{After training:} Evaluate
+    \texttt{recovery\_q\_best.pt}, not \texttt{recovery\_q.pt}.
+    The best checkpoint often appears at intermediate episodes.
+\end{enumerate}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Ba et~al.(2016)]{ba2016layer}
+Ba, J.~L., Kiros, J.~R., and Hinton, G.~E. (2016).
+\newblock Layer normalization.
+\newblock \emph{arXiv preprint arXiv:1607.06450}.
+
+\bibitem[Barabási and Albert(1999)]{barabasi1999emergence}
+Barabási, A.-L. and Albert, R. (1999).
+\newblock Emergence of scaling in random networks.
+\newblock \emph{Science}, 286(5439):509--512.
+
+\bibitem[Darvariu et~al.(2024)]{darvariu2024graph}
+Darvariu, V.-A., Hailes, S., and Musolesi, M. (2024).
+\newblock Graph reinforcement learning for combinatorial optimization:
+  A survey and unifying perspective.
+\newblock \emph{Transactions on Machine Learning Research}.
+
+\bibitem[Fan et~al.(2020)]{fan2020finding}
+Fan, C., Zeng, L., Sun, Y., and Liu, Y.-Y. (2020).
+\newblock Finding key players in complex networks through deep reinforcement
+  learning.
+\newblock \emph{Nature Machine Intelligence}, 2(6):317--324.
+
+\bibitem[Feng et~al.(2023)]{feng2023enhancing}
+Feng, O., Zhang, H., Liu, H., and Zhong, G. (2023).
+\newblock Enhancing the robustness of scale-free networks: The simulation of
+  cascade failures with adjustable initial load parameters.
+\newblock \emph{Processes}, 11(7):2118.
+
+\bibitem[Gilmer et~al.(2017)]{gilmer2017neural}
+Gilmer, J., Schütt, S.~S., Riley, P.~F., Vinyals, O., and Dahl, G.~E. (2017).
+\newblock Neural message passing for quantum chemistry.
+\newblock In \emph{Proceedings of ICML}, pages 1263--1272.
+
+\bibitem[Hessel et~al.(2019)]{hessel2019multi}
+Hessel, M., Soyer, H., Espeholt, L., Czarnecki, W., Schmitt, S., and
+  van~Hasselt, H. (2019).
+\newblock Multi-task deep reinforcement learning with PopArt.
+\newblock In \emph{Proceedings of AAAI}, pages 3796--3803.
+
+\bibitem[Kipf and Welling(2017)]{kipf2017semi}
+Kipf, T.~N. and Welling, M. (2017).
+\newblock Semi-supervised classification with graph convolutional networks.
+\newblock In \emph{Proceedings of ICLR}.
+
+\bibitem[Le et~al.(2024)]{le2024automated}
+Le, A.~T., Epiphaniou, G., Maple, C., Kyriakopoulos, K.~G., Kiarie, L.,
+  Aristodemou, M., and Phillips, I. (2024).
+\newblock Automated {APT} defense using reinforcement learning and attack
+  graph risk-based situation awareness.
+\newblock In \emph{Proceedings of AutonomousCyber '24}, pages 23--33. ACM.
+
+\bibitem[Li et~al.(2018)]{li2018deeper}
+Li, Q., Han, Z., and Wu, X.-M. (2018).
+\newblock Deeper insights into graph convolutional networks for semi-supervised
+  classification.
+\newblock In \emph{Proceedings of AAAI}.
+
+\bibitem[Mnih et~al.(2015)]{mnih2015human}
+Mnih, V., Kavukcuoglu, K., Silver, D., et~al. (2015).
+\newblock Human-level control through deep reinforcement learning.
+\newblock \emph{Nature}, 518(7540):529--533.
+
+\bibitem[Motter and Lai(2002)]{motter2002cascade}
+Motter, A.~E. and Lai, Y.-C. (2002).
+\newblock Cascade-based attacks on complex networks.
+\newblock \emph{Physical Review E}, 66:065102.
+
+\bibitem[Ng et~al.(1999)]{ng1999policy}
+Ng, A.~Y., Harada, D., and Russell, S. (1999).
+\newblock Policy invariance under reward transformations: Theory and
+  application to reward shaping.
+\newblock In \emph{Proceedings of ICML}, pages 278--287.
+
+\bibitem[Rajeswaran et~al.(2017)]{rajeswaran2017learning}
+Rajeswaran, A., Kumar, V., Gupta, A., Vinyals, O., Schulman, J., Todo, E.,
+  and Levine, S. (2017).
+\newblock Learning complex dexterous manipulation with deep reinforcement
+  learning and demonstrations.
+\newblock \emph{arXiv preprint arXiv:1709.10087}.
+
+\bibitem[Schneider et~al.(2011)]{schneider2011mitigation}
+Schneider, C.~M., Moreira, A.~A., Andrade, J.~S., Havlin, S., and Herrmann,
+  H.~J. (2011).
+\newblock Mitigation of malicious attacks on networks.
+\newblock \emph{Proceedings of the National Academy of Sciences},
+  108(10):3838--3841.
+
+\bibitem[Sutton and Barto(2018)]{sutton2018reinforcement}
+Sutton, R.~S. and Barto, A.~G. (2018).
+\newblock \emph{Reinforcement Learning: An Introduction} (2nd ed.).
+\newblock MIT Press.
+
+\bibitem[Wu et~al.(2008)]{wu2008cascading}
+Wu, Z.-X., Peng, G., Wang, W.-X., Chan, S., and Wong, E.~W.-M. (2008).
+\newblock Cascading failure spreading on weighted heterogeneous networks.
+\newblock \emph{Journal of Statistical Mechanics}, 2008(05):P05013.
+
+\bibitem[Zhang et~al.(2024)]{zhang2024mitigating}
+Zhang, X., Wang, Q., Bi, X., Li, D., Liu, D., Yu, Y., and Tse, C.~K. (2024).
+\newblock Mitigating cascading failure in power grids with deep reinforcement
+  learning-based remedial actions.
+\newblock \emph{Reliability Engineering \& System Safety}, 250:110242.
+
+\end{thebibliography}
+
+\end{document}
+
+
