@@ -78,7 +78,7 @@ def test_environment_step_rewards_connectivity_gain():
     assert reward == 0.0
     assert 0 in observation.active
     # |V|=4, active {0,1,2} connected: 3*2 / (4*3) = 0.5
-    assert info["anc"] == pytest.approx(0.5)
+    assert info["nc"] == pytest.approx(0.5)
     assert info["cascade_executed"] is False
     assert done is False
 

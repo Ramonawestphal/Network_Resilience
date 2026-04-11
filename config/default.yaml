@@ -45,13 +45,13 @@ training:
     obs_hops: null
     abandonment_nc_threshold: null
   graph:
-    n_range: [40, 80]
+    n_range: [30, 50]
     m: 2
   # Long training: match epsilon_decay_episodes to num_episodes so ε → epsilon_end by the last episode.
   num_episodes: 20000
   replay_capacity: 20000
   warmup_transitions: 1000
-  batch_size: 128
+  batch_size: 64
   gamma: 0.99
   learning_rate: 0.0002
 

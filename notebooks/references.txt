@@ -1,0 +1,295 @@
+
+# REINFORCEMENT LEARNING ----------------------------
+
+@article{singh2024hierarchical,
+  title={Hierarchical multi-agent reinforcement learning for cyber network defense},
+  author={Singh, Aditya Vikram and Rathbun, Ethan and Graham, Emma and Oakley, Lisa and Boboila, Simona and Oprea, Alina and Chin, Peter},
+  journal={arXiv preprint arXiv:2410.17351},
+  year={2024}
+}
+
+# Overview
+@article{citation-key,
+    author = {Chen, D.; Chen, J.; Zhang, X.; Jia, Q.; Liu, X.; Sun, Y.; Lü L.; Yu, W.},
+    title = {Critical nodes identification in complex networks: a survey},
+    journal = {Complex Engineering Systems},
+    year = {2025}
+}
+
+# FINDER
+@article{Fan2020,
+  title = {Finding Key Players in Complex Networks through Deep Reinforcement Learning},
+  author = {Fan, Chuan and Zeng, Liang and Sun, Ying and Liu, Yang-Yu},
+  journal = {Nature Machine Intelligence},
+  volume = {2},
+  number = {6},
+  pages = {317--324},
+  year = {2020},
+  doi = {10.1038/s42256-020-0177-2}
+}
+
+# MaxShot
+# propose a unique metric that concurrently targets nodes with the highest degree and reduces the GCC size
+@article{Liu2024,
+  title = {Reinforcement Learning-Based Network Dismantling by Targeting Maximum-Degree Nodes in the Giant Connected Component},
+  author = {Liu, S. and Pu, T. and Zeng, L. and Wang, Y. and Cheng, H. and Liu, Z.},
+  journal = {Mathematics},
+  volume = {12},
+  number = {17},
+  pages = {2766},
+  year = {2024},
+  doi = {10.3390/math12172766}
+}
+
+# GRLND
+# GRLND formulates ND as a single-step Markov DecisionProcess (MDP), where the action is a binary mask indicating thenodes to be removed—allowing the agent to generate a completedismantling strategy in a single forward pass while accounting forthe joint effect of multiple node removals.
+@inproceedings{Qu2025,
+  title = {GRLND: A Graph Reinforcement Learning Framework for Network Dismantling},
+  author = {Qu, H. and Wang, X. and Song, Y.-R. and Ni, W. and Jiang, G. P. and Sheng, Q. Z.},
+  booktitle = {Proceedings of the 34th ACM International Conference on Information and Knowledge Management (CIKM '25)},
+  pages = {2450--2459},
+  year = {2025},
+  publisher = {ACM},
+  doi = {10.1145/3746252.3761371}
+}
+
+# BUDGETED DECISION MAKING --------------------------
+
+# embeds finite intervention resources into graph RL
+@article{Ou2025,
+  title = {A Residual Graph Reinforcement Learning for Budgeted Influence Maximization},
+  author = {Ou, L. and Tang, X. and Cai, W. and Tang, W.},
+  journal = {Knowledge-Based Systems},
+  volume = {320},
+  pages = {113553},
+  year = {2025},
+  doi = {10.1016/j.knosys.2025.113553}
+}
+
+# treats node selection as a sequential decision problem with costs and a finite budget
+@article{Fadda2024,
+  title = {Math-Based Reinforcement Learning for the Adaptive Budgeted Influence Maximization Problem},
+  author = {Fadda, E. and Di Corso, E. and Brusco, D. and Aelenei, V. S. and Balan Rares, A.},
+  journal = {Networks},
+  volume = {83},
+  number = {3},
+  pages = {547--569},
+  year = {2024},
+  doi = {10.1002/net.22206}
+}
+
+# shows that RL can learn defensive policies in a graph structured cyber environment and outperform heuristic baselines, with explicit costs for defensive actions
+@article{Nyberg2023,
+  title={Training automated defense strategies using graph-based cyber attack simulations},
+  author={Nyberg, Jakob and Johnson, Pontus},
+  journal={arXiv preprint arXiv:2304.11084},
+  year={2023}
+}
+
+# directly studies generalization across changed network structures, which is one of the big reasons to use graph neural representations in the first place
+@inproceedings{nyberg2024structural,
+  title={Structural generalization in autonomous cyber incident response with message-passing neural networks and reinforcement learning},
+  author={Nyberg, Jakob and Johnson, Pontus},
+  booktitle={2024 IEEE International Conference on Cyber Security and Resilience (CSR)},
+  pages={282--289},
+  year={2024},
+  organization={IEEE}
+}
+
+# combines attack graphs, RL, and a reward signal involving residual risk, risk reduction, control efficacy, and cost
+@inproceedings{Le2024,
+  title = {Automated APT Defense Using Reinforcement Learning and Attack Graph Risk-Based Situation Awareness},
+  author = {Le, A. T. and Epiphaniou, G. and Maple, C. and Kyriakopoulos, K. G. and Kiarie, L. and Aristodemou, M. and Phillips, I.},
+  booktitle = {Proceedings of the Workshop on Autonomous Cybersecurity (AutonomousCyber '24)},
+  pages = {23--33},
+  year = {2024},
+  publisher = {ACM},
+  doi = {10.1145/3689933.3690834}
+}
+
+# speaks directly to sequential recovery under cascading failures with limited recovery positions and recovery time heterogeneity
+# useful for motivating your benchmark heuristics and your recovery environment
+@article{song2025cascading,
+  title={Cascading failure model and resilience-based sequential recovery strategy for complex networks},
+  author={Song, Xudan and Zhao, Pengcheng and Yin, Rongrong and Zu, Yunxiao and Zhang, Yong},
+  journal={Reliability Engineering \& System Safety},
+  volume={253},
+  pages={110488},
+  year={2025},
+  publisher={Elsevier}
+}
+
+# formulates cascading failure mitigation as an MDP and shows that a DRL policy can outperform benchmarks in power preservation and decision time
+@article{zhang2024mitigating,
+  title={Mitigating cascading failure in power grids with deep reinforcement learning-based remedial actions},
+  author={Zhang, Xi and Wang, Qin and Bi, Xiaowen and Li, Donghong and Liu, Dong and Yu, Yuanjin and Tse, Chi Kong},
+  journal={Reliability Engineering \& System Safety},
+  volume={250},
+  pages={110242},
+  year={2024},
+  publisher={Elsevier}
+}
+
+# cost effective resilience under cascading failures, with both hardening and restoration decisions
+# helps position your paper against the optimization literature
+@article{zhou2023combined,
+  title={Combined optimization of system reliability improvement and resilience with mixed cascading failures in dependent network systems},
+  author={Zhou, Jian and Coit, David W and Felder, Frank A and Tsianikas, Stamatis},
+  journal={Reliability Engineering \& System Safety},
+  volume={237},
+  pages={109376},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@article{King2025,
+  title = {Automated Cyber Defense with Generalizable Graph-Based Reinforcement Learning Agents},
+  author = {King, I. J. and Bowman, B. and Huang, H. H.},
+  journal = {arXiv preprint arXiv:2509.16151},
+  year = {2025},
+  url = {https://arxiv.org/abs/2509.16151}
+}
+
+@article{Meng2025,
+  title = {Deep Reinforcement Learning for Power Grid Multi-Stage Cascading Failure Mitigation},
+  author = {Meng, B. and Xu, C. and Zhu, Y.},
+  journal = {arXiv preprint arXiv:2505.09012},
+  year = {2025},
+  url = {https://arxiv.org/abs/2505.09012}
+}
+
+@article{Jiang2025,
+  title = {A Cost-Constrained Dismantling Framework for Hypergraph with Dynamic Cascading Failure Using Deep Reinforcement Learning},
+  author = {Jiang, T. and Liu, K. and Xiang, B.-B. and Zhang, H.-F. and Wang, H.},
+  journal = {Physica A},
+  pages = {130988},
+  year = {2025},
+  doi = {10.1016/j.physa.2025.130988}
+}
+
+@article{Zhang2024,
+  title = {Network Interdiction Goes Neural},
+  author = {Zhang, L. and Chen, Z. and Lu, C.-T. and Zhao, L.},
+  journal = {arXiv preprint arXiv:2405.16409},
+  year = {2024},
+  doi = {10.48550/arXiv.2405.16409}
+}
+
+@article{Darvariu2024,
+  title = {Graph Reinforcement Learning for Combinatorial Optimization: A Survey and Unifying Perspective},
+  author = {Darvariu, V.-A. and Hailes, S. and Musolesi, M.},
+  journal = {Transactions on Machine Learning Research},
+  year = {2024},
+  url = {https://arxiv.org/abs/2404.06492}
+}
+
+@misc{carrara2019budgetedreinforcementlearningcontinuous,
+      title={Budgeted Reinforcement Learning in Continuous State Space}, 
+      author={Nicolas Carrara and Edouard Leurent and Romain Laroche and Tanguy Urvoy and Odalric-Ambrym Maillard and Olivier Pietquin},
+      year={2019},
+      eprint={1903.01004},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/1903.01004}, 
+}
+
+@article{feng2025deep,
+  title={Deep reinforcement learning-based resilience optimization for infrastructure networks restoration with multiple crews},
+  author={Feng, Qiang and Wu, Qilong and Hai, Xingshuo and Ren, Yi and Wen, Changyun and Wang, Zili},
+  journal={Frontiers of Engineering Management},
+  volume={12},
+  number={1},
+  pages={141--153},
+  year={2025},
+  publisher={Springer}
+}
+
+# CASCADING FAILURE --------------------------------
+
+@article{threshold,
+author = {Liu, Junbiao and Jin, Xinyu and Jiang, Lurong and Xia, Yongxiang and Ouyang, Bo and Dong, Fang and Lang, Yicong and Zhang, Wenping},
+title = {Threshold for the Outbreak of Cascading Failures in Degree-Degree Uncorrelated Networks},
+journal = {Mathematical Problems in Engineering},
+volume = {2015},
+number = {1},
+year = {2015}
+}
+
+@article{al2025robust,
+  title={When Robust Isn’t Resilient: Quantifying Budget-Driven Trade-Offs in Connectivity Cascades with Concurrent Self-Healing},
+  author={Al Aqqad, Waseem},
+  journal={Network},
+  volume={5},
+  number={3},
+  pages={35},
+  year={2025},
+  publisher={MDPI}
+}
+
+@article{feng2023enhancing,
+  title={Enhancing the Robustness of Scale-Free Networks: The Simulation of Cascade Failures with Adjustable Initial Load Parameters},
+  author={Feng, Ouge and Zhang, Honghai and Liu, Hao and Zhong, Gang},
+  journal={Processes},
+  volume={11},
+  number={7},
+  pages={2118},
+  year={2023},
+  publisher={MDPI}
+}
+
+@article{al2022dynamics,
+  title={Dynamics and resiliency of networks with concurrent cascading failure and self-healing},
+  author={Al-Aqqad, Waseem and Hayajneh, Hassan S and Zhang, Xuewei},
+  journal={Plos one},
+  volume={17},
+  number={11},
+  pages={e0277490},
+  year={2022},
+  publisher={Public Library of Science San Francisco, CA USA}
+}
+
+@article{wang2009cascading,
+  title={Cascading failures on complex networks based on the local preferential redistribution rule of the load},
+  author={Wang, Jian-Wei and Rong, Li-Li},
+  year={2009}
+}
+
+@article{Wu_2008,
+doi = {10.1088/1742-5468/2008/05/P05013},
+url = {https://doi.org/10.1088/1742-5468/2008/05/P05013},
+year = {2008},
+month = {may},
+publisher = {},
+volume = {2008},
+number = {05},
+pages = {P05013},
+author = {Wu, Zhi-Xi and Peng, Gang and Wang, Wen-Xu and Chan, Sammy and Wong, Eric Wing-Ming},
+title = {Cascading failure spreading on weighted heterogeneous networks},
+journal = {Journal of Statistical Mechanics: Theory and Experiment},
+}
+
+@article{PhysRevE.66.065102,
+  title = {Cascade-based attacks on complex networks},
+  author = {Motter, Adilson E. and Lai, Ying-Cheng},
+  journal = {Phys. Rev. E},
+  volume = {66},
+  issue = {6},
+  pages = {065102},
+  numpages = {4},
+  year = {2002},
+  month = {Dec},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevE.66.065102},
+  url = {https://link.aps.org/doi/10.1103/PhysRevE.66.065102}
+}
+
+@article{motter2003,
+author = {Motter, Adilson and Lai, Ying-Cheng},
+year = {2003},
+month = {01},
+pages = {065102},
+title = {Cascade-based Attacks on Complex Networks},
+volume = {66},
+journal = {Physical review. E, Statistical, nonlinear, and soft matter physics},
+doi = {10.1103/PhysRevE.66.065102}
+}

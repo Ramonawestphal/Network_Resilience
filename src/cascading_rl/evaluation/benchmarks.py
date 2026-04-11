@@ -306,6 +306,7 @@ def collect_matched_episodes(
     scale_budget: bool = False,
     scale_max_rounds: bool = False,
     reference_n: int = 40,
+    collect_step_metrics: bool = False,
 ) -> dict[str, list["EpisodeResult"]]:
     """Evaluate policy factories across fixed graphs and return per-episode results.
 
@@ -355,7 +356,7 @@ def collect_matched_episodes(
                     **env_kw,
                 )
                 policy = policy_factory(graph_index, seed)
-                result = rollout_policy(env, policy, seed=seed)
+                result = rollout_policy(env, policy, seed=seed, collect_step_metrics=collect_step_metrics)
                 episode_results_by_policy[policy_name].append(result)
 
     return episode_results_by_policy
@@ -575,8 +576,18 @@ def rollout_policy(
     env: RecoveryEnv,
     policy: Policy,
     seed: int | None = None,
+    *,
+    collect_step_metrics: bool = False,
 ) -> EpisodeResult:
-    """Run one episode under a policy and collect core comparison metrics."""
+    """Run one episode under a policy and collect core comparison metrics.
+
+    ``collect_step_metrics=False`` (the default) skips the per-step greedy
+    lookahead that computes ``StepMetrics``.  That lookahead re-evaluates every
+    valid action at every step (O(|failed|) cascade simulations per step) and
+    dominates runtime during training-time validation.  Pass
+    ``collect_step_metrics=True`` only for offline diagnostic analysis where
+    ``mean_greedy_nc_gain`` / ``mean_action_rank`` are actually needed.
+    """
     observation = env.reset(seed=seed)
     total_reward = 0.0
     steps = 0
@@ -606,9 +617,10 @@ def rollout_policy(
 
     while not done:
         action = policy(observation)
-        step_metrics_list.append(
-            _compute_step_metrics(observation, action, env.current_round)
-        )
+        if collect_step_metrics:
+            step_metrics_list.append(
+                _compute_step_metrics(observation, action, env.current_round)
+            )
         if isinstance(action, (list, tuple)):
             observation, reward, done, info = env.step_batch(list(action))
         else:
