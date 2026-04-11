@@ -68,7 +68,7 @@ training:
   validation_seeds: [0, 1, 2, 3, 4, 5, 6]
   validation_seed: 42
   validation_every: 1000
-  validation_eval_set_path: eval_sets/ds_validation.json
+  validation_eval_set_path: eval_sets/validation_set.json
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
   benchmark_graphs: 100
