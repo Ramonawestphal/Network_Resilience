@@ -393,7 +393,9 @@ def main() -> None:
                 )
             )
         frames_out: list[Frame] = []
-        for k in sorted(set(chosen)):
+        # `chosen` can reference rounds that never ran (e.g. episode ended early); only
+        # keys that exist in `snaps` are valid (see rollout_traced round_snaps updates).
+        for k in [k for k in sorted(set(chosen)) if k in snaps]:
             obs = snaps[k]
             frames_out.append(
                 Frame(

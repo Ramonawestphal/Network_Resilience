@@ -167,9 +167,13 @@ def _instance_from_decoded(item: Mapping[str, Any]) -> dict[str, Any]:
                 "Each instance dict must encode 'graph' as networkx node_link_data "
                 "(requires 'edges' or 'links')."
             )
-        # networkx defaults to link='links'; some saved sets use 'edges' (valid node-link JSON).
-        link_key = "links" if "links" in graph_raw else "edges"
-        out["graph"] = json_graph.node_link_graph(graph_raw, link=link_key)
+        # Key for the edge list: historically "links" in node-link JSON; nx.node_link_data uses "edges".
+        edges_key = "links" if "links" in graph_raw else "edges"
+        # NetworkX 3.x renamed kwarg ``link`` -> ``edges`` for node_link_graph.
+        try:
+            out["graph"] = json_graph.node_link_graph(graph_raw, edges=edges_key)
+        except TypeError:
+            out["graph"] = json_graph.node_link_graph(graph_raw, link=edges_key)
     elif isinstance(graph_raw, nx.Graph):
         pass
     elif graph_raw is not None:
