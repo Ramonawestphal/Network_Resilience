@@ -229,7 +229,6 @@ def build_training_config(config: dict[str, Any], *, episodes_override: int | No
         freeze_graphs=bool(training.get("freeze_graphs", defaults.freeze_graphs)),
         log_episode_spread=bool(training.get("log_episode_spread", defaults.log_episode_spread)),
         log_grad_norm=bool(training.get("log_grad_norm", defaults.log_grad_norm)),
-        debug=bool(training.get("debug", defaults.debug)),
         validation_eval_set_path=(
             str(training["validation_eval_set_path"]).strip()
             if training.get("validation_eval_set_path")
