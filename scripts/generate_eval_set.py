@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from random import Random
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"

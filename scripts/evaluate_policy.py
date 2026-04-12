@@ -7,7 +7,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"

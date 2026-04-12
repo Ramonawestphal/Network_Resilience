@@ -10,9 +10,9 @@ from typing import Any
 import sys
 import warnings
 
-import torch
-from torch.nn import functional as F
-from torch.optim import Adam
+import torch  # type: ignore[import-untyped]
+from torch.nn import functional as F  # type: ignore[import-untyped]
+from torch.optim import Adam  # type: ignore[import-untyped]
 
 from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
 from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
