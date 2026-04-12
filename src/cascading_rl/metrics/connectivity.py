@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
-import warnings
+from collections.abc import Hashable, Iterable, Sequence
 
 import networkx as nx
 
@@ -34,12 +33,38 @@ def pairwise_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> floa
     connected_pairs = sum(s * (s - 1) for s in component_sizes)
     return connected_pairs / (n_total * (n_total - 1))
 
-# Needs change
+
+def normalized_connectivity(graph: nx.Graph, active_nodes: Iterable[Node]) -> float:
+    """Historical name; same as :func:`pairwise_connectivity`."""
+    return pairwise_connectivity(graph, active_nodes)
+
+
 def accumulated_normalized_connectivity(
     graph: nx.Graph, active_nodes: Iterable[Node]
 ) -> float:
     """Historical name; now an alias for :func:`pairwise_connectivity`."""
     return pairwise_connectivity(graph, active_nodes)
+
+
+def anc_fixed_horizon(nc_by_round: Sequence[float], max_rounds: int) -> float:
+    """Mean NC over a fixed horizon ``max_rounds``, padding with 1.0 when the episode ends early.
+
+    When fewer than ``max_rounds`` values are recorded (e.g. full recovery), remaining
+    slots are treated as NC = 1.0, matching the RecoveryEnv discussion of solved episodes.
+    """
+    if max_rounds < 1:
+        return 0.0
+    seq = [float(x) for x in nc_by_round[:max_rounds]]
+    while len(seq) < max_rounds:
+        seq.append(1.0)
+    return sum(seq) / max_rounds
+
+
+def anc_adaptive_horizon(nc_by_round: Sequence[float]) -> float:
+    """Mean NC over the observed rounds (length of ``nc_by_round``)."""
+    if not nc_by_round:
+        return 0.0
+    return float(sum(nc_by_round)) / len(nc_by_round)
 
 
 def largest_component_ratio(graph: nx.Graph, active_nodes: Iterable[Node]) -> float:

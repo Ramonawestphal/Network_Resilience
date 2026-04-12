@@ -34,7 +34,7 @@ from cascading_rl.training.replay import ReplayBuffer, Transition
 
 Node = Hashable
 
-GRAPH_BUFFER_MAXLEN = 20
+GRAPH_BUFFER_MAXLEN = 50
 # Large offset ensures graph-generation seeds are statistically independent from
 # episode/failure seeds (which start near 0), avoiding accidental seed collisions.
 FREEZE_GRAPH_SPECS_SEED_OFFSET = 20_000
@@ -47,11 +47,11 @@ ROLLING_TRAIN_METRICS_EPISODES = 200
 class TrainingConfig:
     seed: int = 7
     device: str = "cpu"
-    alpha: float = 0.15
-    pfail: float = 0.18
-    alpha_values: tuple[float, ...] = (0.15,)
-    pfail_values: tuple[float, ...] = (0.18,)
-    budget: int = 3
+    alpha: float = 0.25
+    pfail: float = 0.2
+    alpha_values: tuple[float, ...] = (0.25,)
+    pfail_values: tuple[float, ...] = (0.2,)
+    budget: int = 2
     scale_budget: bool = True
     budget_reference_n: int = 40
     max_rounds: int = 20
@@ -63,7 +63,7 @@ class TrainingConfig:
     abandonment_nc_threshold: float | None = None
     n_range: tuple[int, int] = (30, 50)
     m: int = 2
-    num_episodes: int = 10000
+    num_episodes: int = 15000
     replay_capacity: int = 10000
     warmup_transitions: int = 500
     batch_size: int = 64
@@ -77,7 +77,7 @@ class TrainingConfig:
     hidden_dim: int = 128
     embed_dim: int = 128
     num_layers: int = 2
-    use_global_features: bool = False
+    use_global_features: bool = True
     active_node_features: tuple[str, ...] = FEATURE_NAMES
     active_global_features: tuple[str, ...] = GLOBAL_FEATURE_NAMES
     use_virtual_node: bool = False
@@ -85,10 +85,10 @@ class TrainingConfig:
     imitation_graphs: int = 500
     imitation_seeds: int = 5
     imitation_epochs: int = 10
-    validation_graphs: int = 2
-    validation_seeds: tuple[int, ...] = (0, 1, 2)
+    validation_graphs: int = 30
+    validation_seeds: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
     validation_seed: int = 42
-    validation_every: int = 200
+    validation_every: int = 1000
     validation_tau: float = 0.8
     checkpoint_dir: str = "experiments/learner"
     checkpoint_name: str = "recovery_q.pt"
@@ -97,8 +97,7 @@ class TrainingConfig:
     # Diagnostics: log PR(degree)-PR(random) per episode; optional JSON/YAML eval set path.
     log_episode_spread: bool = False
     log_grad_norm: bool = False
-    validation_eval_set_path: str | None = None
-    debug: bool = False
+    validation_eval_set_path: str | None = "eval_sets/validation_set.json"
 
 
 @dataclass
@@ -186,14 +185,12 @@ def _graph_tensor_for_model(
     observation: RecoveryObservation,
     *,
     device: torch.device,
-    debug: bool = False,
 ):
     return observation_to_graph_tensor(
         observation,
         use_virtual_node=model.config.use_virtual_node,
         feature_names=model.feature_names,
         device=device,
-        debug=debug,
     )
 
 
@@ -232,16 +229,32 @@ def _reset_with_non_empty_failures(
     rng: Random,
     *,
     max_attempts: int = 1024,
+    require_failed_gt_budget: bool = False,
 ) -> RecoveryObservation:
+    """Reset until the episode has at least one failed node.
+
+    When ``require_failed_gt_budget`` is True (RL / imitation training), also require
+    ``len(failed) > budget`` so the first round cannot clear all failures in one batch.
+    """
     seed = base_seed
     for _ in range(max_attempts):
         observation = env.reset(seed=seed)
-        if observation.failed:
-            return observation
-        seed = rng.randint(0, 10**9)
+        if not observation.failed:
+            seed = rng.randint(0, 10**9)
+            continue
+        if require_failed_gt_budget and len(observation.failed) <= observation.budget:
+            seed = rng.randint(0, 10**9)
+            continue
+        return observation
+    extra = (
+        f" No state with len(failed) > budget (budget={env.budget}) was sampled within "
+        f"{max_attempts} attempts."
+        if require_failed_gt_budget
+        else ""
+    )
     raise RuntimeError(
         f"After {max_attempts} reset attempts, no episode started with failed nodes "
-        f"(pfail={env.pfail}, n_nodes={env.base_graph.number_of_nodes()}). "
+        f"(pfail={env.pfail}, n_nodes={env.base_graph.number_of_nodes()}).{extra} "
         "Training requires stochastic failures or a positive pfail."
     )
 
@@ -307,7 +320,6 @@ def compute_dqn_loss(
     *,
     gamma: float,
     device: torch.device,
-    debug: bool = False,
 ) -> torch.Tensor:
     """Single-action DQN loss with support for round-collapsed bootstrapping.
 
@@ -326,7 +338,7 @@ def compute_dqn_loss(
         )
     losses: list[torch.Tensor] = []
     for transition in transitions:
-        graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device, debug=debug)
+        graph_tensor = _graph_tensor_for_model(model, transition.observation, device=device)
         global_features = _global_features_for_model(model, transition.observation, device=device)
         q_values = model(graph_tensor, global_features)
 
@@ -337,7 +349,7 @@ def compute_dqn_loss(
         with torch.no_grad():
             target_value = torch.tensor(float(transition.reward), device=device, dtype=torch.float32)
             if not transition.done and transition.next_observation.failed:
-                next_tensor = _graph_tensor_for_model(target_model, transition.next_observation, device=device, debug=debug)
+                next_tensor = _graph_tensor_for_model(target_model, transition.next_observation, device=device)
                 next_global = _global_features_for_model(
                     target_model,
                     transition.next_observation,
@@ -372,7 +384,7 @@ def _maybe_update(
     if len(replay_buffer) < max(config.batch_size, config.warmup_transitions):
         return
     batch = replay_buffer.sample(config.batch_size, rng=rng)
-    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device, debug=config.debug)
+    loss = compute_dqn_loss(model, target_model, batch, gamma=config.gamma, device=device)
     optimizer.zero_grad()
     loss.backward()  # type: ignore[no-untyped-call]
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -501,7 +513,9 @@ def generate_imitation_data(
                 seed=rollout_seed,
                 **env_kwargs,
             )
-            observation = _reset_with_non_empty_failures(env, rollout_seed, rng)
+            observation = _reset_with_non_empty_failures(
+                env, rollout_seed, rng, require_failed_gt_budget=True
+            )
             done = False
             while not done and observation.failed:
                 # Take one action at a time (env.step) rather than the full
@@ -896,7 +910,7 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
         warnings.warn(
             "Validating on synthetic graphs. Results will be noisy and not "
             "comparable across runs. Use --validation-eval-set with a fixed eval set (e.g. "
-            "eval_sets/ds_validation.json) instead.",
+            "eval_sets/validation_set.json) instead.",
             UserWarning,
             stacklevel=1,
         )
@@ -981,7 +995,8 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
             observation = _reset_with_non_empty_failures(env, graph_seed, rng)
             episode_failure_seed = graph_seed
         else:
-            if not graph_buffer or rng.random() < 0.3:
+            # 70% new graph, 30% reuse from buffer when buffer is non-empty.
+            if not graph_buffer or rng.random() < 0.7:
                 graph_size = rng.randint(config.n_range[0], config.n_range[1])
                 graph_struct_seed = rng.randint(0, 10**9)
                 graph = make_ba_graph(n=graph_size, m=config.m, seed=graph_struct_seed)
@@ -1000,7 +1015,9 @@ def train_recovery_agent(config: TrainingConfig) -> tuple[RecoveryQNetwork, Trai
                 seed=0,
                 **env_kwargs,
             )
-            observation = _reset_with_non_empty_failures(env, failure_seed, rng)
+            observation = _reset_with_non_empty_failures(
+                env, failure_seed, rng, require_failed_gt_budget=True
+            )
             episode_failure_seed = failure_seed
         if config.log_episode_spread:
             spread = _degree_minus_random_spread(

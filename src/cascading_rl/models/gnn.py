@@ -139,7 +139,6 @@ def observation_to_graph_tensor(
     use_virtual_node: bool = False,
     feature_names: tuple[str, ...] | None = None,
     device: torch.device | str | None = None,
-    debug: bool = False,
 ) -> GraphTensor:
     """Convert a recovery observation into graph tensors."""
     feature_names = feature_names or FEATURE_NAMES
@@ -197,22 +196,6 @@ def observation_to_graph_tensor(
             dtype=torch.float32,
         )
         valid_mask[index] = node in observation.failed
-
-        if debug:
-            assert 0.0 <= feature_values["degree_norm"] <= 1.0, (
-                f"degree_norm={feature_values['degree_norm']:.4f} out of [0,1] for node {node}"
-            )
-            assert 0.0 <= feature_values["budget_coverage"] <= 1.0, (
-                f"budget_coverage={feature_values['budget_coverage']:.4f} out of [0,1] "
-                f"(remaining={observation.remaining_budget}, budget={observation.budget})"
-            )
-            assert 0.0 <= feature_values["current_round_norm"] <= 1.0, (
-                f"current_round_norm={feature_values['current_round_norm']:.4f} out of [0,1] "
-                f"(round={observation.current_round}, max_rounds={observation.max_rounds})"
-            )
-            assert 0.0 <= feature_values["remaining_budget_norm"] <= 1.0, (
-                f"remaining_budget_norm={feature_values['remaining_budget_norm']:.4f} out of [0,1]"
-            )
 
     if use_virtual_node:
         node_features[num_real_nodes] = node_features[:num_real_nodes].mean(dim=0)

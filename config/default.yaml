@@ -35,9 +35,9 @@ training:
   device: cpu
   freeze_graphs: false
   regime:
-    alpha: 0.15
-    pfail: 0.18
-    budget: 3
+    alpha: 0.25
+    pfail: 0.2
+    budget: 2
     max_rounds: 20
     capacity_noise: 0.0
     failure_bias: uniform
@@ -45,18 +45,19 @@ training:
     obs_hops: null
     abandonment_nc_threshold: null
   graph:
-    n_range: [40, 80]
+    n_range: [30, 50]
     m: 2
   # Long training: match epsilon_decay_episodes to num_episodes so ε → epsilon_end by the last episode.
-  num_episodes: 15000
-  replay_capacity: 10000
-  warmup_transitions: 500
+  num_episodes: 20000
+  replay_capacity: 20000
+  warmup_transitions: 1000
   batch_size: 64
   gamma: 0.99
-  learning_rate: 0.0001
+  learning_rate: 0.0002
+
   epsilon_start: 1.0
   epsilon_end: 0.05
-  epsilon_decay_episodes: 15000
+  epsilon_decay_episodes: 18000
   target_update_interval: 200
   hidden_dim: 128
   embed_dim: 128
@@ -67,8 +68,7 @@ training:
   validation_seeds: [0, 1, 2, 3, 4, 5, 6]
   validation_seed: 42
   validation_every: 1000
-  # Fixed eval set for comparable validation across runs (regenerate: python scripts/generate_eval_set.py --force).
-  validation_eval_set_path: eval_sets/ds_validation.json
+  validation_eval_set_path: eval_sets/validation_set.json
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
   benchmark_graphs: 100
