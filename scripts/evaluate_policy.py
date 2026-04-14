@@ -1079,7 +1079,6 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "evaluation_summary.json"
     grid_path = output_dir / "evaluation_grid_summary.json"
-    regime_path = output_dir / "evaluation_regime_summary.json"
     metadata_path = output_dir / "run_metadata.json"
     summary_payload = {
         "checkpoint": serialize_path(args.checkpoint),
@@ -1092,8 +1091,6 @@ def main() -> None:
     with summary_path.open("w", encoding="utf-8") as file:
         json.dump(summary_payload, file, indent=2)
     with grid_path.open("w", encoding="utf-8") as file:
-        json.dump(grid_results, file, indent=2)
-    with regime_path.open("w", encoding="utf-8") as file:
         json.dump(grid_results, file, indent=2)
     write_run_metadata(
         metadata_path,
@@ -1109,7 +1106,6 @@ def main() -> None:
 
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")
-    print(f"Saved regime evaluation summary to {regime_path}")
     for policy_name, metrics in summary_payload.items():
         if policy_name in {
             "checkpoint",

@@ -202,6 +202,10 @@ def test_train_recovery_agent_smoke_runs_and_saves_checkpoint(tmp_path: Path):
         device="cpu",
     )
 
+    # The default TrainingConfig now uses the fixed eval set; override to None
+    # to exercise the synthetic-graph validation path in this smoke test.
+    import dataclasses
+    config = dataclasses.replace(config, validation_eval_set_path=None)
     with pytest.warns(UserWarning, match="Validating on synthetic"):
         _, training_state, checkpoint_path = train_recovery_agent(config)
 
