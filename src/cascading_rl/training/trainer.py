@@ -97,7 +97,7 @@ class TrainingConfig:
     # Diagnostics: log PR(degree)-PR(random) per episode; optional JSON/YAML eval set path.
     log_episode_spread: bool = False
     log_grad_norm: bool = False
-    validation_eval_set_path: str | None = "eval_sets/validation_set.json"
+    validation_eval_set_path: str | None = "eval_sets/ds_validation.pkl"
 
 
 @dataclass

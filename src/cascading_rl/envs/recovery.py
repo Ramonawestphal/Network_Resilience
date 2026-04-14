@@ -219,6 +219,10 @@ class RecoveryEnv:
             raise RuntimeError("Environment must be reset before use.")
         return normalized_connectivity(self.state.graph, self.state.active)
 
+    def current_anc(self) -> float:
+        """Backward-compatible alias for :meth:`current_nc` (regime-mapping scripts)."""
+        return self.current_nc()
+
     def _abandon_due_to_low_nc(self, post_cascade_nc: float) -> bool:
         if self.abandonment_nc_threshold is None or self.state is None:
             return False
