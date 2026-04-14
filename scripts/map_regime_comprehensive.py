@@ -17,10 +17,10 @@ matplotlib.use("Agg")
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore[import-untyped]
 
 try:
-    import pyarrow  # noqa: F401
+    import pyarrow  # noqa: F401  # type: ignore[import-untyped]
 
     PARQUET_AVAILABLE = True
 except ImportError:
@@ -38,16 +38,16 @@ from cascading_rl.envs.recovery import RecoveryEnv, RecoveryObservation
 from cascading_rl.graph.generation import make_ba_graph
 from cascading_rl.policies.betweenness_policy import choose_highest_betweenness_failed_node
 from cascading_rl.policies.degree_policy import choose_highest_degree_failed_node
-from cascading_rl.policies.greedy_policy import choose_greedy_nc_node
+from cascading_rl.policies.greedy_policy import choose_greedy_anc_node
 from cascading_rl.policies.random_policy import choose_random_failed_node
 from cascading_rl.policies.risk_policy import choose_highest_overload_risk_node
 
-ALPHA_VALUES = [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
-PFAIL_VALUES = [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
-BUDGET_VALUES = [1, 2, 3, 4, 5, 6]
+ALPHA_VALUES = [0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
+PFAIL_VALUES = [0.08, 0.10, 0.12, 0.15, 0.18, 0.20]
+BUDGET_VALUES = [1, 2, 3, 4, 5]
 N_GRAPHS = 100
 N_SEEDS = 5
-GRAPH_N_RANGE = (30, 50)
+GRAPH_N_RANGE = (35, 45)
 GRAPH_M = 2
 MAX_ROUNDS = 20
 REFERENCE_N = 40
@@ -367,7 +367,7 @@ def policy_action(observation: RecoveryObservation, policy_name: str, *, rng: Ra
     if policy_name == "betweenness":
         return choose_highest_betweenness_failed_node(observation)
     if policy_name == "greedy":
-        return choose_greedy_nc_node(observation)
+        return choose_greedy_anc_node(observation)
     if policy_name == "risk":
         return choose_highest_overload_risk_node(observation)
     if policy_name == "random":
@@ -403,7 +403,7 @@ def run_policy_episode(
         return {
             "failed_at_reset": failed_at_reset,
             "active_at_reset": active_at_reset,
-            "final_pr": float(env.current_nc()),
+            "final_pr": float(env.current_anc()),
             "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
             "solved": True,
             "rounds_when_solved": 0,
@@ -422,7 +422,7 @@ def run_policy_episode(
     return {
         "failed_at_reset": failed_at_reset,
         "active_at_reset": active_at_reset,
-        "final_pr": float(env.current_nc()),
+        "final_pr": float(env.current_anc()),
         "n_active_final": int(len(env.state.active)) if env.state is not None else 0,
         "solved": solved,
         "rounds_when_solved": rounds_when_solved,
