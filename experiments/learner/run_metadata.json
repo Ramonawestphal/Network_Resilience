@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-04-09T08:10:42.793188+00:00",
+  "generated_at": "2026-04-14T01:24:53.613563+00:00",
   "script": "scripts/train_policy.py",
   "argv": [
     "scripts/train_policy.py"
   ],
   "config_path": "config/default.yaml",
-  "config_sha256": "3b084c70ef280ed800b72a9c98c3785c6dd013f4ae1d2866086efca4efedfa67",
-  "git_commit": "3b9b3663d3718bba1e54fa5ac4d7fd6b2828c943",
+  "config_sha256": "5c354825b891314b2de8b63ac9ed458880d8b9c671cb221bb07f3bd637df1a42",
+  "git_commit": "c528de6e34533058716b1e21b43323b14720c467",
   "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
   "platform": "Windows-11-10.0.26200-SP0",
   "torch_version": "2.11.0+cpu",
