@@ -9,8 +9,9 @@ Usage
     python scripts/evaluate_er_graphs.py                        # default checkpoint
     python scripts/evaluate_er_graphs.py --checkpoint PATH      # specific checkpoint
     python scripts/evaluate_er_graphs.py --num-graphs 100 --seeds 0 1 2 3 4 5 6 7 8 9
+    python scripts/evaluate_er_graphs.py --rl-only --output-dir experiments/eval_er_rl
 
-Output is written to experiments/eval_er/ as JSON summary files and plots.
+Output is written to ``--output-dir`` as ``er_evaluation_summary.json`` and ``run_metadata.json``.
 """
 
 from __future__ import annotations
@@ -87,6 +88,11 @@ def parse_args() -> argparse.Namespace:
         default=ROOT / "experiments" / "eval_er",
         help="Directory for output files.",
     )
+    parser.add_argument(
+        "--rl-only",
+        action="store_true",
+        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
+    )
     return parser.parse_args()
 
 
@@ -151,12 +157,15 @@ def main() -> None:
         for name, episodes in episodes_by_policy.items()
     }
 
-    comparisons = compare_all_pairs(
-        episodes_by_policy,
-        baseline="degree",
-        metric="anc_fixed",
-        rng=__import__("random").Random(0),
-    )
+    if args.rl_only:
+        comparisons = []
+    else:
+        comparisons = compare_all_pairs(
+            episodes_by_policy,
+            baseline="degree",
+            metric="anc_fixed",
+            rng=__import__("random").Random(0),
+        )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -173,6 +182,9 @@ def main() -> None:
 
     result = {
         "graph_type": "er",
+        "rl_only": args.rl_only,
+        "policies": list(policy_factories.keys()),
+        "checkpoint": portable_artifact_path(args.checkpoint),
         "num_graphs": args.num_graphs,
         "seeds": args.seeds,
         "regime": {"alpha": alpha, "pfail": pfail, "budget": budget, "max_rounds": max_rounds},
@@ -210,7 +222,11 @@ def main() -> None:
         script_path=Path(__file__).resolve(),
         argv=sys.argv,
         config_path=args.config,
-        extra={"summary_path": portable_artifact_path(summary_path)},
+        extra={
+            "summary_path": portable_artifact_path(summary_path),
+            "checkpoint_path": portable_artifact_path(args.checkpoint),
+            "rl_only": args.rl_only,
+        },
     )
 
 

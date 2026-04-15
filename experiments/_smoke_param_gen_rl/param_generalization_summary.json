@@ -1,0 +1,90 @@
+{
+  "description": "Parameter generalisation sweep: RL only across (alpha, pfail, budget) grid on 1 BA graphs with n ~ Uniform[30, 50]. Same graph set reused across all cells.",
+  "training_reference": {
+    "alpha": 0.25,
+    "pfail": 0.2,
+    "budget": 2
+  },
+  "grid_spec": {
+    "graph_type": "ba",
+    "rl_only": true,
+    "policies": [
+      "rl"
+    ],
+    "alpha_values": [
+      0.25
+    ],
+    "pfail_values": [
+      0.2
+    ],
+    "budget_values": [
+      2
+    ],
+    "total_cells": 1,
+    "num_graphs": 1,
+    "n_low": 30,
+    "n_high": 50,
+    "num_seeds": 1,
+    "episodes_per_cell": 1,
+    "scale_budget": true,
+    "scale_max_rounds": true,
+    "reference_n": 40,
+    "m": 2
+  },
+  "graph_set": {
+    "n_min": 34,
+    "n_max": 34,
+    "n_mean": 34.0,
+    "avg_degree": 3.76
+  },
+  "cells": [
+    {
+      "alpha": 0.25,
+      "pfail": 0.2,
+      "budget": 2,
+      "is_training_params": true,
+      "episode_count": 1,
+      "summaries": {
+        "rl": {
+          "anc_fixed_mean": 1.0,
+          "anc_fixed_stderr": 0.0,
+          "anc_adaptive_mean": 1.0,
+          "anc_adaptive_stderr": 0.0,
+          "final_nc_mean": 1.0,
+          "final_nc_stderr": 0.0,
+          "solved_fraction_mean": 1.0,
+          "fully_restored_count": 1,
+          "episode_count": 1,
+          "unsolved_low_final_nc_count": 0,
+          "unsolved_low_final_nc_fraction": 0.0,
+          "rounds_mean": 1.0,
+          "rounds_stderr": 0.0,
+          "steps_mean": 1.0,
+          "steps_stderr": 0.0,
+          "rounds_when_solved_mean": 1.0,
+          "rounds_when_solved_stderr": 0.0,
+          "mean_nc_on_failed_mean": null,
+          "mean_nc_on_failed_stderr": null,
+          "total_reward_mean": 0.0,
+          "total_reward_stderr": 0.0,
+          "nc_by_round": [
+            1.0
+          ],
+          "mean_delta_nc_per_round_mean": 0.0588,
+          "mean_delta_nc_per_round_stderr": 0.0,
+          "mean_degree_ratio_mean": 0.0,
+          "mean_degree_ratio_stderr": 0.0,
+          "mean_overload_risk_mean": 0.0,
+          "mean_overload_risk_stderr": 0.0,
+          "mean_nc_gain_mean": 0.0,
+          "mean_nc_gain_stderr": 0.0,
+          "mean_greedy_nc_gain_mean": 0.0,
+          "mean_greedy_nc_gain_stderr": 0.0,
+          "mean_action_rank_mean": 0.0,
+          "mean_action_rank_stderr": 0.0
+        }
+      },
+      "comparisons_vs_degree": []
+    }
+  ]
+}

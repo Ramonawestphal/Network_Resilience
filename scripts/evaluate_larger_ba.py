@@ -2,11 +2,11 @@
 
 Tests scale generalisation beyond the training range (n ∈ [30, 50]).
 Budget is scaled proportionally to graph size (same reference_n=40 as training).
-Each graph size uses 20 graphs × 10 failure seeds = 200 episodes.
+Each graph size uses 20 graphs × 10 failure seeds = 200 episodes (defaults).
 
-Greedy is excluded: its O(|failed| × steps) per-step rollout cost is
-computationally infeasible at n >= 100 (hours per size). This is itself
-a meaningful finding reported in the paper.
+Without ``--rl-only``, greedy and other heuristics are included. Exhaustive greedy
+can be very slow at large n and high budgets; use ``--rl-only`` for fast runs that
+only score the learned policy.
 
 Output
 ------
@@ -17,6 +17,7 @@ Usage
 -----
     python scripts/evaluate_larger_ba.py
     python scripts/evaluate_larger_ba.py --sizes 100 200 500 1000 --num-graphs 20
+    python scripts/evaluate_larger_ba.py --rl-only --output-dir experiments/eval_larger_ba_rl
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ def parse_args() -> argparse.Namespace:
         "--sizes",
         type=int,
         nargs="+",
-        default=[100, 200, 500,1000],
+        default=[100, 200, 500, 1000],
         help="Exact graph sizes to evaluate (default: 100 200 500, 1000).",
     )
     parser.add_argument(
@@ -99,6 +100,11 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=ROOT / "experiments" / "eval_larger_ba",
+    )
+    parser.add_argument(
+        "--rl-only",
+        action="store_true",
+        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
     )
     return parser.parse_args()
 
@@ -121,6 +127,7 @@ def run_size(
     scale_budget: bool,
     scale_max_rounds: bool,
     reference_n: int,
+    rl_only: bool = False,
 ) -> tuple[dict, list]:
     import torch
     from random import Random
@@ -166,12 +173,15 @@ def run_size(
         for name, eps in episodes_by_policy.items()
     }
 
-    comparisons = compare_all_pairs(
-        episodes_by_policy,
-        baseline="degree",
-        metric="anc_fixed",
-        rng=__import__("random").Random(0),
-    )
+    if rl_only:
+        comparisons = []
+    else:
+        comparisons = compare_all_pairs(
+            episodes_by_policy,
+            baseline="degree",
+            metric="anc_fixed",
+            rng=__import__("random").Random(0),
+        )
 
     print(f"\n  {'Policy':<14} {'ANC-fixed':>10} {'±stderr':>8} {'Solved':>8} {'Rounds':>7}")
     print(f"  {'-'*50}")
@@ -231,6 +241,7 @@ def main() -> None:
             scale_budget=scale_budget,
             scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
+            rl_only=args.rl_only,
         )
         results_by_size[str(n)] = {
             "n": n,
@@ -250,6 +261,9 @@ def main() -> None:
 
     output = {
         "description": "Scale generalisation: BA graphs at n=100, 200, 500 (all OOD)",
+        "rl_only": args.rl_only,
+        "policies": ["rl"] if args.rl_only else ["rl", "greedy", "degree", "betweenness", "risk", "random"],
+        "checkpoint": portable_artifact_path(args.checkpoint),
         "training_range": [30, 50],
         "regime": {
             "alpha": alpha,
@@ -274,7 +288,11 @@ def main() -> None:
         script_path=Path(__file__).resolve(),
         argv=sys.argv,
         config_path=args.config,
-        extra={"summary_path": portable_artifact_path(summary_path)},
+        extra={
+            "summary_path": portable_artifact_path(summary_path),
+            "checkpoint_path": portable_artifact_path(args.checkpoint),
+            "rl_only": args.rl_only,
+        },
     )
     print("\nAll done.")
 

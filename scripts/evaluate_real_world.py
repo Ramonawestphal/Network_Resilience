@@ -5,11 +5,12 @@ Prerequisites
 1. Download the datasets first:
        python scripts/download_real_world_data.py
 
-2. Train the policy:
-       python scripts/train_policy.py --episodes 20000
+2. Point ``--checkpoint`` at a trained policy (default: ``experiments/learner/recovery_q.pt``).
+   Training is optional if you already have a checkpoint; this script only loads weights
+   and runs rollouts (no training).
 
-3. Then run this script:
-       python scripts/evaluate_real_world.py
+3. Run evaluation, e.g. RL-only with a distinct output directory:
+       python scripts/evaluate_real_world.py --rl-only --output-dir experiments/eval_real_world_rl
 
 Datasets
 --------
@@ -126,6 +127,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "experiments" / "eval_real_world",
     )
+    parser.add_argument(
+        "--rl-only",
+        action="store_true",
+        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
+    )
     return parser.parse_args()
 
 
@@ -148,6 +154,7 @@ def evaluate_dataset(
     reference_n: int = 40,
     scale_budget: bool = True,
     scale_max_rounds: bool = True,
+    rl_only: bool = False,
 ) -> None:
     import torch
     print(f"\n{'='*55}")
@@ -204,12 +211,15 @@ def evaluate_dataset(
         for name, episodes in episodes_by_policy.items()
     }
 
-    comparisons = compare_all_pairs(
-        episodes_by_policy,
-        baseline="degree",
-        metric="anc_fixed",
-        rng=__import__("random").Random(0),
-    )
+    if rl_only:
+        comparisons = []
+    else:
+        comparisons = compare_all_pairs(
+            episodes_by_policy,
+            baseline="degree",
+            metric="anc_fixed",
+            rng=__import__("random").Random(0),
+        )
 
     out_dir = output_dir / dataset_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -280,6 +290,7 @@ def evaluate_dataset(
             "dataset": dataset_name,
             "summary_path": portable_artifact_path(summary_path),
             "checkpoint_path": portable_artifact_path(checkpoint_path),
+            "rl_only": rl_only,
         },
     )
 
@@ -318,6 +329,7 @@ def main() -> None:
             reference_n=reference_n,
             scale_budget=scale_budget,
             scale_max_rounds=scale_max_rounds,
+            rl_only=args.rl_only,
         )
 
     print("\nAll done.")

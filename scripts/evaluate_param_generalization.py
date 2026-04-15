@@ -28,6 +28,7 @@ Usage
     python scripts/evaluate_param_generalization.py
     python scripts/evaluate_param_generalization.py \
         --alpha 0.20 0.25 --pfail 0.10 0.20 --budget 1 2
+    python scripts/evaluate_param_generalization.py --rl-only
 """
 
 from __future__ import annotations
@@ -124,6 +125,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sequential-greedy", action="store_true",
                         help="Use sequential O(|failed|*k) greedy instead of exhaustive "
                              "O(C(|failed|,k)) search. Required for large graphs.")
+    parser.add_argument(
+        "--rl-only",
+        action="store_true",
+        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
+    )
     return parser.parse_args()
 
 
@@ -204,12 +210,16 @@ def main() -> None:
     print(f"Generated {args.num_graphs} graphs: n in [{min(sizes)}, {max(sizes)}] "
           f"mean_n={avg_n:.1f}  avg_degree={avg_deg:.2f}")
 
-    if args.sequential_greedy:
-        print("Greedy: sequential approximation O(|failed|*k)  [exhaustive search disabled]")
-    policy_factories = {
-        "rl": lambda gi, se: rl_policy,
-        **build_policy_factories(base_seed=0, sequential_greedy=args.sequential_greedy),
-    }
+    if args.rl_only:
+        print("Policies: RL only (heuristics skipped)")
+        policy_factories = {"rl": lambda gi, se: rl_policy}
+    else:
+        if args.sequential_greedy:
+            print("Greedy: sequential approximation O(|failed|*k)  [exhaustive search disabled]")
+        policy_factories = {
+            "rl": lambda gi, se: rl_policy,
+            **build_policy_factories(base_seed=0, sequential_greedy=args.sequential_greedy),
+        }
 
     cells: list[dict] = []
 
@@ -238,12 +248,15 @@ def main() -> None:
             name: summarize_episode_results(eps)
             for name, eps in episodes_by_policy.items()
         }
-        comparisons = compare_all_pairs(
-            episodes_by_policy,
-            baseline="degree",
-            metric="anc_fixed",
-            rng=Random(0),
-        )
+        if args.rl_only:
+            comparisons = []
+        else:
+            comparisons = compare_all_pairs(
+                episodes_by_policy,
+                baseline="degree",
+                metric="anc_fixed",
+                rng=Random(0),
+            )
 
         print(f"  {'Policy':<14} {'ANC-fix':>8} {'+-se':>6} {'ANC-adp':>8} {'FinalNC':>8} "
               f"{'Solved':>7} {'Rounds':>7} {'ActRank':>8} {'NCgain':>8}")
@@ -268,9 +281,14 @@ def main() -> None:
             "comparisons_vs_degree": _fmt_comparisons(comparisons),
         })
 
+    policy_desc = (
+        "RL only"
+        if args.rl_only
+        else "all 6 policies (rl, greedy, degree, betweenness, risk, random)"
+    )
     output = {
         "description": (
-            f"Parameter generalisation sweep: all 6 policies across (alpha, pfail, budget) grid "
+            f"Parameter generalisation sweep: {policy_desc} across (alpha, pfail, budget) grid "
             f"on {args.num_graphs} {args.graph_type.upper()} graphs with "
             f"n ~ Uniform[{args.n_low}, {args.n_high}]. "
             "Same graph set reused across all cells."
@@ -282,6 +300,8 @@ def main() -> None:
         },
         "grid_spec": {
             "graph_type": args.graph_type,
+            "rl_only": args.rl_only,
+            "policies": list(policy_factories.keys()),
             "alpha_values": args.alpha,
             "pfail_values": args.pfail,
             "budget_values": args.budget,

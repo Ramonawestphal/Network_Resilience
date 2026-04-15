@@ -24,6 +24,8 @@ Usage
 -----
     python scripts/evaluate_topology_ablation.py
     python scripts/evaluate_topology_ablation.py --num-graphs 50 --seeds 0 1 2 3 4
+    python scripts/evaluate_topology_ablation.py --rl-only --output-dir experiments/eval_topology_ablation_rl
+    python scripts/evaluate_topology_ablation.py --heuristics-only --output-dir experiments/eval_topology_ablation_heuristics
 """
 
 from __future__ import annotations
@@ -119,7 +121,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=ROOT / "experiments" / "eval_topology_ablation",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--rl-only",
+        action="store_true",
+        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
+    )
+    parser.add_argument(
+        "--heuristics-only",
+        action="store_true",
+        help="Evaluate only baseline heuristics (greedy, degree, betweenness, risk, random). "
+             "Uses the same graph protocol as a full run; skips loading the RL checkpoint.",
+    )
+    args = parser.parse_args()
+    if args.rl_only and args.heuristics_only:
+        parser.error("Use only one of --rl-only and --heuristics-only.")
+    return args
 
 
 def _fmt_summary(summary) -> dict:
@@ -129,7 +145,7 @@ def _fmt_summary(summary) -> dict:
 def run_topology(
     topology: str,
     *,
-    model: RecoveryQNetwork,
+    model: RecoveryQNetwork | None,
     alpha: float,
     pfail: float,
     budget: int,
@@ -141,9 +157,10 @@ def run_topology(
     scale_budget: bool,
     scale_max_rounds: bool,
     reference_n: int,
+    rl_only: bool = False,
+    heuristics_only: bool = False,
 ) -> tuple[dict, list]:
     """Run all policies on one topology type. Returns (summaries_dict, comparisons_list)."""
-    import torch
     print(f"\n{'='*55}")
     print(f"Topology: {topology.upper()}")
     print(f"{'='*55}")
@@ -160,13 +177,23 @@ def run_topology(
     avg_deg = sum(2 * g.number_of_edges() / g.number_of_nodes() for g in graphs) / len(graphs)
     print(f"  Graphs: {len(graphs)}  avg_n={avg_n:.1f}  avg_degree={avg_deg:.2f}")
 
-    device = torch.device("cpu")
-    rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
-    baseline_factories = build_policy_factories(base_seed=0)
-    policy_factories = {
-        "rl": lambda gi, se: rl_policy,
-        **baseline_factories,
-    }
+    if heuristics_only:
+        print("  Policies: heuristics only (RL skipped; same graphs as full / RL-only runs)")
+        policy_factories = build_policy_factories(base_seed=0)
+    else:
+        import torch
+        device = torch.device("cpu")
+        assert model is not None
+        rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
+        if rl_only:
+            print("  Policies: RL only (heuristics skipped)")
+            policy_factories = {"rl": lambda gi, se: rl_policy}
+        else:
+            baseline_factories = build_policy_factories(base_seed=0)
+            policy_factories = {
+                "rl": lambda gi, se: rl_policy,
+                **baseline_factories,
+            }
 
     print(f"  Running {len(policy_factories)} policies × {len(graphs)} graphs × {len(seeds)} seeds...", flush=True)
     episodes_by_policy = collect_matched_episodes(
@@ -187,12 +214,15 @@ def run_topology(
         for name, eps in episodes_by_policy.items()
     }
 
-    comparisons = compare_all_pairs(
-        episodes_by_policy,
-        baseline="degree",
-        metric="anc_fixed",
-        rng=__import__("random").Random(0),
-    )
+    if rl_only:
+        comparisons = []
+    else:
+        comparisons = compare_all_pairs(
+            episodes_by_policy,
+            baseline="degree",
+            metric="anc_fixed",
+            rng=__import__("random").Random(0),
+        )
 
     # Print regime + full results table
     print(f"  Regime: alpha={alpha}  pfail={pfail}  budget={budget}  max_rounds={max_rounds}")
@@ -235,11 +265,15 @@ def main() -> None:
     scale_max_rounds = bool(budget_scaling.get("scale_max_rounds", True))
     reference_n = int(budget_scaling.get("reference_n", 40))
 
-    print(f"Loading checkpoint: {args.checkpoint}")
-    model = load_checkpoint(args.checkpoint)
+    if args.heuristics_only:
+        print("Heuristics only: skipping RL checkpoint load.")
+        model = None
+    else:
+        print(f"Loading checkpoint: {args.checkpoint}")
+        model = load_checkpoint(args.checkpoint)
 
     print(f"\nRegime: alpha={alpha}, pfail={pfail}, budget={budget}, max_rounds={max_rounds}")
-    print(f"Graph params: n_range={n_range}, m={m} (avg degree ≈ {2*m})")
+    print(f"Graph params: n_range={n_range}, m={m} (avg degree ~ {2*m})")
     print(f"Topologies: {args.topologies}  |  num_graphs={args.num_graphs}  |  seeds={args.seeds}")
 
     results_by_topology: dict[str, dict] = {}
@@ -259,6 +293,8 @@ def main() -> None:
             scale_budget=scale_budget,
             scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
+            rl_only=args.rl_only,
+            heuristics_only=args.heuristics_only,
         )
         results_by_topology[topology] = {
             "summaries": {name: _fmt_summary(s) for name, s in summaries.items()},
@@ -275,8 +311,19 @@ def main() -> None:
             ],
         }
 
+    if args.rl_only:
+        policy_list = ["rl"]
+    elif args.heuristics_only:
+        policy_list = ["greedy", "degree", "betweenness", "risk", "random"]
+    else:
+        policy_list = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
+
     output = {
         "tier": "topology_ablation",
+        "rl_only": args.rl_only,
+        "heuristics_only": args.heuristics_only,
+        "policies": policy_list,
+        "checkpoint": None if args.heuristics_only else portable_artifact_path(args.checkpoint),
         "description": "BA vs ER vs WS at n∈[30,50] with matched average degree (~4)",
         "regime": {
             "alpha": alpha,
@@ -309,7 +356,12 @@ def main() -> None:
         script_path=Path(__file__).resolve(),
         argv=sys.argv,
         config_path=args.config,
-        extra={"summary_path": portable_artifact_path(summary_path)},
+        extra={
+            "summary_path": portable_artifact_path(summary_path),
+            "checkpoint_path": None if args.heuristics_only else portable_artifact_path(args.checkpoint),
+            "rl_only": args.rl_only,
+            "heuristics_only": args.heuristics_only,
+        },
     )
 
     print("\nAll done.")
