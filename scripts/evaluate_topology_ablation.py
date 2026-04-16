@@ -23,7 +23,7 @@ experiments/eval_topology_ablation/run_metadata.json
 Usage
 -----
     python scripts/evaluate_topology_ablation.py
-    python scripts/evaluate_topology_ablation.py --num-graphs 50 --seeds 0 1 2 3 4
+    python scripts/evaluate_topology_ablation.py --num-graphs 100 --seeds 0 1 2 3 4 5 6 7 8 9
     python scripts/evaluate_topology_ablation.py --rl-only --output-dir experiments/eval_topology_ablation_rl
     python scripts/evaluate_topology_ablation.py --heuristics-only --output-dir experiments/eval_topology_ablation_heuristics
 """
@@ -60,6 +60,10 @@ from scripts.reproducibility import write_run_metadata
 # do not overlap.  Episode failure seeds are shared across types.
 _GRAPH_SEEDS = {"ba": 0, "er": 999, "ws": 1999}
 
+# Defaults aligned with scripts/evaluate_param_generalization.py
+DEFAULT_NUM_GRAPHS = 40
+DEFAULT_SEEDS = list(range(5))
+
 POLICY_ORDER = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
 
 
@@ -76,7 +80,7 @@ def load_checkpoint(path: Path) -> RecoveryQNetwork:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Topology ablation: BA vs ER vs WS at n∈[30,50], matched degree."
+        description="Topology ablation: BA vs ER vs WS at n in [30,50], matched degree."
     )
     parser.add_argument(
         "--checkpoint",
@@ -97,15 +101,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num-graphs",
         type=int,
-        default=100,
-        help="Number of graphs per topology type (default: 100).",
+        default=DEFAULT_NUM_GRAPHS,
+        help=f"Number of graphs per topology type (default: {DEFAULT_NUM_GRAPHS}).",
     )
     parser.add_argument(
         "--seeds",
         type=int,
         nargs="+",
-        default=list(range(10)),
-        help="Failure seeds per graph (default: 0..9).",
+        default=DEFAULT_SEEDS,
+        help=f"Failure seeds per graph (default: {DEFAULT_SEEDS[0]}..{DEFAULT_SEEDS[-1]}).",
     )
     parser.add_argument("--alpha", type=float, default=None,
                         help="Capacity slack override (default: from config).")
@@ -195,7 +199,7 @@ def run_topology(
                 **baseline_factories,
             }
 
-    print(f"  Running {len(policy_factories)} policies × {len(graphs)} graphs × {len(seeds)} seeds...", flush=True)
+    print(f"  Running {len(policy_factories)} policies x {len(graphs)} graphs x {len(seeds)} seeds...", flush=True)
     episodes_by_policy = collect_matched_episodes(
         graphs,
         policy_factories,

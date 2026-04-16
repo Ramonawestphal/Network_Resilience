@@ -1,12 +1,13 @@
 """Evaluate trained policy on larger BA graphs: n=100, 200, 500, 1000.
 
-Tests scale generalisation beyond the training range (n ∈ [30, 50]).
+Tests scale generalisation beyond the training range (n in [30, 50]).
 Budget is scaled proportionally to graph size (same reference_n=40 as training).
-Each graph size uses 20 graphs × 10 failure seeds = 200 episodes (defaults).
+Each graph size uses 20 graphs x 10 failure seeds = 200 episodes (defaults).
 
 Without ``--rl-only``, greedy and other heuristics are included. Exhaustive greedy
-can be very slow at large n and high budgets; use ``--rl-only`` for fast runs that
-only score the learned policy.
+can be very slow at large n and high budgets; use ``--exclude-greedy`` to keep RL and
+all other baselines but skip greedy, or ``--rl-only`` for fast runs that only score
+the learned policy.
 
 Output
 ------
@@ -17,6 +18,7 @@ Usage
 -----
     python scripts/evaluate_larger_ba.py
     python scripts/evaluate_larger_ba.py --sizes 100 200 500 1000 --num-graphs 20
+    python scripts/evaluate_larger_ba.py --exclude-greedy
     python scripts/evaluate_larger_ba.py --rl-only --output-dir experiments/eval_larger_ba_rl
 """
 
@@ -106,7 +108,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--exclude-greedy",
+        action="store_true",
+        dest="exclude_greedy",
+        help="With RL + heuristics, skip the exhaustive NC-greedy baseline (slow at large n). "
+             "Incompatible with --rl-only.",
+    )
+    args = parser.parse_args()
+    if args.rl_only and args.exclude_greedy:
+        parser.error("Use only one of --rl-only and --exclude-greedy.")
+    return args
 
 
 def _fmt(summary) -> dict:
@@ -128,6 +140,7 @@ def run_size(
     scale_max_rounds: bool,
     reference_n: int,
     rl_only: bool = False,
+    exclude_greedy: bool = False,
 ) -> tuple[dict, list]:
     import torch
     from random import Random
@@ -148,13 +161,18 @@ def run_size(
 
     device = torch.device("cpu")
     rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
-    baseline_factories = build_policy_factories(base_seed=0)
-    policy_factories = {
-        "rl": lambda gi, se: rl_policy,
-        **baseline_factories,
-    }
+    if rl_only:
+        policy_factories = {"rl": lambda gi, se: rl_policy}
+    else:
+        baseline_factories = build_policy_factories(base_seed=0)
+        if exclude_greedy:
+            baseline_factories = {k: v for k, v in baseline_factories.items() if k != "greedy"}
+        policy_factories = {
+            "rl": lambda gi, se: rl_policy,
+            **baseline_factories,
+        }
 
-    print(f"  Running {len(policy_factories)} policies × {num_graphs} graphs × {len(seeds)} seeds...", flush=True)
+    print(f"  Running {len(policy_factories)} policies x {num_graphs} graphs x {len(seeds)} seeds...", flush=True)
     episodes_by_policy = collect_matched_episodes(
         graphs,
         policy_factories,
@@ -183,7 +201,7 @@ def run_size(
             rng=__import__("random").Random(0),
         )
 
-    print(f"\n  {'Policy':<14} {'ANC-fixed':>10} {'±stderr':>8} {'Solved':>8} {'Rounds':>7}")
+    print(f"\n  {'Policy':<14} {'ANC-fixed':>10} {'+/-se':>8} {'Solved':>8} {'Rounds':>7}")
     print(f"  {'-'*50}")
     for name in POLICY_ORDER:
         if name not in summaries:
@@ -223,7 +241,7 @@ def main() -> None:
 
     print(f"\nRegime: alpha={alpha}, pfail={pfail}, budget={budget} (scaled), max_rounds={max_rounds}")
     print(f"Sizes: {args.sizes}  |  num_graphs={args.num_graphs}  |  seeds={args.seeds}")
-    print(f"Training range: n ∈ [30, 50]  →  all sizes are OOD")
+    print(f"Training range: n in [30, 50]  ->  all sizes are OOD")
 
     results_by_size: dict[str, dict] = {}
 
@@ -242,6 +260,7 @@ def main() -> None:
             scale_max_rounds=scale_max_rounds,
             reference_n=reference_n,
             rl_only=args.rl_only,
+            exclude_greedy=args.exclude_greedy,
         )
         results_by_size[str(n)] = {
             "n": n,
@@ -259,10 +278,18 @@ def main() -> None:
             ],
         }
 
+    if args.rl_only:
+        policy_names = ["rl"]
+    elif args.exclude_greedy:
+        policy_names = ["rl", "degree", "betweenness", "risk", "random"]
+    else:
+        policy_names = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
+
     output = {
         "description": "Scale generalisation: BA graphs at n=100, 200, 500 (all OOD)",
         "rl_only": args.rl_only,
-        "policies": ["rl"] if args.rl_only else ["rl", "greedy", "degree", "betweenness", "risk", "random"],
+        "exclude_greedy": args.exclude_greedy,
+        "policies": policy_names,
         "checkpoint": portable_artifact_path(args.checkpoint),
         "training_range": [30, 50],
         "regime": {
@@ -292,6 +319,7 @@ def main() -> None:
             "summary_path": portable_artifact_path(summary_path),
             "checkpoint_path": portable_artifact_path(args.checkpoint),
             "rl_only": args.rl_only,
+            "exclude_greedy": args.exclude_greedy,
         },
     )
     print("\nAll done.")
