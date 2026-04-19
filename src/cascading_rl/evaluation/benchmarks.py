@@ -307,6 +307,7 @@ def collect_matched_episodes(
     scale_max_rounds: bool = False,
     reference_n: int = 40,
     collect_step_metrics: bool = False,
+    progress_tick: Callable[[], None] | None = None,
 ) -> dict[str, list["EpisodeResult"]]:
     """Evaluate policy factories across fixed graphs and return per-episode results.
 
@@ -358,6 +359,8 @@ def collect_matched_episodes(
                 policy = policy_factory(graph_index, seed)
                 result = rollout_policy(env, policy, seed=seed, collect_step_metrics=collect_step_metrics)
                 episode_results_by_policy[policy_name].append(result)
+                if progress_tick is not None:
+                    progress_tick()
 
     return episode_results_by_policy
 

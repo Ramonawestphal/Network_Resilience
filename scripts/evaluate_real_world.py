@@ -12,6 +12,11 @@ Prerequisites
 3. Run evaluation, e.g. RL-only with a distinct output directory:
        python scripts/evaluate_real_world.py --rl-only --output-dir experiments/eval_real_world_rl
 
+4. Subset policies or graph size filters:
+       python scripts/evaluate_real_world.py --policies rl degree --datasets ieee300
+       python scripts/evaluate_real_world.py --policies degree random --min-n 200 --max-n 400
+       python scripts/evaluate_real_world.py --no-progress
+
 Datasets
 --------
 ieee300 : IEEE 300-bus power transmission network (300 nodes, ~411 edges).
@@ -42,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import yaml
@@ -64,6 +70,9 @@ from cascading_rl.graph.generation import load_real_world_graph
 from cascading_rl.models import RecoveryQNetwork, build_greedy_policy
 from cascading_rl.reproducibility import portable_artifact_path
 from scripts.reproducibility import write_run_metadata
+
+POLICY_CHOICES = ("rl", "greedy", "degree", "betweenness", "risk", "random")
+POLICY_ORDER = list(POLICY_CHOICES)
 
 
 def load_checkpoint(path: Path) -> RecoveryQNetwork:
@@ -95,7 +104,19 @@ def parse_args() -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["ieee300"],
-        help="Which datasets to evaluate (default: ieee300).",
+        help="Which datasets to evaluate (default: ieee300). Real-world graph sizes are fixed per dataset; use this to choose which graphs to run.",
+    )
+    parser.add_argument(
+        "--min-n",
+        type=int,
+        default=None,
+        help="Skip datasets whose node count n is below this (after load).",
+    )
+    parser.add_argument(
+        "--max-n",
+        type=int,
+        default=None,
+        help="Skip datasets whose node count n is above this (after load).",
     )
     parser.add_argument(
         "--seeds",
@@ -130,7 +151,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--rl-only",
         action="store_true",
-        help="Evaluate only the learned RL policy (skip greedy, degree, betweenness, risk, random).",
+        help="Evaluate only the learned RL policy (same as --policies rl).",
+    )
+    parser.add_argument(
+        "--policies",
+        nargs="+",
+        choices=list(POLICY_CHOICES),
+        default=None,
+        metavar="POLICY",
+        help=(
+            "Subset of policies to evaluate (default: all). "
+            "Cannot combine with --rl-only."
+        ),
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable the tqdm progress bar during rollouts.",
     )
     return parser.parse_args()
 
@@ -142,7 +179,7 @@ def _fmt_summary(summary) -> dict:
 def evaluate_dataset(
     dataset_name: str,
     *,
-    model: RecoveryQNetwork,
+    model: RecoveryQNetwork | None,
     alpha: float,
     pfail: float,
     budget: int,
@@ -154,9 +191,11 @@ def evaluate_dataset(
     reference_n: int = 40,
     scale_budget: bool = True,
     scale_max_rounds: bool = True,
-    rl_only: bool = False,
+    policies: list[str],
+    show_progress: bool = True,
+    min_n: int | None = None,
+    max_n: int | None = None,
 ) -> None:
-    import torch
     print(f"\n{'='*55}")
     print(f"Dataset: {dataset_name}")
     print(f"{'='*55}")
@@ -171,6 +210,13 @@ def evaluate_dataset(
     m = graph.number_of_edges()
     avg_degree = 2 * m / n
 
+    if min_n is not None and n < min_n:
+        print(f"  SKIP: n={n} < --min-n={min_n}")
+        return
+    if max_n is not None and n > max_n:
+        print(f"  SKIP: n={n} > --max-n={max_n}")
+        return
+
     from cascading_rl.budgeting import compute_scaled_budget, compute_scaled_max_rounds
     scaled_budget = compute_scaled_budget(budget, num_nodes=n, reference_n=reference_n, enabled=scale_budget)
     scaled_max_rounds = compute_scaled_max_rounds(max_rounds, num_nodes=n, reference_n=reference_n, enabled=scale_max_rounds)
@@ -179,39 +225,69 @@ def evaluate_dataset(
     print(f"  Regime: alpha={alpha}, pfail={pfail}, budget={budget} -> scaled={scaled_budget}, "
           f"max_rounds={max_rounds} -> scaled={scaled_max_rounds}")
     print(f"  Seeds: {len(seeds)}")
+    print(f"  Policies: {policies}")
 
-    device = torch.device("cpu")
-    rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
-
-    # Use sequential greedy for large graphs: exhaustive O(C(|failed|,k)) search
-    # is infeasible once budget scaling pushes k beyond ~5.
     baseline_factories = build_policy_factories(base_seed=0, sequential_greedy=True)
-    policy_factories = {
-        "rl": lambda gi, se: rl_policy,
-        **baseline_factories,
-    }
+    policy_factories: dict = {}
+    if "rl" in policies:
+        if model is None:
+            print("  SKIP: rl requested but no checkpoint was loaded.")
+            return
+        import torch
+
+        device = torch.device("cpu")
+        rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
+        policy_factories["rl"] = lambda gi, se: rl_policy
+    for name in policies:
+        if name == "rl":
+            continue
+        if name not in baseline_factories:
+            continue
+        policy_factories[name] = baseline_factories[name]
+
+    progress_tick: Callable[[], None] | None = None
+    bar = None
+    if show_progress:
+        from tqdm import tqdm  # type: ignore[import-untyped]
+
+        bar = tqdm(
+            total=len(policy_factories) * len(seeds),
+            desc=f"{dataset_name}",
+            unit="ep",
+            leave=True,
+        )
+
+        def _tick() -> None:
+            bar.update(1)  # type: ignore[union-attr]
+
+        progress_tick = _tick
 
     # Single graph — pass as a list of one
     print("  Running rollouts...", flush=True)
-    episodes_by_policy = collect_matched_episodes(
-        [graph],
-        policy_factories,
-        alpha=alpha,
-        pfail=pfail,
-        budget=budget,
-        max_rounds=max_rounds,
-        seeds=seeds,
-        scale_budget=scale_budget,
-        scale_max_rounds=scale_max_rounds,
-        reference_n=reference_n,
-    )
+    try:
+        episodes_by_policy = collect_matched_episodes(
+            [graph],
+            policy_factories,
+            alpha=alpha,
+            pfail=pfail,
+            budget=budget,
+            max_rounds=max_rounds,
+            seeds=seeds,
+            scale_budget=scale_budget,
+            scale_max_rounds=scale_max_rounds,
+            reference_n=reference_n,
+            progress_tick=progress_tick,
+        )
+    finally:
+        if bar is not None:
+            bar.close()
 
     summaries = {
         name: summarize_episode_results(episodes)
         for name, episodes in episodes_by_policy.items()
     }
 
-    if rl_only:
+    if len(episodes_by_policy) < 2 or "degree" not in episodes_by_policy:
         comparisons = []
     else:
         comparisons = compare_all_pairs(
@@ -267,8 +343,7 @@ def evaluate_dataset(
     print(f"\n  {'Policy':<14} {'ANC-fix':>8} {'±se':>6} {'ANC-adp':>8} {'FinalNC':>8} "
           f"{'Solved':>7} {'Rounds':>7} {'ActRank':>8} {'NCgain':>8}")
     print(f"  {'-'*76}")
-    policy_order = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
-    for name in policy_order:
+    for name in POLICY_ORDER:
         if name not in summaries:
             continue
         s = summaries[name]
@@ -290,13 +365,21 @@ def evaluate_dataset(
             "dataset": dataset_name,
             "summary_path": portable_artifact_path(summary_path),
             "checkpoint_path": portable_artifact_path(checkpoint_path),
-            "rl_only": rl_only,
+            "policies": policies,
         },
     )
 
 
 def main() -> None:
     args = parse_args()
+    if args.rl_only and args.policies is not None:
+        raise SystemExit("Use either --rl-only or --policies, not both.")
+    if args.policies is not None:
+        policies = list(dict.fromkeys(args.policies))
+    elif args.rl_only:
+        policies = ["rl"]
+    else:
+        policies = list(POLICY_ORDER)
 
     with args.config.open("r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -311,8 +394,12 @@ def main() -> None:
     scale_budget = bool(budget_scaling.get("enabled", True))
     scale_max_rounds = bool(budget_scaling.get("scale_max_rounds", True))
 
-    print(f"Loading checkpoint: {args.checkpoint}")
-    model = load_checkpoint(args.checkpoint)
+    model: RecoveryQNetwork | None = None
+    if "rl" in policies:
+        print(f"Loading checkpoint: {args.checkpoint}")
+        model = load_checkpoint(args.checkpoint)
+    elif policies:
+        print("Checkpoint not loaded (no rl in --policies).")
 
     for dataset in args.datasets:
         evaluate_dataset(
@@ -329,7 +416,10 @@ def main() -> None:
             reference_n=reference_n,
             scale_budget=scale_budget,
             scale_max_rounds=scale_max_rounds,
-            rl_only=args.rl_only,
+            policies=policies,
+            show_progress=not args.no_progress,
+            min_n=args.min_n,
+            max_n=args.max_n,
         )
 
     print("\nAll done.")

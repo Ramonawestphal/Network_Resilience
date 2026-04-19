@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import yaml
@@ -51,6 +52,7 @@ from cascading_rl.reproducibility import portable_artifact_path
 from scripts.reproducibility import write_run_metadata
 
 POLICY_ORDER = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
+POLICY_CHOICES = tuple(POLICY_ORDER)
 
 
 def load_checkpoint(path: Path) -> RecoveryQNetwork:
@@ -112,13 +114,40 @@ def parse_args() -> argparse.Namespace:
         "--exclude-greedy",
         action="store_true",
         dest="exclude_greedy",
-        help="With RL + heuristics, skip the exhaustive NC-greedy baseline (slow at large n). "
-             "Incompatible with --rl-only.",
+        help="Default policy set only: skip the exhaustive NC-greedy baseline (slow at large n). "
+             "Incompatible with --rl-only and with --policies.",
+    )
+    parser.add_argument(
+        "--policies",
+        nargs="+",
+        choices=list(POLICY_CHOICES),
+        default=None,
+        metavar="POLICY",
+        help="Explicit subset of policies (default: all, or only rl with --rl-only).",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable the tqdm progress bar during rollouts.",
     )
     args = parser.parse_args()
     if args.rl_only and args.exclude_greedy:
         parser.error("Use only one of --rl-only and --exclude-greedy.")
+    if args.policies is not None and args.rl_only:
+        parser.error("Use only one of --rl-only and --policies.")
+    if args.policies is not None and args.exclude_greedy:
+        parser.error("Use --policies without greedy instead of --exclude-greedy.")
     return args
+
+
+def resolve_policies(args: argparse.Namespace) -> list[str]:
+    if args.policies is not None:
+        return list(dict.fromkeys(args.policies))
+    if args.rl_only:
+        return ["rl"]
+    if args.exclude_greedy:
+        return [p for p in POLICY_ORDER if p != "greedy"]
+    return list(POLICY_ORDER)
 
 
 def _fmt(summary) -> dict:
@@ -128,7 +157,7 @@ def _fmt(summary) -> dict:
 def run_size(
     n: int,
     *,
-    model: RecoveryQNetwork,
+    model: RecoveryQNetwork | None,
     alpha: float,
     pfail: float,
     budget: int,
@@ -139,8 +168,8 @@ def run_size(
     scale_budget: bool,
     scale_max_rounds: bool,
     reference_n: int,
-    rl_only: bool = False,
-    exclude_greedy: bool = False,
+    policies: list[str],
+    progress_tick: Callable[[], None] | None = None,
 ) -> tuple[dict, list]:
     import torch
     from random import Random
@@ -160,19 +189,23 @@ def run_size(
     print(f"  Graphs: {num_graphs}  n={n}  avg_degree={avg_deg:.2f}")
 
     device = torch.device("cpu")
-    rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
-    if rl_only:
-        policy_factories = {"rl": lambda gi, se: rl_policy}
-    else:
-        baseline_factories = build_policy_factories(base_seed=0)
-        if exclude_greedy:
-            baseline_factories = {k: v for k, v in baseline_factories.items() if k != "greedy"}
-        policy_factories = {
-            "rl": lambda gi, se: rl_policy,
-            **baseline_factories,
-        }
+    baseline_factories = build_policy_factories(base_seed=0)
+    policy_factories: dict = {}
+    if "rl" in policies:
+        if model is None:
+            raise ValueError("rl in --policies but model is None")
+        rl_policy = build_greedy_policy(model, device=device, batch_actions=False)
+        policy_factories["rl"] = lambda gi, se: rl_policy
+    for name in policies:
+        if name == "rl":
+            continue
+        if name in baseline_factories:
+            policy_factories[name] = baseline_factories[name]
 
-    print(f"  Running {len(policy_factories)} policies x {num_graphs} graphs x {len(seeds)} seeds...", flush=True)
+    print(
+        f"  Running {len(policy_factories)} policies x {num_graphs} graphs x {len(seeds)} seeds...",
+        flush=True,
+    )
     episodes_by_policy = collect_matched_episodes(
         graphs,
         policy_factories,
@@ -184,6 +217,7 @@ def run_size(
         scale_budget=scale_budget,
         scale_max_rounds=scale_max_rounds,
         reference_n=reference_n,
+        progress_tick=progress_tick,
     )
 
     summaries = {
@@ -191,7 +225,7 @@ def run_size(
         for name, eps in episodes_by_policy.items()
     }
 
-    if rl_only:
+    if len(episodes_by_policy) < 2 or "degree" not in episodes_by_policy:
         comparisons = []
     else:
         comparisons = compare_all_pairs(
@@ -219,6 +253,7 @@ def run_size(
 
 def main() -> None:
     args = parse_args()
+    policies = resolve_policies(args)
 
     with args.config.open("r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -236,32 +271,61 @@ def main() -> None:
     scale_max_rounds = bool(budget_scaling.get("scale_max_rounds", True))
     reference_n = int(budget_scaling.get("reference_n", 40))
 
-    print(f"Loading checkpoint: {args.checkpoint}")
-    model = load_checkpoint(args.checkpoint)
+    model = None
+    if "rl" in policies:
+        print(f"Loading checkpoint: {args.checkpoint}")
+        model = load_checkpoint(args.checkpoint)
+    else:
+        print("Checkpoint not loaded (no rl in --policies).")
 
     print(f"\nRegime: alpha={alpha}, pfail={pfail}, budget={budget} (scaled), max_rounds={max_rounds}")
     print(f"Sizes: {args.sizes}  |  num_graphs={args.num_graphs}  |  seeds={args.seeds}")
+    print(f"Policies: {policies}")
     print(f"Training range: n in [30, 50]  ->  all sizes are OOD")
 
     results_by_size: dict[str, dict] = {}
 
     for n in args.sizes:
-        summaries, comparisons = run_size(
-            n,
-            model=model,
-            alpha=alpha,
-            pfail=pfail,
-            budget=budget,
-            max_rounds=max_rounds,
-            m=m,
-            num_graphs=args.num_graphs,
-            seeds=args.seeds,
-            scale_budget=scale_budget,
-            scale_max_rounds=scale_max_rounds,
-            reference_n=reference_n,
-            rl_only=args.rl_only,
-            exclude_greedy=args.exclude_greedy,
-        )
+        bar = None
+        progress_tick: Callable[[], None] | None = None
+        if not args.no_progress:
+            from tqdm import tqdm  # type: ignore[import-untyped]
+
+            total_ep = len(policies) * args.num_graphs * len(args.seeds)
+            bar = tqdm(
+                total=total_ep,
+                desc=f"n={n}",
+                unit="ep",
+                leave=True,
+            )
+
+            def make_tick(b: object) -> Callable[[], None]:
+                def _tick() -> None:
+                    b.update(1)  # type: ignore[attr-defined]
+
+                return _tick
+
+            progress_tick = make_tick(bar)
+        try:
+            summaries, comparisons = run_size(
+                n,
+                model=model,
+                alpha=alpha,
+                pfail=pfail,
+                budget=budget,
+                max_rounds=max_rounds,
+                m=m,
+                num_graphs=args.num_graphs,
+                seeds=args.seeds,
+                scale_budget=scale_budget,
+                scale_max_rounds=scale_max_rounds,
+                reference_n=reference_n,
+                policies=policies,
+                progress_tick=progress_tick,
+            )
+        finally:
+            if bar is not None:
+                bar.close()
         results_by_size[str(n)] = {
             "n": n,
             "summaries": {name: _fmt(s) for name, s in summaries.items()},
@@ -278,18 +342,11 @@ def main() -> None:
             ],
         }
 
-    if args.rl_only:
-        policy_names = ["rl"]
-    elif args.exclude_greedy:
-        policy_names = ["rl", "degree", "betweenness", "risk", "random"]
-    else:
-        policy_names = ["rl", "greedy", "degree", "betweenness", "risk", "random"]
-
     output = {
         "description": "Scale generalisation: BA graphs at n=100, 200, 500 (all OOD)",
         "rl_only": args.rl_only,
         "exclude_greedy": args.exclude_greedy,
-        "policies": policy_names,
+        "policies": policies,
         "checkpoint": portable_artifact_path(args.checkpoint),
         "training_range": [30, 50],
         "regime": {
@@ -320,6 +377,7 @@ def main() -> None:
             "checkpoint_path": portable_artifact_path(args.checkpoint),
             "rl_only": args.rl_only,
             "exclude_greedy": args.exclude_greedy,
+            "policies": policies,
         },
     )
     print("\nAll done.")
