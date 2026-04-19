@@ -202,20 +202,15 @@ def test_evaluate_policy_writes_legacy_and_grid_outputs(tmp_path: Path, monkeypa
 
     summary_path = output_dir / "evaluation_summary.json"
     grid_path = output_dir / "evaluation_grid_summary.json"
-    regime_path = output_dir / "evaluation_regime_summary.json"
     metadata_path = output_dir / "run_metadata.json"
 
     assert summary_path.exists()
     assert grid_path.exists()
-    assert regime_path.exists()
     assert metadata_path.exists()
 
     with grid_path.open("r", encoding="utf-8") as file:
         grid_payload = json.load(file)
-    with regime_path.open("r", encoding="utf-8") as file:
-        regime_payload = json.load(file)
 
-    assert grid_payload == regime_payload
     assert grid_payload["policies"] == ["rl", "degree"]
 
 

@@ -92,14 +92,14 @@ def main() -> None:
     training = config["training"]
     regime = training["regime"]
     graph_cfg = training["graph"]
-    evaluation = config["evaluation"]
+    evaluation = config.get("evaluation", {})
     budget_scaling = config.get("budget_scaling", {})
     env_kwargs = resolve_env_kwargs(config)
 
     alpha = float(args.alpha if args.alpha is not None else regime["alpha"])
     pfail = float(args.pfail if args.pfail is not None else regime["pfail"])
     max_rounds = int(args.max_rounds if args.max_rounds is not None else regime["max_rounds"])
-    budgets = list(args.budgets) if args.budgets is not None else [int(value) for value in evaluation["budgets"]]
+    budgets = list(args.budgets) if args.budgets is not None else [int(value) for value in evaluation.get("budgets", [1, 2, 3, 4, 5])]
     target_solved_fraction = float(
         args.target_solved_fraction
         if args.target_solved_fraction is not None

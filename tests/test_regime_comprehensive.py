@@ -58,15 +58,15 @@ def test_constants_defined():
     assert comprehensive.N_SEEDS == 5
     assert comprehensive.MAX_ROUNDS == 20
     assert len(comprehensive.POLICY_NAMES) == 5
-    assert len(comprehensive.ALPHA_VALUES) == 9
-    assert len(comprehensive.PFAIL_VALUES) == 7
-    assert len(comprehensive.BUDGET_VALUES) == 6
+    assert len(comprehensive.ALPHA_VALUES) == 6
+    assert len(comprehensive.PFAIL_VALUES) == 6
+    assert len(comprehensive.BUDGET_VALUES) == 5
     total_cells = (
         len(comprehensive.ALPHA_VALUES)
         * len(comprehensive.PFAIL_VALUES)
         * len(comprehensive.BUDGET_VALUES)
     )
-    assert total_cells == 378
+    assert total_cells == 180
 
 
 def test_graph_generation_invariant():

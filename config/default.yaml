@@ -7,14 +7,6 @@ budget_scaling:
   reference_n: 40
   scale_max_rounds: true
 
-evaluation:
-  # Target mean fully-restored rate for minimum-budget (b*) search in evaluate/run_budget_search.
-  minimum_budget_solved_target: 0.8
-  # Legacy alias: used only if minimum_budget_solved_target is omitted.
-  tau: 0.8
-  trials: 100
-  budgets: [1, 2, 3, 4, 5]
-  matched_seeds: true
 
 regime_mapping:
   output_dir: experiments/regime_map
@@ -68,7 +60,7 @@ training:
   validation_seeds: [0, 1, 2, 3, 4, 5, 6]
   validation_seed: 42
   validation_every: 1000
-  validation_eval_set_path: eval_sets/validation_set.json
+  validation_eval_set_path: eval_sets/ds_validation.pkl
   checkpoint_dir: experiments/learner
   checkpoint_name: recovery_q.pt
   benchmark_graphs: 100

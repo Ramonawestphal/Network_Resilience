@@ -79,3 +79,7 @@ def choose_greedy_nc_node(observation: RecoveryObservation) -> list[Node]:
 
     assert best_nodes is not None
     return list(best_nodes)
+
+
+# Backward-compatible name used by regime-mapping scripts and reports.
+choose_greedy_anc_node = choose_greedy_nc_node

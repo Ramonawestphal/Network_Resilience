@@ -307,6 +307,7 @@ def collect_matched_episodes(
     scale_max_rounds: bool = False,
     reference_n: int = 40,
     collect_step_metrics: bool = False,
+    progress_tick: Callable[[], None] | None = None,
 ) -> dict[str, list["EpisodeResult"]]:
     """Evaluate policy factories across fixed graphs and return per-episode results.
 
@@ -358,6 +359,8 @@ def collect_matched_episodes(
                 policy = policy_factory(graph_index, seed)
                 result = rollout_policy(env, policy, seed=seed, collect_step_metrics=collect_step_metrics)
                 episode_results_by_policy[policy_name].append(result)
+                if progress_tick is not None:
+                    progress_tick()
 
     return episode_results_by_policy
 
@@ -678,8 +681,18 @@ def evaluate_policies(
     return summaries
 
 
-def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
-    """Create baseline policy factories for matched-seed sweeps."""
+def build_policy_factories(
+    base_seed: int = 0,
+    *,
+    sequential_greedy: bool = False,
+) -> dict[str, PolicyFactory]:
+    """Create baseline policy factories for matched-seed sweeps.
+
+    ``sequential_greedy`` is accepted for CLI compatibility with evaluation scripts;
+    the current greedy implementation does not branch on this flag.
+    """
+
+    _ = sequential_greedy
 
     def random_factory(graph_index: int, seed: int) -> Policy:
         rng = Random(f"{base_seed}:{graph_index}:{seed}")
@@ -693,6 +706,71 @@ def build_policy_factories(base_seed: int = 0) -> dict[str, PolicyFactory]:
         "betweenness": lambda graph_index, seed: choose_highest_betweenness_failed_node,
     }
 
+
+def fmt_policy_summary(summary: "PolicyEvaluationSummary") -> dict:
+    """Serialize a PolicyEvaluationSummary to a flat JSON-compatible dict.
+
+    Conditional fields (rounds_when_solved, mean_nc_on_failed) are included as
+    None when no episodes matched the condition rather than being omitted, so
+    downstream consumers can always find the key.
+    """
+    return {
+        # Primary ANC metrics
+        "anc_fixed_mean": round(summary.anc_fixed.mean, 4),
+        "anc_fixed_stderr": round(summary.anc_fixed.stderr, 4),
+        "anc_adaptive_mean": round(summary.anc_adaptive.mean, 4),
+        "anc_adaptive_stderr": round(summary.anc_adaptive.stderr, 4),
+        # Final connectivity
+        "final_nc_mean": round(summary.final_nc.mean, 4),
+        "final_nc_stderr": round(summary.final_nc.stderr, 4),
+        # Recovery outcomes
+        "solved_fraction_mean": round(summary.solved_fraction.mean, 4),
+        "fully_restored_count": summary.fully_restored_count,
+        "episode_count": summary.episode_count,
+        "unsolved_low_final_nc_count": summary.unsolved_low_final_nc_count,
+        "unsolved_low_final_nc_fraction": round(summary.unsolved_low_final_nc_fraction, 4),
+        # Timing
+        "rounds_mean": round(summary.rounds.mean, 2),
+        "rounds_stderr": round(summary.rounds.stderr, 2),
+        "steps_mean": round(summary.steps.mean, 2),
+        "steps_stderr": round(summary.steps.stderr, 2),
+        # Conditional: only populated when at least one episode was solved
+        "rounds_when_solved_mean": (
+            round(summary.rounds_when_solved.mean, 2)
+            if summary.rounds_when_solved is not None else None
+        ),
+        "rounds_when_solved_stderr": (
+            round(summary.rounds_when_solved.stderr, 2)
+            if summary.rounds_when_solved is not None else None
+        ),
+        # Conditional: only populated when at least one episode failed
+        "mean_nc_on_failed_mean": (
+            round(summary.mean_nc_on_failed.mean, 4)
+            if summary.mean_nc_on_failed is not None else None
+        ),
+        "mean_nc_on_failed_stderr": (
+            round(summary.mean_nc_on_failed.stderr, 4)
+            if summary.mean_nc_on_failed is not None else None
+        ),
+        # Reward
+        "total_reward_mean": round(summary.total_reward.mean, 4),
+        "total_reward_stderr": round(summary.total_reward.stderr, 2),
+        # Per-round NC trajectory (mean across episodes at each round index)
+        "nc_by_round": [round(m.mean, 4) for m in summary.nc_by_round],
+        "mean_delta_nc_per_round_mean": round(summary.mean_delta_nc_per_round.mean, 4),
+        "mean_delta_nc_per_round_stderr": round(summary.mean_delta_nc_per_round.stderr, 4),
+        # Action-quality diagnostics
+        "mean_degree_ratio_mean": round(summary.mean_degree_ratio.mean, 4),
+        "mean_degree_ratio_stderr": round(summary.mean_degree_ratio.stderr, 4),
+        "mean_overload_risk_mean": round(summary.mean_overload_risk.mean, 4),
+        "mean_overload_risk_stderr": round(summary.mean_overload_risk.stderr, 4),
+        "mean_nc_gain_mean": round(summary.mean_nc_gain.mean, 4),
+        "mean_nc_gain_stderr": round(summary.mean_nc_gain.stderr, 4),
+        "mean_greedy_nc_gain_mean": round(summary.mean_greedy_nc_gain.mean, 4),
+        "mean_greedy_nc_gain_stderr": round(summary.mean_greedy_nc_gain.stderr, 4),
+        "mean_action_rank_mean": round(summary.mean_action_rank.mean, 4),
+        "mean_action_rank_stderr": round(summary.mean_action_rank.stderr, 4),
+    }
 
 def evaluate_policy_factories_on_graphs(
     graphs: Sequence[nx.Graph],

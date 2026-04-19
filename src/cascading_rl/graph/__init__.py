@@ -1,4 +1,5 @@
 from cascading_rl.graph.generation import (
+    load_real_world_graph,
     make_ba_graph,
     make_graph_batch,
     merge_graphs,
@@ -6,6 +7,7 @@ from cascading_rl.graph.generation import (
 )
 
 __all__ = [
+    "load_real_world_graph",
     "make_ba_graph",
     "make_graph_batch",
     "merge_graphs",

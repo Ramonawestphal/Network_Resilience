@@ -222,7 +222,7 @@ def resolve_env_kwargs(config: dict[str, Any]) -> dict[str, object]:
 
 def resolve_grid_spec(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     training = config["training"]
-    evaluation = config["evaluation"]
+    evaluation = config.get("evaluation", {})
     regime_mapping = config["regime_mapping"]
 
     if args.grid_source == "training":
@@ -706,7 +706,7 @@ def run_eval_set_mode(args: argparse.Namespace, config: dict[str, Any]) -> None:
             )
 
         training = config["training"]
-        evaluation = config["evaluation"]
+        evaluation = config.get("evaluation", {})
         env_kwargs = resolve_env_kwargs(config)
         selected = list(dict.fromkeys(args.policies or list(SUPPORTED_POLICIES)))
         if "rl" in selected and not args.checkpoint.exists():
@@ -902,7 +902,7 @@ def main() -> None:
     training = config["training"]
     regime = training["regime"]
     graph_cfg = training["graph"]
-    evaluation = config["evaluation"]
+    evaluation = config.get("evaluation", {})
     budget_scaling_cfg = config.get("budget_scaling", {})
     scale_budget_active = bool(args.scale_budget or budget_scaling_cfg.get("enabled", False))
     scale_max_rounds_cfg = budget_scaling_cfg.get("scale_max_rounds")
@@ -984,7 +984,7 @@ def main() -> None:
     )
 
     representative_graph = graphs[0]
-    evaluation_budgets = evaluation["budgets"]
+    evaluation_budgets = evaluation.get("budgets", [1, 2, 3, 4, 5])
     b_star = estimate_b_star_for_policies(
         policy_names=selected_policy_names,
         representative_graph=representative_graph,
@@ -1079,7 +1079,6 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "evaluation_summary.json"
     grid_path = output_dir / "evaluation_grid_summary.json"
-    regime_path = output_dir / "evaluation_regime_summary.json"
     metadata_path = output_dir / "run_metadata.json"
     summary_payload = {
         "checkpoint": serialize_path(args.checkpoint),
@@ -1092,8 +1091,6 @@ def main() -> None:
     with summary_path.open("w", encoding="utf-8") as file:
         json.dump(summary_payload, file, indent=2)
     with grid_path.open("w", encoding="utf-8") as file:
-        json.dump(grid_results, file, indent=2)
-    with regime_path.open("w", encoding="utf-8") as file:
         json.dump(grid_results, file, indent=2)
     write_run_metadata(
         metadata_path,
@@ -1109,7 +1106,6 @@ def main() -> None:
 
     print(f"Saved evaluation summary to {summary_path}")
     print(f"Saved grid evaluation summary to {grid_path}")
-    print(f"Saved regime evaluation summary to {regime_path}")
     for policy_name, metrics in summary_payload.items():
         if policy_name in {
             "checkpoint",

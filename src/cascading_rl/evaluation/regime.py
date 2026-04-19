@@ -84,6 +84,7 @@ def evaluate_policy_factories_on_graphs(
     scale_budget: bool = False,
     scale_max_rounds: bool = False,
     reference_n: int = 40,
+    progress_tick: Callable[[], None] | None = None,
 ) -> dict[str, PolicyEvaluationSummary]:
     """Evaluate policies across fixed graph instances and matched seeds."""
     episode_results_by_policy: dict[str, list] = {name: [] for name in policy_factories}
@@ -122,6 +123,8 @@ def evaluate_policy_factories_on_graphs(
                 policy = policy_factory(graph_index, seed)
                 result = rollout_policy(env, policy, seed=seed)
                 episode_results_by_policy[policy_name].append(result)
+                if progress_tick is not None:
+                    progress_tick()
 
     return {
         policy_name: summarize_episode_results(
@@ -286,6 +289,7 @@ def build_regime_cells(
     scale_budget: bool = False,
     scale_max_rounds: bool = False,
     reference_n: int = 40,
+    progress_tick: Callable[[], None] | None = None,
 ) -> list[RegimeCellResult]:
     """Evaluate the full parameter grid and attach per-cell diagnostics."""
     cells: list[RegimeCellResult] = []
@@ -308,6 +312,7 @@ def build_regime_cells(
                     scale_budget=scale_budget,
                     scale_max_rounds=scale_max_rounds,
                     reference_n=reference_n,
+                    progress_tick=progress_tick,
                 )
                 grouped_cells.setdefault((alpha, pfail), []).append((budget, policy_summaries))
                 grouped_best_anc.setdefault((alpha, pfail), []).append(
