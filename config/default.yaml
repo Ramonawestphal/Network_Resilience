@@ -3,7 +3,7 @@ graph:
   m: 2
 
 budget_scaling:
-  enabled: true
+  enabled: false
   reference_n: 40
   scale_max_rounds: true
 

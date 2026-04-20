@@ -1,79 +1,92 @@
 # Cascading-RL
 
-This project studies reinforcement learning for recovery from cascading failures on Barabasi-Albert graphs. The current codebase has been reset to the intended environment semantics: each recovery round allows up to `B` single-node repairs, and the cascade advances by exactly one wave only after the round ends.
+This project studies reinforcement learning for budget-constrained recovery from
+cascading failures on graphs. The agent is given a per-round repair budget `B`
+and must choose which failed nodes to reactivate to maximise pairwise
+connectivity over a fixed horizon. The full motivation, methodology, and
+evaluation are described in `paper.tex`.
 
-## Current Baseline
-
-All experiment artifacts from the old interleaved semantics were deleted. Only post-reset results should be treated as valid.
-
-The fresh heuristic-only regime analysis under the corrected semantics currently shows:
-
-- regime map grid: `alpha in {0.10, 0.15, 0.20, 0.25}`, `pfail in {0.05, 0.08, 0.10, 0.15}`, `budget in {1, 2, 3, 4}`
-- bucket counts: `41` `decision-sensitive`, `22` `trivial`, `1` `hopeless`
-- recommended training cell: `alpha=0.10`, `pfail=0.15`, `budget=4`
-- strongest baseline heuristic: usually `degree`, with `betweenness` winning some harder cells
-
-Fresh artifacts:
-
-- `experiments/regime_map/regime_results.json`
-- `experiments/regime_map/regime_results.csv`
-- `experiments/regime_map/recommended_regime.md`
-- `experiments/reference_regime/evaluation_summary.json`
-- `experiments/reference_regime/evaluation_grid_summary.json`
+> **Reference of truth.** When the README and the paper disagree, the
+> canonical reference is the code in `src/cascading_rl/` together with
+> `config/default.yaml`. The paper is the second reference. This README is a
+> short pointer, not the spec.
 
 ## Environment Semantics
 
 The environment lives in `src/cascading_rl/envs/recovery.py`.
 
-Current step order:
+Per-round step order:
 
-1. Sample one exogenous failure event at `t=0`.
-2. Within a round, choose up to `B` failed nodes sequentially.
-3. After the round budget is exhausted, run exactly one cascade wave from the current failed frontier.
-4. Repeat until there are no failed nodes left, `max_rounds` is reached, or (optionally) post-cascade ANC falls strictly below `training.regime.abandonment_anc_threshold` while failures remain (`info["abandoned"]`).
+1. At `t = 0`, sample one exogenous failure event: each node fails
+   independently with probability `pfail`.
+2. Within a round, the agent reactivates up to `B` failed nodes one at a
+   time. Intra-round repairs receive zero reward.
+3. Once the round's `B` repairs are committed, exactly one cascade wave is
+   advanced from the current frontier.
+4. The round-closing step receives the cascade-inclusive pairwise
+   connectivity gain
+   `PC(G, F_post) - PC(G, F_round_start)`
+   as its reward (the *homogenised round reward*; cf. Eq. (5) in the paper).
+5. The episode ends when there are no failed nodes left, when `max_rounds`
+   is reached, or (optionally) when post-cascade pairwise connectivity falls
+   strictly below `training.regime.abandonment_nc_threshold` while failures
+   remain (`info["abandoned"]`).
 
-Reward is always the ANC gain immediately after the chosen repair and before any round-end cascade wave. That keeps credit assignment local to the repair decision while still letting the next state reflect cascade consequences.
+Note that the codebase historically uses `nc` / `anc` ("normalised
+connectivity" / "accumulated normalised connectivity") for what the paper
+calls `PC` / `APC`. The two names refer to the same quantity defined in
+Eq. (3) and Eq. (4) of the paper.
 
-## Canonical Budget Rule
+## Canonical Budget Scaling
 
-Budget scaling is now canonical everywhere through `config/default.yaml`.
+Budget scaling is canonical across training and evaluation through
+`config/default.yaml`.
 
-- `budget` is interpreted as a reference budget
-- `reference_n=40`
-- actual per-graph budget is `round(budget * n / reference_n)`, clipped to at least `1`
+- The configured `budget` is interpreted as a *reference budget* at
+  `reference_n = 40` nodes.
+- The actual per-graph budget is
+  `B_eff = max(1, round(budget * n / reference_n))`.
+- When `budget_scaling.scale_max_rounds: true`, the same linear rule is
+  applied to `max_rounds`.
 
-That same rule is used in training, validation, regime mapping, and evaluation scripts.
+The implementation lives in `src/cascading_rl/budgeting.py`.
 
-## Current Default Training Setup
+## Default Training Setup
 
-The default training entry point is `scripts/train_policy.py`, backed by `src/cascading_rl/training/trainer.py`.
+The default training entry point is `scripts/train_policy.py`, backed by
+`src/cascading_rl/training/trainer.py`. The values below reflect
+`config/default.yaml` and should be treated as authoritative.
 
-Current defaults:
-
-- reference regime: `alpha=0.10`, `pfail=0.15`
-- mixed training grid: `alpha_values=(0.10, 0.15, 0.20)`, `pfail_values=(0.10, 0.15, 0.20)`
-- reference budget: `4`
-- `max_rounds=20` (with `budget_scaling.scale_max_rounds`, scaled linearly with graph size like the budget)
-- `num_episodes=8000`
-- `warmup_transitions=500`
-- `batch_size=64`
-- `use_monte_carlo_returns=True`
-- fixed validation graphs via `validation_seed`
-- stratified cycling over `(alpha, pfail)` combinations
-
-The model uses the GNN in `src/cascading_rl/models/gnn.py` with a virtual global node for one-step access to global context.
+- training regime: `alpha = 0.25`, `pfail = 0.20`, `budget = 2`,
+  `max_rounds = 20`
+- training graph distribution: Barabási–Albert, `n` sampled from `[30, 50]`,
+  attachment parameter `m = 2`
+- `num_episodes = 20000`, `warmup_transitions = 1000`, `batch_size = 64`
+- `gamma = 0.99`, `learning_rate = 2e-4`
+- linear ε-greedy schedule from `1.0` to `0.05` over `18000` episodes
+- target network synced every `200` gradient steps
+- replay capacity: `20000`
+- GNN encoder: 2 message-passing layers, hidden / embedding dimension `128`,
+  `use_global_features: true`, `use_virtual_node: false`
+- validation: `30` held-out graphs × `7` seeds (`validation_seeds = [0..6]`)
+  every `validation_every = 1000` episodes
+- training-time graph buffering: a 50-graph rolling buffer, with each
+  episode reusing a buffered graph with probability `0.30` and otherwise
+  drawing a fresh one
+- round-bounded n-step returns (paper Eq. 8 / 9) are used by default; the
+  Monte-Carlo return mode (`use_monte_carlo_returns`) is **off** by
+  default and is exposed only as an experimental switch in
+  `TrainingConfig`.
 
 ## Main Entry Points
 
-- `python scripts/map_regime.py`
-  - heuristic-only regime map under the corrected semantics
-- `python scripts/train_policy.py`
-  - train a fresh RL checkpoint under the corrected environment
-- `python scripts/evaluate_policy.py`
-  - canonical checkpoint evaluation path
-- `python -m pytest tests/ -x -q`
-  - full verification suite
+- `python scripts/map_regime.py` — heuristic-only regime map.
+- `python scripts/train_policy.py` — train a fresh GDQ-N checkpoint.
+- `python scripts/evaluate_policy.py` — canonical checkpoint evaluation.
+- `python scripts/run_full_evaluation.py` — orchestrates the full
+  parameter-generalisation, topology-ablation, and OOD evaluation suites.
+- `python -m pytest tests/ -x -q` — full verification suite.
 
 ## Notes
 
-`README_RESEARCH.md` is the running experiment log. It now documents only the post-reset baseline and the next clean training steps from this corrected starting point.
+`README_RESEARCH.md` is the running experiment log.
